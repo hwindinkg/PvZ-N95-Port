@@ -262,27 +262,6 @@ bool ResourceManager::AddImage(const char* name, Sexy::Image* img)
 // ---------------------------------------------------------------------------
 namespace {
 
-// Drives the asynchronous ICL decode synchronously via a nested
-// active-scheduler wait. The app's active scheduler is already running
-// (installed by CAknAppUi before ConstructL), so a nested wait is safe.
-class CIclDecodeWait : public CActive
-    {
-public:
-    CIclDecodeWait() : CActive(CActive::EPriorityStandard)
-        { CActiveScheduler::Add(this); }
-    ~CIclDecodeWait()
-        { Cancel(); }
-    void WaitForCompletion()
-        { iWait.Start(); }
-public:
-    CActiveSchedulerWait iWait;
-protected:
-    void RunL()
-        { if (iWait.IsStarted()) iWait.AsyncStop(); }
-    void DoCancel()
-        { }
-    };
-
 void DecodeToBitmapL(RFs& aFs, const TUint8* aData, TInt aLen, CFbsBitmap& aBmp)
     {
     TPtrC8 dataPtr(aData, aLen);
@@ -293,15 +272,22 @@ void DecodeToBitmapL(RFs& aFs, const TUint8* aData, TInt aLen, CFbsBitmap& aBmp)
     TSize sz = frameInfo.iOverallSizeInPixels;
     User::LeaveIfError(aBmp.Create(sz, EColor16MA));
 
-    CIclDecodeWait* waiter = new (ELeave) CIclDecodeWait();
-    CleanupStack::PushL(waiter);
+    // Synchronous decode: Convert() is asynchronous, but we block on the
+    // request directly with User::WaitForRequest -- no active object (and thus
+    // no protected CActive::SetActive call) is required.
+    TRequestStatus status;
+    decoder->Convert(&status, aBmp);
+    User::WaitForRequest(status);
 
-    decoder->Convert(&waiter->iStatus, aBmp);
-    waiter->SetActive();
-    waiter->WaitForCompletion();
-    User::LeaveIfError(waiter->iStatus.Int());
+    // Progressive / interlaced images may require additional passes.
+    while (status == KErrUnderflow)
+        {
+        decoder->ContinueConvert(&status);
+        User::WaitForRequest(status);
+        }
 
-    CleanupStack::PopAndDestroy(waiter);
+    User::LeaveIfError(status.Int());
+
     CleanupStack::PopAndDestroy(decoder);
     }
 
