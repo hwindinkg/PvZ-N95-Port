@@ -14,8 +14,8 @@ static void Log(const TDesC& aMsg)
     RFs fs; RFile f;
     if (fs.Connect() != KErrNone) return;
     fs.MkDirAll(_L("C:\\Data\\PvZ"));
-    TInt err = f.Open(fs, _L("C:\\Data\\PvZ\\log.txt"), EFileWrite|EFileShareAny);
-    if (err == KErrNotFound) err = f.Create(fs, _L("C:\\Data\\PvZ\\log.txt"), EFileWrite|EFileShareAny);
+    TInt err = f.Open(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny);
+    if (err == KErrNotFound) err = f.Create(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny);
     if (err == KErrNone) {
         TInt pos = 0; f.Seek(ESeekEnd, pos);
         TBuf8<512> buf8; buf8.Copy(aMsg); buf8.Append('\n');
@@ -36,49 +36,50 @@ CPvZAppUi::~CPvZAppUi()
 
 void CPvZAppUi::ConstructL()
 {
-    // Register with the Avkon UI framework. Without BaseConstructL the window
-    // server never wires up key/command/exit delivery for this app.
+    Log(_L("AppUi::ConstructL ENTER"));
+
+    Log(_L("step: BaseConstructL"));
     BaseConstructL(EAknEnableSkin);
+    Log(_L("step: BaseConstructL OK"));
 
-    Log(_L("Loading main.pak..."));
+    Log(_L("step: CPvZVfs::NewL"));
     gPak = CPvZVfs::NewL();
+    Log(_L("step: LoadPakL main.pak"));
     gPak->LoadPakL(_L("C:\\Data\\PvZ\\main.pak"));
-    Log(_L("main.pak loaded OK"));
+    Log(_L("step: main.pak loaded OK"));
 
+    Log(_L("step: new LawnApp"));
     iLawnApp = new (ELeave) LawnApp();
     gLawnApp = iLawnApp;
     iLawnApp->mWidth = 400; iLawnApp->mHeight = 300;
     iLawnApp->mShutdown = false;
+    Log(_L("step: LawnApp basic members set"));
     if (!iLawnApp->mWidgetManager) iLawnApp->mWidgetManager = new Sexy::WidgetManager();
     if (!iLawnApp->mGraphics) iLawnApp->mGraphics = new Sexy::Graphics();
     if (!iLawnApp->mResourceManager) iLawnApp->mResourceManager = new ResourceManager();
     gResourceManager = iLawnApp->mResourceManager;
+    Log(_L("step: subsystems allocated"));
 
-    Log(_L("Calling LawnApp::Init..."));
+    Log(_L("step: LawnApp::Init"));
     iLawnApp->Init();
-    Log(_L("LawnApp::Init done"));
+    Log(_L("step: LawnApp::Init done"));
 
-    Log(_L("STEP: Creating game view..."));
+    Log(_L("step: GameView NewL"));
     iGameView = CPvZGameView::NewL();
-    Log(_L("STEP: InitGLES..."));
+    Log(_L("step: InitGLES"));
     iGameView->InitGLES();
-    Log(_L("STEP: InitGLES done"));
+    Log(_L("step: InitGLES done"));
 
-    // CRITICAL: GL context is now live -- wire it everywhere BEFORE any draw.
     gSexyAppBase = iLawnApp;
     iLawnApp->mGL = iGameView->GetGL();
-    // The Graphics object keeps its OWN GL pointer; it was never set, so every
-    // WidgetManager::DrawAll() logged "DrawAll: mGL NULL" and drew nothing.
     if (iLawnApp->mGraphics)
         iLawnApp->mGraphics->SetGLInterface(iGameView->GetGL());
+    Log(_L("step: GL wired"));
 
-    // Drive the game from a heartbeat timer (active object) instead of a tight
-    // loop. A blocking loop in ConstructL starved the window server: the app
-    // could not be closed, system dialogs were overdrawn by the GL clear colour
-    // every frame, and the half-built AppUi got relaunched (E32Main x2).
-    Log(_L("Starting heartbeat timer..."));
+    Log(_L("step: start heartbeat timer"));
     iTimer = CPeriodic::NewL(CActive::EPriorityStandard);
     iTimer->Start(KFrameInterval, KFrameInterval, TCallBack(Tick, this));
+    Log(_L("AppUi::ConstructL EXIT"));
 }
 
 TInt CPvZAppUi::Tick(TAny* aPtr)
