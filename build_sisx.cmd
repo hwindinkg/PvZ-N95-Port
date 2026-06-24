@@ -109,7 +109,7 @@ mkdir "%OUT%" 2>nul
 
 :: ============ 7. Compile flags ============
 set "PRODINC=%SDK%/Epoc32/include/variant/Symbian_OS_v9.2.hrh"
-set "D=-DNDEBUG -D_UNICODE -D__GCCE__ -D__SYMBIAN32__ -D__SERIES60_31__ -D__SERIES60_3X__ -D__EPOC32__ -D__MARM__ -D__EABI__ -D__MARM_ARMV5__ -D__EXE__ -D__LEAVE_EQUALS_THROW__ -D__PRODUCT_INCLUDE__=%PRODINC%"
+set "D=-DNDEBUG -D_UNICODE -D__GCCE__ -D__SYMBIAN32__ -D__SERIES60_31__ -D__SERIES60_3X__ -D__EPOC32__ -D__MARM__ -D__EABI__ -D__MARM_ARMV5__ -D__EXE__ -D__PRODUCT_INCLUDE__=%PRODINC%"
 set "F=-O2 -fno-unit-at-a-time -Wall -Wno-ctor-dtor-privacy -Wno-unknown-pragmas -fexceptions -march=armv5t -mapcs -pipe -nostdinc -c -msoft-float"
 set "I=-I %SRC%/platform/symbian -I %SRC% -I %SRC%/engine -I %SRC%/Sexy.TodLib -I %SRC%/Lawn -I %SRC%/stl_stubs -I %SDK%/Epoc32/include -I %SDK%/Epoc32/include/variant -I %SDK%/Epoc32/include/stdapis"
 set "G=%SDK%/Epoc32/include/GCCE/GCCE.h"
@@ -260,6 +260,7 @@ echo.
 echo === Converting to E32 image (elf2e32) ===
 "%SDKTOOLS%\elf2e32.exe" --targettype=EXE --uid1=0x1000007a --uid2=0x100039ce --uid3=0xE1234567 --sid=0xE1234567 --capability=NONE --fpu=softvfp --elfinput="%OUT%\PvZ_N95_elf.exe" --output="%OUT%\PvZ_N95.exe" --linkas="PvZ_N95{000a0000}[e1234567].exe" --libpath="%L%" --dso "%L%\euser.dso" --dso "%L%\cone.dso" --dso "%L%\eikcore.dso" --dso "%L%\avkon.dso" --dso "%L%\apparc.dso" --dso "%L%\ws32.dso" --dso "%L%\gdi.dso" --dso "%L%\bitgdi.dso" --dso "%L%\fbscli.dso" --dso "%L%\efsrv.dso" --dso "%L%\bafl.dso" --dso "%L%\mediaclientaudio.dso" --dso "%L%\libgles_cm.dso" --dso "%L%\imageconversion.dso"
 if ERRORLEVEL 1 ( echo [ERROR] elf2e32 failed & pause & exit /b 1 )
+if not exist "%OUT%\PvZ_N95.exe" ( echo [ERROR] elf2e32 reported errors and produced no PvZ_N95.exe & pause & exit /b 1 )
 echo [OK] E32 image created.
 echo.
 
