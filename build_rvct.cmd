@@ -42,36 +42,53 @@ set "EPOCROOT=%SDK:~2%\"
 echo [OK] EPOCROOT  : %EPOCROOT%  (drive %SDKDRIVE%)
 
 :: ============ 3. Detect RVCT 2.2 (ARM RealView) toolchain ============
-:: Layout (homebrew/standard):
-::   <RVROOT>\Programs\2.2\<build>\win_32-pentium   -> RVCT22BIN (armcc.exe)
-::   <RVROOT>\Data\2.2\<build>\include              -> RVCT22INC
-::   <RVROOT>\Data\2.2\<build>\lib                  -> RVCT22LIB
+:: Flat detection via subroutines (nested for/if blocks break cmd.exe parsing).
 set "RVCT22BIN="
-if defined RVCT22BIN goto :rvfound
-for %%V in (
-  "C:\Symbian\ARM\RVCT"
-  "C:\Program Files (x86)\ARM\RVCT"
-  "C:\Program Files\ARM\RVCT"
-  "C:\apps\ARM\RVCT"
-  "C:\ARM\RVCT"
-) do (
-  if not defined RVCT22BIN if exist "%%~V\Programs\2.2" (
-    for /d %%B in ("%%~V\Programs\2.2\*") do (
-      if not defined RVCT22BIN if exist "%%~B\win_32-pentium\armcc.exe" (
-        set "RVCT22BIN=%%~B\win_32-pentium"
-        for %%N in ("%%~B") do set "RVBUILD=%%~nxN"
-        set "RVROOT=%%~V"
-      )
-    )
-  )
+set "RVROOT="
+set "RVBUILD="
+:: Fast path: the known install location.
+if exist "C:\Symbian\ARM\RVCT\Programs\2.2\349\win_32-pentium\armcc.exe" (
+  set "RVCT22BIN=C:\Symbian\ARM\RVCT\Programs\2.2\349\win_32-pentium"
+  set "RVROOT=C:\Symbian\ARM\RVCT"
+  set "RVBUILD=349"
 )
-:rvfound
-if not defined RVCT22BIN ( echo [ERROR] RVCT 2.2 (armcc.exe) not found under C:\Symbian\ARM\RVCT. & echo         Set RVCT22BIN/RVCT22INC/RVCT22LIB manually and retry. & pause & exit /b 1 )
-if not defined RVCT22INC if exist "%RVROOT%\Data\2.2\%RVBUILD%\include" set "RVCT22INC=%RVROOT%\Data\2.2\%RVBUILD%\include"
-if not defined RVCT22LIB if exist "%RVROOT%\Data\2.2\%RVBUILD%\lib"     set "RVCT22LIB=%RVROOT%\Data\2.2\%RVBUILD%\lib"
+if not defined RVCT22BIN call :findrvct "C:\Symbian\ARM\RVCT"
+if not defined RVCT22BIN call :findrvct "C:\Program Files (x86)\ARM\RVCT"
+if not defined RVCT22BIN call :findrvct "C:\Program Files\ARM\RVCT"
+if not defined RVCT22BIN call :findrvct "C:\apps\ARM\RVCT"
+if not defined RVCT22BIN call :findrvct "C:\ARM\RVCT"
+if not defined RVCT22BIN goto :norvct
+
+set "RVCT22INC="
+set "RVCT22LIB="
+if exist "%RVROOT%\Data\2.2\%RVBUILD%\include" set "RVCT22INC=%RVROOT%\Data\2.2\%RVBUILD%\include"
+if exist "%RVROOT%\Data\2.2\%RVBUILD%\lib"     set "RVCT22LIB=%RVROOT%\Data\2.2\%RVBUILD%\lib"
 echo [OK] RVCT22BIN : %RVCT22BIN%  (build %RVBUILD%)
-echo [OK] RVCT22INC : %RVCT22INC%
-echo [OK] RVCT22LIB : %RVCT22LIB%
+if defined RVCT22INC ( echo [OK] RVCT22INC : %RVCT22INC% ) else ( echo [warn] RVCT22INC not found - armcc will use its built-in include path )
+if defined RVCT22LIB ( echo [OK] RVCT22LIB : %RVCT22LIB% ) else ( echo [warn] RVCT22LIB not found - armcc will use its built-in lib path )
+goto :rvdone
+
+:findrvct
+if not exist "%~1\Programs\2.2" exit /b
+for /d %%B in ("%~1\Programs\2.2\*") do call :tryrvct "%~1" "%%~B"
+exit /b
+
+:tryrvct
+if defined RVCT22BIN exit /b
+if not exist "%~2\win_32-pentium\armcc.exe" exit /b
+set "RVCT22BIN=%~2\win_32-pentium"
+set "RVROOT=%~1"
+for %%N in ("%~2") do set "RVBUILD=%%~nxN"
+exit /b
+
+:norvct
+echo [ERROR] RVCT 2.2 (armcc.exe) not found.
+echo         Expected: C:\Symbian\ARM\RVCT\Programs\2.2\^<build^>\win_32-pentium\armcc.exe
+echo         Or set RVCT22BIN/RVCT22INC/RVCT22LIB manually and retry.
+pause
+exit /b 1
+
+:rvdone
 
 :: ============ 4. PATH: SDK tools + RVCT + Perl ============
 set "PATH=%SDKTOOLS%;%RVCT22BIN%;%PATH%"
