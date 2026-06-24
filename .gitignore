@@ -42,4 +42,4 @@ key.cer
 !data/PvZ_N95_reg.rsc
 !src/engine/newop.s
 !build/lib/libsupc++.a
-!build/lib/libgcc.a
+!build/lib/libgcc.a_commitmsg.txt
