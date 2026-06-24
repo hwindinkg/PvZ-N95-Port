@@ -124,45 +124,57 @@ set "SD_LWN=%SRC%\Lawn"
 :: ============ 8. Compile all sources ============
 echo === Compiling source files ===
 set "NFAIL=0"
-call :cc SD_SRC main_symbian
-call :cc SD_PLA PvZApplication
-call :cc SD_PLA PvZDocument
-call :cc SD_PLA PvZAppUi
-call :cc SD_PLA PvZGameView
-call :cc SD_ENG SymbianFixes
-call :cc SD_ENG PvZVfs
-call :cc SD_ENG PakInterface
-call :cc SD_ENG GLInterface
-call :cc SD_ENG Image
-call :cc SD_ENG NativeDisplay
-call :cc SD_ENG MemoryImage
-call :cc SD_ENG GLImage
-call :cc SD_ENG Color
-call :cc SD_ENG SexyMatrix
-call :cc SD_ENG Buffer
-call :cc SD_ENG Graphics
-call :cc SD_ENG TodStringFile
-call :cc SD_ENG SexyAppBase
-call :cc SD_ENG Widget
-call :cc SD_ENG WidgetContainer
-call :cc SD_ENG WidgetManager
-call :cc SD_ENG Font
-call :cc SD_ENG Stubs
-call :cc SD_TOD TodCommon
-call :cc SD_TOD TodDebug
-call :cc SD_SRC Resources_stub
-call :cc SD_LWN GameObject
-call :cc SD_LWN Board
-call :cc SD_LWN Plant
-call :cc SD_LWN Zombie
-call :cc SD_LWN Projectile
-call :cc SD_LWN Coin
-call :cc SD_LWN LawnMower
-call :cc SD_LWN GridItem
-call :cc SD_LWN Challenge
-call :cc SD_SRC LawnApp
-call :cc SD_ENG ResourceManager
-call :cc SD_ENG stb_image
+for %%E in (
+  SD_SRC:main_symbian
+  SD_PLA:PvZApplication
+  SD_PLA:PvZDocument
+  SD_PLA:PvZAppUi
+  SD_PLA:PvZGameView
+  SD_ENG:SymbianFixes
+  SD_ENG:PvZVfs
+  SD_ENG:PakInterface
+  SD_ENG:GLInterface
+  SD_ENG:Image
+  SD_ENG:NativeDisplay
+  SD_ENG:MemoryImage
+  SD_ENG:GLImage
+  SD_ENG:Color
+  SD_ENG:SexyMatrix
+  SD_ENG:Buffer
+  SD_ENG:Graphics
+  SD_ENG:TodStringFile
+  SD_ENG:SexyAppBase
+  SD_ENG:Widget
+  SD_ENG:WidgetContainer
+  SD_ENG:WidgetManager
+  SD_ENG:Font
+  SD_ENG:Stubs
+  SD_TOD:TodCommon
+  SD_TOD:TodDebug
+  SD_SRC:Resources_stub
+  SD_LWN:GameObject
+  SD_LWN:Board
+  SD_LWN:Plant
+  SD_LWN:Zombie
+  SD_LWN:Projectile
+  SD_LWN:Coin
+  SD_LWN:LawnMower
+  SD_LWN:GridItem
+  SD_LWN:Challenge
+  SD_SRC:LawnApp
+  SD_ENG:ResourceManager
+  SD_ENG:stb_image
+) do (
+  for /f "tokens=1,2 delims=:" %%a in ("%%E") do (
+    set "DIR=!%%a!"
+    set "NM=%%b"
+    if not exist "!DIR!\!NM!.cpp" ( echo   [SKIP] !NM!.cpp ^(missing^) ) else (
+      echo   [CC] !NM!.cpp
+      "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\!NM!.o" "!DIR!\!NM!.cpp"
+      if errorlevel 1 ( echo   [ERROR] compile failed: !NM!.cpp & set /a NFAIL+=1 )
+    )
+  )
+)
 if not "%NFAIL%"=="0" ( echo [ERROR] %NFAIL% file^(s^) failed to compile. & pause & exit /b 1 )
 
 :: assemble newop.s (provides operator new/delete)
@@ -220,13 +232,3 @@ if exist "%OUT%\PvZ_N95.sisx" ( echo   SISX : %OUT%\PvZ_N95.sisx ) else ( echo  
 echo   Copy it to your Nokia N95 and install.
 echo ===================================================
 pause
-goto :eof
-
-:: ---------- compile one file: %1=dir-var %2=basename ----------
-:cc
-set "DIR=!%~1!"
-if not exist "!DIR!\%~2.cpp" ( echo   [SKIP] %~2.cpp ^(missing^) & goto :eof )
-echo   [CC] %~2.cpp
-"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\%~2.o" "!DIR!\%~2.cpp"
-if ERRORLEVEL 1 ( echo   [ERROR] compile failed: %~2.cpp & set /a NFAIL+=1 )
-goto :eof
