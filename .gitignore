@@ -1,0 +1,32 @@
+# Symbian / GCCE build artifacts
+*.o
+*.obj
+*.a
+*.lib
+*.s
+*.ii
+*.map
+*.tmp
+preproc_out.cpp
+
+# Build output / installers
+*.sis
+*.sisx
+*.rsc
+ABLD.*
+abld.*
+/Epoc32/
+*_uid_.cpp
+
+# Signing material — NEVER commit
+*.key
+*.cer
+*.p12
+*.pfx
+
+# Editor / OS
+.vscode/
+.openclaude/
+Thumbs.db
+.DS_Store
+*.bak

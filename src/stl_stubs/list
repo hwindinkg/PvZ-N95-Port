@@ -1,0 +1,60 @@
+#ifndef _STL_STUB_LIST_
+#define _STL_STUB_LIST_
+
+// Minimal stub for std::list for Symbian GCCE cross-compiler
+// Supports: size(), front(), push_back(), pop_front(), clear()
+
+#include <e32std.h>
+
+namespace std {
+
+template <typename T>
+class list {
+private:
+    static const int MAX_LIST = 64;
+    T entries[MAX_LIST];
+    int count;
+
+public:
+    list() : count(0) {}
+    ~list() {}
+
+    int size() const { return count; }
+    bool empty() const { return count == 0; }
+
+    T& front() { return entries[0]; }
+    const T& front() const { return entries[0]; }
+
+    void push_back(const T& val) {
+        if (count < MAX_LIST)
+            entries[count++] = val;
+    }
+
+    void pop_front() {
+        if (count > 0) {
+            for (int i = 1; i < count; ++i)
+                entries[i-1] = entries[i];
+            --count;
+        }
+    }
+
+    void clear() { count = 0; }
+
+    class iterator {
+    public:
+        T* ptr;
+        iterator() : ptr(NULL) {}
+        iterator(T* p) : ptr(p) {}
+        T& operator*() { return *ptr; }
+        T* operator->() { return ptr; }
+        iterator& operator++() { ++ptr; return *this; }
+        bool operator!=(const iterator& other) { return ptr != other.ptr; }
+    };
+
+    iterator begin() { return iterator(&entries[0]); }
+    iterator end() { return iterator(&entries[count]); }
+};
+
+} // namespace std
+
+#endif // _STL_STUB_LIST_

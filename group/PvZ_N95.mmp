@@ -1,0 +1,110 @@
+// group/PvZ_N95.mmp
+TARGET          PvZ_N95.exe
+TARGETTYPE      exe
+UID             0x1000007a 0xE1234567
+
+
+SOURCEPATH      ..\src
+
+// === Main entry point ===
+SOURCE          main_symbian.cpp
+
+// === Platform layer (Symbian OS) ===
+SOURCEPATH      ..\src\platform\symbian
+SOURCE          PvZApplication.cpp
+SOURCE          PvZDocument.cpp
+SOURCE          PvZAppUi.cpp
+SOURCE          PvZGameView.cpp
+
+// === Engine core (SexyAppFramework port) ===
+SOURCEPATH      ..\src\engine
+SOURCE          SymbianFixes.cpp
+SOURCE          PvZVfs.cpp
+SOURCE          PakInterface.cpp
+SOURCE          GLInterface.cpp
+SOURCE          Image.cpp
+SOURCE          NativeDisplay.cpp
+SOURCE          MemoryImage.cpp
+SOURCE          GLImage.cpp
+SOURCE          Color.cpp
+SOURCE          SexyMatrix.cpp
+SOURCE          Buffer.cpp
+SOURCE          Graphics.cpp
+SOURCE          TodStringFile.cpp
+SOURCE          SexyAppBase.cpp
+SOURCE          Widget.cpp
+SOURCE          WidgetContainer.cpp
+SOURCE          WidgetManager.cpp
+SOURCE          Font.cpp
+SOURCE          Stubs.cpp
+SOURCE          ResourceManager.cpp      // Resource manager with image loading from PAK
+
+// === TodLib ===
+SOURCEPATH      ..\src\Sexy.TodLib
+SOURCE          TodCommon.cpp
+SOURCE          TodDebug.cpp
+
+// === Resources ===
+SOURCEPATH      ..\src
+SOURCE          Resources.cpp
+
+// === Lawn game logic ===
+SOURCEPATH      ..\src\Lawn
+SOURCE          GameObject.cpp
+SOURCE          Board.cpp
+SOURCE          Plant.cpp
+SOURCE          Zombie.cpp
+SOURCE          Projectile.cpp
+SOURCE          Coin.cpp
+SOURCE          LawnMower.cpp
+SOURCE          GridItem.cpp
+SOURCE          Challenge.cpp
+
+// === LawnApp ===
+SOURCEPATH      ..\src
+SOURCE          LawnApp.cpp
+
+// === Include paths ===
+USERINCLUDE     ..\src
+USERINCLUDE     ..\src\engine
+USERINCLUDE     ..\src\platform\symbian
+USERINCLUDE     ..\src\Sexy.TodLib
+USERINCLUDE     ..\src\Lawn
+USERINCLUDE     ..\src\stl_stubs
+
+SYSTEMINCLUDE   \Symbian\N95PVZ\src\stl_stubs
+SYSTEMINCLUDE   \epoc32\include
+SYSTEMINCLUDE   \epoc32\include\variant
+SYSTEMINCLUDE   \epoc32\include\stdapis
+
+// === Libraries ===
+LIBRARY         euser.lib
+LIBRARY         cone.lib
+LIBRARY         eikcore.lib
+LIBRARY         avkon.lib
+LIBRARY         apparc.lib
+LIBRARY         ws32.lib
+LIBRARY         gdi.lib
+LIBRARY         bitgdi.lib
+LIBRARY         fbscli.lib
+LIBRARY         efsrv.lib
+LIBRARY         bafl.lib
+LIBRARY         mediaclientaudio.lib
+LIBRARY         libgles_cm.lib
+LIBRARY         imageconversion.lib   // ICL: PNG/JPEG decode (CImageDecoder)
+
+// === Resource files ===
+SOURCEPATH      ..\data
+
+START RESOURCE PvZ_N95.rss
+HEADER
+TARGETPATH      \resource\apps
+END
+
+START RESOURCE PvZ_N95_loc.rss
+TARGETPATH      \resource\apps
+END
+
+START RESOURCE PvZ_N95_reg.rss
+TARGETPATH      \private\10003a3f\import\apps
+END

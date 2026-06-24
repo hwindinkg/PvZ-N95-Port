@@ -1,0 +1,16 @@
+// data/PvZ_N95_loc.rss
+NAME PVZL
+
+#include <appinfo.rh>
+
+RESOURCE LOCALISABLE_APP_INFO r_pvz_localisable_app_info
+{
+    short_caption = "PvZ N95";
+    caption_and_icon =
+    {
+        CAPTION_AND_ICON_INFO
+        {
+            caption = "Plants vs Zombies";
+        }
+    };
+}

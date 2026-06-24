@@ -1,0 +1,78 @@
+#ifndef _STL_STUB_MAP_
+#define _STL_STUB_MAP_
+
+// Minimal stub for std::map for Symbian GCCE cross-compiler
+// Supports: empty(), begin(), find(), end(), operator[], insert()
+// Only supports int keys and pointer values.
+
+#include <e32std.h>
+
+namespace std {
+
+template <typename K, typename V>
+class map {
+private:
+    struct Pair {
+        K first;
+        V second;
+        Pair() : first(K()), second(V()) {}
+        Pair(const K& k, const V& v) : first(k), second(v) {}
+    };
+
+    static const int MAX_MAP = 64;
+    Pair entries[MAX_MAP];
+    int count;
+
+public:
+    class iterator {
+    public:
+        Pair* ptr;
+        iterator() : ptr(NULL) {}
+        iterator(Pair* p) : ptr(p) {}
+        Pair& operator*() { return *ptr; }
+        Pair* operator->() { return ptr; }
+        iterator& operator++() { ++ptr; return *this; }
+        bool operator!=(const iterator& other) { return ptr != other.ptr; }
+        bool operator==(const iterator& other) { return ptr == other.ptr; }
+    };
+
+    map() : count(0) {}
+    ~map() {}
+
+    bool empty() const { return count == 0; }
+    int size() const { return count; }
+
+    V& operator[](const K& key) {
+        for (int i = 0; i < count; ++i) {
+            if (entries[i].first == key)
+                return entries[i].second;
+        }
+        if (count < MAX_MAP) {
+            entries[count] = Pair(key, V());
+            return entries[count++].second;
+        }
+        return entries[0].second; // fallback
+    }
+
+    iterator begin() { return iterator(&entries[0]); }
+    iterator end() { return iterator(&entries[count]); }
+
+    iterator find(const K& key) {
+        for (int i = 0; i < count; ++i) {
+            if (entries[i].first == key)
+                return iterator(&entries[i]);
+        }
+        return end();
+    }
+
+    void clear() { count = 0; }
+
+    struct value_type {
+        K first;
+        V second;
+    };
+};
+
+} // namespace std
+
+#endif // _STL_STUB_MAP_

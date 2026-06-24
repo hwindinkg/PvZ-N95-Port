@@ -1,0 +1,52 @@
+#ifndef COLOR_H
+#define COLOR_H
+
+#include "Common.h"
+
+namespace Sexy {
+
+// ---------------------------------------------------------------------------
+// Color  -- RGBA representation with int components [0..255]
+// ---------------------------------------------------------------------------
+class Color
+{
+public:
+    int32_t mRed;
+    int32_t mGreen;
+    int32_t mBlue;
+    int32_t mAlpha;
+
+    static Color Black;
+    static Color White;
+
+public:
+    Color();
+    Color(int32_t theColor);
+    Color(int32_t theColor, int32_t theAlpha);
+    Color(int32_t theRed, int32_t theGreen, int32_t theBlue);
+    Color(int32_t theRed, int32_t theGreen, int32_t theBlue, int32_t theAlpha);
+    Color(const uchar* theElements);
+    Color(const int32_t* theElements);
+
+    int32_t  GetRed() const;
+    int32_t  GetGreen() const;
+    int32_t  GetBlue() const;
+    int32_t  GetAlpha() const;
+
+    /** Pack as 0xAARRGGBB */
+    uint32_t ToInt() const;
+
+    /** Pack for GL_RGBA/GL_UNSIGNED_BYTE vertex color.
+        Returns 0xAABBGGRR on little-endian so bytes in memory are R,G,B,A. */
+    uint32_t ToGLColor() const;
+
+    int32_t& operator[](int32_t theIdx);
+    int32_t  operator[](int32_t theIdx) const;
+};
+
+bool operator==(const Color& theColor1, const Color& theColor2);
+bool operator!=(const Color& theColor1, const Color& theColor2);
+
+} // namespace Sexy
+
+#endif // COLOR_H

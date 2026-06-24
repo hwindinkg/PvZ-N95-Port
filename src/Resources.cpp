@@ -1,0 +1,2100 @@
+/*
+ * Copyright (C) 2026 Zhou Qiankang <wszqkzqk@qq.com>
+ *
+ * SPDX-License-Identifier: LGPL-3.0-or-later
+ *
+ * This file is part of PvZ-Portable.
+ *
+ * PvZ-Portable is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * PvZ-Portable is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with PvZ-Portable. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include <map>
+#include <cstring>
+#include "Resources.h"
+#include "ResourceManager.h"
+
+using namespace Sexy;
+
+bool gNeedRecalcVariableToIdMap = false;
+
+bool Sexy::ExtractResourcesByName(ResourceManager* theResourceManager, const char* theName)
+{
+	// @Patoke: updated these, please use compiletime hashes
+	if (!strcmp(theName, "DelayLoad_Almanac")) return ExtractDelayLoad_AlmanacResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_AwardScreen")) return ExtractDelayLoad_AwardScreenResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Background1")) return ExtractDelayLoad_Background1Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Background2")) return ExtractDelayLoad_Background2Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Background3")) return ExtractDelayLoad_Background3Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Background4")) return ExtractDelayLoad_Background4Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Background5")) return ExtractDelayLoad_Background5Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Background6")) return ExtractDelayLoad_Background6Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_BackgroundUnsodded")) return ExtractDelayLoad_BackgroundUnsoddedResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ChallengeScreen")) return ExtractDelayLoad_ChallengeScreenResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Credits")) return ExtractDelayLoad_CreditsResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_GreenHouseGarden")) return ExtractDelayLoad_GreenHouseGardenResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_GreenHouseOverlay")) return ExtractDelayLoad_GreenHouseOverlayResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_MushroomGarden")) return ExtractDelayLoad_MushroomGardenResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Store")) return ExtractDelayLoad_StoreResources(theResourceManager);
+//	if (!strcmp(theName, "DelayLoad_TreeOfWisdom")) return ExtractDelayLoad_TreeOfWisdomResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Zombatar")) return ExtractDelayLoad_ZombatarResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieFinalNote")) return ExtractDelayLoad_ZombieFinalNoteResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieNote")) return ExtractDelayLoad_ZombieNoteResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieNote1")) return ExtractDelayLoad_ZombieNote1Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieNote2")) return ExtractDelayLoad_ZombieNote2Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieNote3")) return ExtractDelayLoad_ZombieNote3Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieNote4")) return ExtractDelayLoad_ZombieNote4Resources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_ZombieNoteHelp")) return ExtractDelayLoad_ZombieNoteHelpResources(theResourceManager);
+	if (!strcmp(theName, "DelayLoad_Zombiquarium")) return ExtractDelayLoad_ZombiquariumResources(theResourceManager);
+	if (!strcmp(theName, "Init")) return ExtractInitResources(theResourceManager);
+	if (!strcmp(theName, "LoaderBar")) return ExtractLoaderBarResources(theResourceManager);
+	if (!strcmp(theName, "LoadingFonts")) return ExtractLoadingFontsResources(theResourceManager);
+	if (!strcmp(theName, "LoadingImages")) return ExtractLoadingImagesResources(theResourceManager);
+	if (!strcmp(theName, "LoadingSounds")) return ExtractLoadingSoundsResources(theResourceManager);
+
+	unreachable();
+}
+
+// DelayLoad_Almanac Resources
+Image* Sexy::IMAGE_ALMANAC_CLOSEBUTTON;
+Image* Sexy::IMAGE_ALMANAC_CLOSEBUTTONHIGHLIGHT;
+Image* Sexy::IMAGE_ALMANAC_GROUNDDAY;
+Image* Sexy::IMAGE_ALMANAC_GROUNDICE;
+Image* Sexy::IMAGE_ALMANAC_GROUNDNIGHT;
+Image* Sexy::IMAGE_ALMANAC_GROUNDNIGHTPOOL;
+Image* Sexy::IMAGE_ALMANAC_GROUNDPOOL;
+Image* Sexy::IMAGE_ALMANAC_GROUNDROOF;
+Image* Sexy::IMAGE_ALMANAC_INDEXBACK;
+Image* Sexy::IMAGE_ALMANAC_INDEXBUTTON;
+Image* Sexy::IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT;
+Image* Sexy::IMAGE_ALMANAC_PLANTBACK;
+Image* Sexy::IMAGE_ALMANAC_PLANTCARD;
+Image* Sexy::IMAGE_ALMANAC_ZOMBIEBACK;
+Image* Sexy::IMAGE_ALMANAC_ZOMBIEBLANK;
+Image* Sexy::IMAGE_ALMANAC_ZOMBIECARD;
+Image* Sexy::IMAGE_ALMANAC_ZOMBIEWINDOW;
+Image* Sexy::IMAGE_ALMANAC_ZOMBIEWINDOW2;
+
+bool Sexy::ExtractDelayLoad_AlmanacResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ALMANAC_CLOSEBUTTON = aMgr.GetImageThrow("IMAGE_ALMANAC_CLOSEBUTTON");
+		IMAGE_ALMANAC_CLOSEBUTTONHIGHLIGHT = aMgr.GetImageThrow("IMAGE_ALMANAC_CLOSEBUTTONHIGHLIGHT");
+		IMAGE_ALMANAC_GROUNDDAY = aMgr.GetImageThrow("IMAGE_ALMANAC_GROUNDDAY");
+		IMAGE_ALMANAC_GROUNDICE = aMgr.GetImageThrow("IMAGE_ALMANAC_GROUNDICE");
+		IMAGE_ALMANAC_GROUNDNIGHT = aMgr.GetImageThrow("IMAGE_ALMANAC_GROUNDNIGHT");
+		IMAGE_ALMANAC_GROUNDNIGHTPOOL = aMgr.GetImageThrow("IMAGE_ALMANAC_GROUNDNIGHTPOOL");
+		IMAGE_ALMANAC_GROUNDPOOL = aMgr.GetImageThrow("IMAGE_ALMANAC_GROUNDPOOL");
+		IMAGE_ALMANAC_GROUNDROOF = aMgr.GetImageThrow("IMAGE_ALMANAC_GROUNDROOF");
+		IMAGE_ALMANAC_INDEXBACK = aMgr.GetImageThrow("IMAGE_ALMANAC_INDEXBACK");
+		IMAGE_ALMANAC_INDEXBUTTON = aMgr.GetImageThrow("IMAGE_ALMANAC_INDEXBUTTON");
+		IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT = aMgr.GetImageThrow("IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT");
+		IMAGE_ALMANAC_PLANTBACK = aMgr.GetImageThrow("IMAGE_ALMANAC_PLANTBACK");
+		IMAGE_ALMANAC_PLANTCARD = aMgr.GetImageThrow("IMAGE_ALMANAC_PLANTCARD");
+		IMAGE_ALMANAC_ZOMBIEBACK = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIEBACK");
+		IMAGE_ALMANAC_ZOMBIEBLANK = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIEBLANK");
+		IMAGE_ALMANAC_ZOMBIECARD = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIECARD");
+		IMAGE_ALMANAC_ZOMBIEWINDOW = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIEWINDOW");
+		IMAGE_ALMANAC_ZOMBIEWINDOW2 = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIEWINDOW2");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_AwardScreen Resources
+Image* Sexy::IMAGE_AWARDSCREEN_BACK;
+
+bool Sexy::ExtractDelayLoad_AwardScreenResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_AWARDSCREEN_BACK = aMgr.GetImageThrow("IMAGE_AWARDSCREEN_BACK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Background1 Resources
+Image* Sexy::IMAGE_BACKGROUND1;
+Image* Sexy::IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY;
+Image* Sexy::IMAGE_BACKGROUND1_GAMEOVER_MASK;
+
+bool Sexy::ExtractDelayLoad_Background1Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND1 = aMgr.GetImageThrow("IMAGE_BACKGROUND1");
+		IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY");
+		IMAGE_BACKGROUND1_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND1_GAMEOVER_MASK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Background2 Resources
+Image* Sexy::IMAGE_BACKGROUND2;
+Image* Sexy::IMAGE_BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY;
+Image* Sexy::IMAGE_BACKGROUND2_GAMEOVER_MASK;
+
+bool Sexy::ExtractDelayLoad_Background2Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND2 = aMgr.GetImageThrow("IMAGE_BACKGROUND2");
+		IMAGE_BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY");
+		IMAGE_BACKGROUND2_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND2_GAMEOVER_MASK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Background3 Resources
+Image* Sexy::IMAGE_BACKGROUND3;
+Image* Sexy::IMAGE_BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY;
+Image* Sexy::IMAGE_BACKGROUND3_GAMEOVER_MASK;
+
+bool Sexy::ExtractDelayLoad_Background3Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND3 = aMgr.GetImageThrow("IMAGE_BACKGROUND3");
+		IMAGE_BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY");
+		IMAGE_BACKGROUND3_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND3_GAMEOVER_MASK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Background4 Resources
+Image* Sexy::IMAGE_BACKGROUND4;
+Image* Sexy::IMAGE_BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY;
+Image* Sexy::IMAGE_BACKGROUND4_GAMEOVER_MASK;
+Image* Sexy::IMAGE_FOG;
+Image* Sexy::IMAGE_FOG_SOFTWARE;
+
+bool Sexy::ExtractDelayLoad_Background4Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND4 = aMgr.GetImageThrow("IMAGE_BACKGROUND4");
+		IMAGE_BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY");
+		IMAGE_BACKGROUND4_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND4_GAMEOVER_MASK");
+		IMAGE_FOG = aMgr.GetImageThrow("IMAGE_FOG");
+		IMAGE_FOG_SOFTWARE = aMgr.GetImageThrow("IMAGE_FOG_SOFTWARE");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Background5 Resources
+Image* Sexy::IMAGE_BACKGROUND5;
+Image* Sexy::IMAGE_BACKGROUND5_GAMEOVER_MASK;
+
+bool Sexy::ExtractDelayLoad_Background5Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND5 = aMgr.GetImageThrow("IMAGE_BACKGROUND5");
+		IMAGE_BACKGROUND5_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND5_GAMEOVER_MASK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Background6 Resources
+Image* Sexy::IMAGE_BACKGROUND6BOSS;
+Image* Sexy::IMAGE_BACKGROUND6_GAMEOVER_MASK;
+
+bool Sexy::ExtractDelayLoad_Background6Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND6BOSS = aMgr.GetImageThrow("IMAGE_BACKGROUND6BOSS");
+		IMAGE_BACKGROUND6_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND6_GAMEOVER_MASK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_BackgroundUnsodded Resources
+Image* Sexy::IMAGE_BACKGROUND1UNSODDED;
+Image* Sexy::IMAGE_SOD1ROW;
+Image* Sexy::IMAGE_SOD3ROW;
+
+bool Sexy::ExtractDelayLoad_BackgroundUnsoddedResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND1UNSODDED = aMgr.GetImageThrow("IMAGE_BACKGROUND1UNSODDED");
+		IMAGE_SOD1ROW = aMgr.GetImageThrow("IMAGE_SOD1ROW");
+		IMAGE_SOD3ROW = aMgr.GetImageThrow("IMAGE_SOD3ROW");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ChallengeScreen Resources
+Image* Sexy::IMAGE_CHALLENGE_BACKGROUND;
+Image* Sexy::IMAGE_CHALLENGE_BLANK;
+Image* Sexy::IMAGE_CHALLENGE_THUMBNAILS;
+Image* Sexy::IMAGE_CHALLENGE_WINDOW;
+Image* Sexy::IMAGE_CHALLENGE_WINDOW_HIGHLIGHT;
+Image* Sexy::IMAGE_LOCK;
+Image* Sexy::IMAGE_LOCK_OPEN;
+Image* Sexy::IMAGE_SURVIVAL_THUMBNAILS;
+
+bool Sexy::ExtractDelayLoad_ChallengeScreenResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_CHALLENGE_BACKGROUND = aMgr.GetImageThrow("IMAGE_CHALLENGE_BACKGROUND");
+		IMAGE_CHALLENGE_BLANK = aMgr.GetImageThrow("IMAGE_CHALLENGE_BLANK");
+		IMAGE_CHALLENGE_THUMBNAILS = aMgr.GetImageThrow("IMAGE_CHALLENGE_THUMBNAILS");
+		IMAGE_CHALLENGE_WINDOW = aMgr.GetImageThrow("IMAGE_CHALLENGE_WINDOW");
+		IMAGE_CHALLENGE_WINDOW_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_CHALLENGE_WINDOW_HIGHLIGHT");
+		IMAGE_LOCK = aMgr.GetImageThrow("IMAGE_LOCK");
+		IMAGE_LOCK_OPEN = aMgr.GetImageThrow("IMAGE_LOCK_OPEN");
+		IMAGE_SURVIVAL_THUMBNAILS = aMgr.GetImageThrow("IMAGE_SURVIVAL_THUMBNAILS");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Credits Resources
+_Font* Sexy::FONT_BRIANNETOD32;
+_Font* Sexy::FONT_BRIANNETOD32BLACK;
+Image* Sexy::IMAGE_CREDITS_PLAYBUTTON;
+Image* Sexy::IMAGE_CREDITS_ZOMBIENOTE;
+Image* Sexy::IMAGE_REANIM_CREDITS_DISCOLIGHTS;
+Image* Sexy::IMAGE_REANIM_CREDITS_FOGMACHINE;
+Image* Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING1;
+Image* Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING2;
+Image* Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING3;
+Image* Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING4;
+Image* Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING5;
+Image* Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_WINK;
+
+bool Sexy::ExtractDelayLoad_CreditsResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		FONT_BRIANNETOD32 = aMgr.GetFontThrow("FONT_BRIANNETOD32");
+		FONT_BRIANNETOD32BLACK = aMgr.GetFontThrow("FONT_BRIANNETOD32BLACK");
+		IMAGE_CREDITS_PLAYBUTTON = aMgr.GetImageThrow("IMAGE_CREDITS_PLAYBUTTON");
+		IMAGE_CREDITS_ZOMBIENOTE = aMgr.GetImageThrow("IMAGE_CREDITS_ZOMBIENOTE");
+		IMAGE_REANIM_CREDITS_DISCOLIGHTS = aMgr.GetImageThrow("IMAGE_REANIM_CREDITS_DISCOLIGHTS");
+		IMAGE_REANIM_CREDITS_FOGMACHINE = aMgr.GetImageThrow("IMAGE_REANIM_CREDITS_FOGMACHINE");
+		IMAGE_REANIM_SUNFLOWER_HEAD_SING1 = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_SING1");
+		IMAGE_REANIM_SUNFLOWER_HEAD_SING2 = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_SING2");
+		IMAGE_REANIM_SUNFLOWER_HEAD_SING3 = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_SING3");
+		IMAGE_REANIM_SUNFLOWER_HEAD_SING4 = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_SING4");
+		IMAGE_REANIM_SUNFLOWER_HEAD_SING5 = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_SING5");
+		IMAGE_REANIM_SUNFLOWER_HEAD_WINK = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_WINK");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_GreenHouseGarden Resources
+Image* Sexy::IMAGE_BACKGROUND_GREENHOUSE;
+
+bool Sexy::ExtractDelayLoad_GreenHouseGardenResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND_GREENHOUSE = aMgr.GetImageThrow("IMAGE_BACKGROUND_GREENHOUSE");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_GreenHouseOverlay Resources
+Image* Sexy::IMAGE_BACKGROUND_GREENHOUSE_OVERLAY;
+
+bool Sexy::ExtractDelayLoad_GreenHouseOverlayResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND_GREENHOUSE_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND_GREENHOUSE_OVERLAY");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_MushroomGarden Resources
+Image* Sexy::IMAGE_BACKGROUND_MUSHROOMGARDEN;
+
+bool Sexy::ExtractDelayLoad_MushroomGardenResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BACKGROUND_MUSHROOMGARDEN = aMgr.GetImageThrow("IMAGE_BACKGROUND_MUSHROOMGARDEN");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Store Resources
+Image* Sexy::IMAGE_STORE_AQUARIUMGARDENICON;
+Image* Sexy::IMAGE_STORE_BACKGROUND;
+Image* Sexy::IMAGE_STORE_BACKGROUNDNIGHT;
+Image* Sexy::IMAGE_STORE_CAR;
+Image* Sexy::IMAGE_STORE_CARCLOSED;
+Image* Sexy::IMAGE_STORE_CARCLOSED_NIGHT;
+Image* Sexy::IMAGE_STORE_CAR_NIGHT;
+Image* Sexy::IMAGE_STORE_FIRSTAIDWALLNUTICON;
+Image* Sexy::IMAGE_STORE_HATCHBACKOPEN;
+Image* Sexy::IMAGE_STORE_MAINMENUBUTTON;
+Image* Sexy::IMAGE_STORE_MAINMENUBUTTONDOWN;
+Image* Sexy::IMAGE_STORE_MAINMENUBUTTONHIGHLIGHT;
+Image* Sexy::IMAGE_STORE_MUSHROOMGARDENICON;
+Image* Sexy::IMAGE_STORE_NEXTBUTTON;
+Image* Sexy::IMAGE_STORE_NEXTBUTTONDISABLED;
+Image* Sexy::IMAGE_STORE_NEXTBUTTONHIGHLIGHT;
+Image* Sexy::IMAGE_STORE_PACKETUPGRADE;
+Image* Sexy::IMAGE_STORE_PREVBUTTON;
+Image* Sexy::IMAGE_STORE_PREVBUTTONDISABLED;
+Image* Sexy::IMAGE_STORE_PREVBUTTONHIGHLIGHT;
+Image* Sexy::IMAGE_STORE_PRICETAG;
+Image* Sexy::IMAGE_STORE_PVZICON;
+Image* Sexy::IMAGE_STORE_SIGN;
+Image* Sexy::IMAGE_STORE_TREEOFWISDOMICON;
+
+bool Sexy::ExtractDelayLoad_StoreResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_STORE_AQUARIUMGARDENICON = aMgr.GetImageThrow("IMAGE_STORE_AQUARIUMGARDENICON");
+		IMAGE_STORE_BACKGROUND = aMgr.GetImageThrow("IMAGE_STORE_BACKGROUND");
+		IMAGE_STORE_BACKGROUNDNIGHT = aMgr.GetImageThrow("IMAGE_STORE_BACKGROUNDNIGHT");
+		IMAGE_STORE_CAR = aMgr.GetImageThrow("IMAGE_STORE_CAR");
+		IMAGE_STORE_CARCLOSED = aMgr.GetImageThrow("IMAGE_STORE_CARCLOSED");
+		IMAGE_STORE_CARCLOSED_NIGHT = aMgr.GetImageThrow("IMAGE_STORE_CARCLOSED_NIGHT");
+		IMAGE_STORE_CAR_NIGHT = aMgr.GetImageThrow("IMAGE_STORE_CAR_NIGHT");
+		IMAGE_STORE_FIRSTAIDWALLNUTICON = aMgr.GetImageThrow("IMAGE_STORE_FIRSTAIDWALLNUTICON");
+		IMAGE_STORE_HATCHBACKOPEN = aMgr.GetImageThrow("IMAGE_STORE_HATCHBACKOPEN");
+		IMAGE_STORE_MAINMENUBUTTON = aMgr.GetImageThrow("IMAGE_STORE_MAINMENUBUTTON");
+		IMAGE_STORE_MAINMENUBUTTONDOWN = aMgr.GetImageThrow("IMAGE_STORE_MAINMENUBUTTONDOWN");
+		IMAGE_STORE_MAINMENUBUTTONHIGHLIGHT = aMgr.GetImageThrow("IMAGE_STORE_MAINMENUBUTTONHIGHLIGHT");
+		IMAGE_STORE_MUSHROOMGARDENICON = aMgr.GetImageThrow("IMAGE_STORE_MUSHROOMGARDENICON");
+		IMAGE_STORE_NEXTBUTTON = aMgr.GetImageThrow("IMAGE_STORE_NEXTBUTTON");
+		IMAGE_STORE_NEXTBUTTONDISABLED = aMgr.GetImageThrow("IMAGE_STORE_NEXTBUTTONDISABLED");
+		IMAGE_STORE_NEXTBUTTONHIGHLIGHT = aMgr.GetImageThrow("IMAGE_STORE_NEXTBUTTONHIGHLIGHT");
+		IMAGE_STORE_PACKETUPGRADE = aMgr.GetImageThrow("IMAGE_STORE_PACKETUPGRADE");
+		IMAGE_STORE_PREVBUTTON = aMgr.GetImageThrow("IMAGE_STORE_PREVBUTTON");
+		IMAGE_STORE_PREVBUTTONDISABLED = aMgr.GetImageThrow("IMAGE_STORE_PREVBUTTONDISABLED");
+		IMAGE_STORE_PREVBUTTONHIGHLIGHT = aMgr.GetImageThrow("IMAGE_STORE_PREVBUTTONHIGHLIGHT");
+		IMAGE_STORE_PRICETAG = aMgr.GetImageThrow("IMAGE_STORE_PRICETAG");
+		IMAGE_STORE_PVZICON = aMgr.GetImageThrow("IMAGE_STORE_PVZICON");
+		IMAGE_STORE_SIGN = aMgr.GetImageThrow("IMAGE_STORE_SIGN");
+		IMAGE_STORE_TREEOFWISDOMICON = aMgr.GetImageThrow("IMAGE_STORE_TREEOFWISDOMICON");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_TreeOfWisdom Resources
+
+// DelayLoad_Zombatar Resources
+Image* Sexy::IMAGE_ZOMBATAR_ACCEPT_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_ACCEPT_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_1;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_10;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_11;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_12;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_13;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_14;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_15;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_16;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_2;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_3;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_4;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_5;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_6;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_7;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_8;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_9;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_BG;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_BG_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_BG_NONE;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_ACCESSORY_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_BACKDROPS_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_BACKDROPS_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_BACKDROPS_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_BACKGROUND_BLANK;
+Image* Sexy::IMAGE_ZOMBATAR_BACKGROUND_CRAZYDAVE;
+Image* Sexy::IMAGE_ZOMBATAR_BACKGROUND_MENU;
+Image* Sexy::IMAGE_ZOMBATAR_BACKGROUND_MENU_DOS;
+Image* Sexy::IMAGE_ZOMBATAR_BACKGROUND_ROOF;
+Image* Sexy::IMAGE_ZOMBATAR_BACK_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_BACK_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_BEGIN_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_BEGIN_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_1;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_10;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_11;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_12;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_2;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_3;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_4;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_5;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_6;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_7;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_8;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_9;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_CLOTHES_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_COLORPICKER;
+Image* Sexy::IMAGE_ZOMBATAR_COLORPICKER_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_COLORPICKER_NONE;
+Image* Sexy::IMAGE_ZOMBATAR_COLORS_BG;
+Image* Sexy::IMAGE_ZOMBATAR_COLORS_BG_SMALL;
+Image* Sexy::IMAGE_ZOMBATAR_DISPLAY_WINDOW;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_1;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_10;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_10_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_11;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_11_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_12;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_12_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_13;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_14;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_15;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_16;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_1_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_2;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_2_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_3;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_3_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_4;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_4_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_5;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_5_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_6;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_6_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_7;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_7_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_8;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_8_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_9;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_9_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_EYEWEAR_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_1;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_10;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_10_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_11;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_11_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_12;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_12_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_13;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_14;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_14_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_15;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_15_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_16;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_16_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_17;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_18;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_18_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_19;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_1_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_2;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_20;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_21;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_21_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_22;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_22_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_23;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_23_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_24;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_24_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_3;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_4;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_4_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_5;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_6;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_7;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_8;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_8_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_9;
+Image* Sexy::IMAGE_ZOMBATAR_FACIALHAIR_9_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_FINISHED_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_FINISHED_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_1;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_10;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_11;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_11_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_12;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_12_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_13;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_13_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_14;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_14_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_15;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_15_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_16;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_1_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_2;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_2_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_3;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_4;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_5;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_6;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_7;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_8;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_9;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_HAIR_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_1;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_10;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_11;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_11_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_12;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_13;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_14;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_1_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_2;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_3;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_3_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_4;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_5;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_6;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_6_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_7;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_7_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_8;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_8_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_9;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_9_MASK;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_HATS_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_LOGO;
+Image* Sexy::IMAGE_ZOMBATAR_MAINMENUBACK_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_MAIN_BG;
+Image* Sexy::IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_NEXT_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_NEXT_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_PREV_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_PREV_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_SKIN_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_SKIN_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_1;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_10;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_11;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_12;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_13;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_14;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_2;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_3;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_4;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_5;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_6;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_7;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_8;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_9;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_TIDBITS_BUTTON_OVER;
+Image* Sexy::IMAGE_ZOMBATAR_TOS_ARROW;
+Image* Sexy::IMAGE_ZOMBATAR_TOS_SLIDER;
+Image* Sexy::IMAGE_ZOMBATAR_TOS_SLIDER_THUMB;
+Image* Sexy::IMAGE_ZOMBATAR_TRIPTYCH;
+Image* Sexy::IMAGE_ZOMBATAR_VIEW_BUTTON;
+Image* Sexy::IMAGE_ZOMBATAR_VIEW_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ZOMBATAR_WIDGET_BG;
+Image* Sexy::IMAGE_ZOMBATAR_WIDGET_INNER_BG;
+Image* Sexy::IMAGE_ZOMBATAR_ZOMBIE_BLANK;
+Image* Sexy::IMAGE_ZOMBATAR_ZOMBIE_BLANK_SKIN;
+
+bool Sexy::ExtractDelayLoad_ZombatarResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBATAR_ACCEPT_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCEPT_BUTTON");
+		IMAGE_ZOMBATAR_ACCEPT_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCEPT_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_ACCESSORY_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_1");
+		IMAGE_ZOMBATAR_ACCESSORY_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_10");
+		IMAGE_ZOMBATAR_ACCESSORY_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_11");
+		IMAGE_ZOMBATAR_ACCESSORY_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_12");
+		IMAGE_ZOMBATAR_ACCESSORY_13 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_13");
+		IMAGE_ZOMBATAR_ACCESSORY_14 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_14");
+		IMAGE_ZOMBATAR_ACCESSORY_15 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_15");
+		IMAGE_ZOMBATAR_ACCESSORY_16 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_16");
+		IMAGE_ZOMBATAR_ACCESSORY_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_2");
+		IMAGE_ZOMBATAR_ACCESSORY_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_3");
+		IMAGE_ZOMBATAR_ACCESSORY_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_4");
+		IMAGE_ZOMBATAR_ACCESSORY_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_5");
+		IMAGE_ZOMBATAR_ACCESSORY_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_6");
+		IMAGE_ZOMBATAR_ACCESSORY_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_7");
+		IMAGE_ZOMBATAR_ACCESSORY_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_8");
+		IMAGE_ZOMBATAR_ACCESSORY_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_9");
+		IMAGE_ZOMBATAR_ACCESSORY_BG = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_BG");
+		IMAGE_ZOMBATAR_ACCESSORY_BG_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_BG_HIGHLIGHT");
+		IMAGE_ZOMBATAR_ACCESSORY_BG_NONE = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_BG_NONE");
+		IMAGE_ZOMBATAR_ACCESSORY_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_BUTTON");
+		IMAGE_ZOMBATAR_ACCESSORY_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_ACCESSORY_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCESSORY_BUTTON_OVER");
+		IMAGE_ZOMBATAR_BACKDROPS_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKDROPS_BUTTON");
+		IMAGE_ZOMBATAR_BACKDROPS_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKDROPS_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_BACKDROPS_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKDROPS_BUTTON_OVER");
+		IMAGE_ZOMBATAR_BACKGROUND_BLANK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKGROUND_BLANK");
+		IMAGE_ZOMBATAR_BACKGROUND_CRAZYDAVE = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKGROUND_CRAZYDAVE");
+		IMAGE_ZOMBATAR_BACKGROUND_MENU = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKGROUND_MENU");
+		IMAGE_ZOMBATAR_BACKGROUND_MENU_DOS = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKGROUND_MENU_DOS");
+		IMAGE_ZOMBATAR_BACKGROUND_ROOF = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACKGROUND_ROOF");
+		IMAGE_ZOMBATAR_BACK_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACK_BUTTON");
+		IMAGE_ZOMBATAR_BACK_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BACK_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_BEGIN_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BEGIN_BUTTON");
+		IMAGE_ZOMBATAR_BEGIN_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_BEGIN_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_CLOTHES_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_1");
+		IMAGE_ZOMBATAR_CLOTHES_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_10");
+		IMAGE_ZOMBATAR_CLOTHES_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_11");
+		IMAGE_ZOMBATAR_CLOTHES_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_12");
+		IMAGE_ZOMBATAR_CLOTHES_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_2");
+		IMAGE_ZOMBATAR_CLOTHES_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_3");
+		IMAGE_ZOMBATAR_CLOTHES_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_4");
+		IMAGE_ZOMBATAR_CLOTHES_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_5");
+		IMAGE_ZOMBATAR_CLOTHES_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_6");
+		IMAGE_ZOMBATAR_CLOTHES_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_7");
+		IMAGE_ZOMBATAR_CLOTHES_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_8");
+		IMAGE_ZOMBATAR_CLOTHES_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_9");
+		IMAGE_ZOMBATAR_CLOTHES_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_BUTTON");
+		IMAGE_ZOMBATAR_CLOTHES_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_CLOTHES_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_CLOTHES_BUTTON_OVER");
+		IMAGE_ZOMBATAR_COLORPICKER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_COLORPICKER");
+		IMAGE_ZOMBATAR_COLORPICKER_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_COLORPICKER_HIGHLIGHT");
+		IMAGE_ZOMBATAR_COLORPICKER_NONE = aMgr.GetImageThrow("IMAGE_ZOMBATAR_COLORPICKER_NONE");
+		IMAGE_ZOMBATAR_COLORS_BG = aMgr.GetImageThrow("IMAGE_ZOMBATAR_COLORS_BG");
+		IMAGE_ZOMBATAR_COLORS_BG_SMALL = aMgr.GetImageThrow("IMAGE_ZOMBATAR_COLORS_BG_SMALL");
+		IMAGE_ZOMBATAR_DISPLAY_WINDOW = aMgr.GetImageThrow("IMAGE_ZOMBATAR_DISPLAY_WINDOW");
+		IMAGE_ZOMBATAR_EYEWEAR_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_1");
+		IMAGE_ZOMBATAR_EYEWEAR_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_10");
+		IMAGE_ZOMBATAR_EYEWEAR_10_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_10_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_11");
+		IMAGE_ZOMBATAR_EYEWEAR_11_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_11_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_12");
+		IMAGE_ZOMBATAR_EYEWEAR_12_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_12_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_13 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_13");
+		IMAGE_ZOMBATAR_EYEWEAR_14 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_14");
+		IMAGE_ZOMBATAR_EYEWEAR_15 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_15");
+		IMAGE_ZOMBATAR_EYEWEAR_16 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_16");
+		IMAGE_ZOMBATAR_EYEWEAR_1_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_1_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_2");
+		IMAGE_ZOMBATAR_EYEWEAR_2_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_2_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_3");
+		IMAGE_ZOMBATAR_EYEWEAR_3_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_3_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_4");
+		IMAGE_ZOMBATAR_EYEWEAR_4_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_4_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_5");
+		IMAGE_ZOMBATAR_EYEWEAR_5_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_5_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_6");
+		IMAGE_ZOMBATAR_EYEWEAR_6_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_6_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_7");
+		IMAGE_ZOMBATAR_EYEWEAR_7_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_7_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_8");
+		IMAGE_ZOMBATAR_EYEWEAR_8_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_8_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_9");
+		IMAGE_ZOMBATAR_EYEWEAR_9_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_9_MASK");
+		IMAGE_ZOMBATAR_EYEWEAR_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_BUTTON");
+		IMAGE_ZOMBATAR_EYEWEAR_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_EYEWEAR_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_EYEWEAR_BUTTON_OVER");
+		IMAGE_ZOMBATAR_FACIALHAIR_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_1");
+		IMAGE_ZOMBATAR_FACIALHAIR_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_10");
+		IMAGE_ZOMBATAR_FACIALHAIR_10_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_10_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_11");
+		IMAGE_ZOMBATAR_FACIALHAIR_11_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_11_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_12");
+		IMAGE_ZOMBATAR_FACIALHAIR_12_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_12_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_13 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_13");
+		IMAGE_ZOMBATAR_FACIALHAIR_14 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_14");
+		IMAGE_ZOMBATAR_FACIALHAIR_14_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_14_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_15 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_15");
+		IMAGE_ZOMBATAR_FACIALHAIR_15_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_15_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_16 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_16");
+		IMAGE_ZOMBATAR_FACIALHAIR_16_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_16_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_17 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_17");
+		IMAGE_ZOMBATAR_FACIALHAIR_18 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_18");
+		IMAGE_ZOMBATAR_FACIALHAIR_18_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_18_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_19 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_19");
+		IMAGE_ZOMBATAR_FACIALHAIR_1_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_1_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_2");
+		IMAGE_ZOMBATAR_FACIALHAIR_20 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_20");
+		IMAGE_ZOMBATAR_FACIALHAIR_21 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_21");
+		IMAGE_ZOMBATAR_FACIALHAIR_21_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_21_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_22 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_22");
+		IMAGE_ZOMBATAR_FACIALHAIR_22_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_22_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_23 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_23");
+		IMAGE_ZOMBATAR_FACIALHAIR_23_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_23_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_24 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_24");
+		IMAGE_ZOMBATAR_FACIALHAIR_24_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_24_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_3");
+		IMAGE_ZOMBATAR_FACIALHAIR_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_4");
+		IMAGE_ZOMBATAR_FACIALHAIR_4_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_4_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_5");
+		IMAGE_ZOMBATAR_FACIALHAIR_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_6");
+		IMAGE_ZOMBATAR_FACIALHAIR_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_7");
+		IMAGE_ZOMBATAR_FACIALHAIR_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_8");
+		IMAGE_ZOMBATAR_FACIALHAIR_8_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_8_MASK");
+		IMAGE_ZOMBATAR_FACIALHAIR_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_9");
+		IMAGE_ZOMBATAR_FACIALHAIR_9_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIALHAIR_9_MASK");
+		IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON");
+		IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_OVER");
+		IMAGE_ZOMBATAR_FINISHED_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FINISHED_BUTTON");
+		IMAGE_ZOMBATAR_FINISHED_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_FINISHED_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_HAIR_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_1");
+		IMAGE_ZOMBATAR_HAIR_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_10");
+		IMAGE_ZOMBATAR_HAIR_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_11");
+		IMAGE_ZOMBATAR_HAIR_11_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_11_MASK");
+		IMAGE_ZOMBATAR_HAIR_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_12");
+		IMAGE_ZOMBATAR_HAIR_12_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_12_MASK");
+		IMAGE_ZOMBATAR_HAIR_13 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_13");
+		IMAGE_ZOMBATAR_HAIR_13_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_13_MASK");
+		IMAGE_ZOMBATAR_HAIR_14 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_14");
+		IMAGE_ZOMBATAR_HAIR_14_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_14_MASK");
+		IMAGE_ZOMBATAR_HAIR_15 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_15");
+		IMAGE_ZOMBATAR_HAIR_15_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_15_MASK");
+		IMAGE_ZOMBATAR_HAIR_16 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_16");
+		IMAGE_ZOMBATAR_HAIR_1_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_1_MASK");
+		IMAGE_ZOMBATAR_HAIR_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_2");
+		IMAGE_ZOMBATAR_HAIR_2_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_2_MASK");
+		IMAGE_ZOMBATAR_HAIR_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_3");
+		IMAGE_ZOMBATAR_HAIR_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_4");
+		IMAGE_ZOMBATAR_HAIR_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_5");
+		IMAGE_ZOMBATAR_HAIR_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_6");
+		IMAGE_ZOMBATAR_HAIR_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_7");
+		IMAGE_ZOMBATAR_HAIR_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_8");
+		IMAGE_ZOMBATAR_HAIR_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_9");
+		IMAGE_ZOMBATAR_HAIR_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_BUTTON");
+		IMAGE_ZOMBATAR_HAIR_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_HAIR_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HAIR_BUTTON_OVER");
+		IMAGE_ZOMBATAR_HATS_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_1");
+		IMAGE_ZOMBATAR_HATS_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_10");
+		IMAGE_ZOMBATAR_HATS_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_11");
+		IMAGE_ZOMBATAR_HATS_11_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_11_MASK");
+		IMAGE_ZOMBATAR_HATS_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_12");
+		IMAGE_ZOMBATAR_HATS_13 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_13");
+		IMAGE_ZOMBATAR_HATS_14 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_14");
+		IMAGE_ZOMBATAR_HATS_1_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_1_MASK");
+		IMAGE_ZOMBATAR_HATS_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_2");
+		IMAGE_ZOMBATAR_HATS_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_3");
+		IMAGE_ZOMBATAR_HATS_3_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_3_MASK");
+		IMAGE_ZOMBATAR_HATS_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_4");
+		IMAGE_ZOMBATAR_HATS_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_5");
+		IMAGE_ZOMBATAR_HATS_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_6");
+		IMAGE_ZOMBATAR_HATS_6_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_6_MASK");
+		IMAGE_ZOMBATAR_HATS_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_7");
+		IMAGE_ZOMBATAR_HATS_7_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_7_MASK");
+		IMAGE_ZOMBATAR_HATS_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_8");
+		IMAGE_ZOMBATAR_HATS_8_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_8_MASK");
+		IMAGE_ZOMBATAR_HATS_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_9");
+		IMAGE_ZOMBATAR_HATS_9_MASK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_9_MASK");
+		IMAGE_ZOMBATAR_HATS_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_BUTTON");
+		IMAGE_ZOMBATAR_HATS_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_HATS_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_HATS_BUTTON_OVER");
+		IMAGE_ZOMBATAR_LOGO = aMgr.GetImageThrow("IMAGE_ZOMBATAR_LOGO");
+		IMAGE_ZOMBATAR_MAINMENUBACK_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_MAINMENUBACK_HIGHLIGHT");
+		IMAGE_ZOMBATAR_MAIN_BG = aMgr.GetImageThrow("IMAGE_ZOMBATAR_MAIN_BG");
+		IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON");
+		IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_NEXT_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_NEXT_BUTTON");
+		IMAGE_ZOMBATAR_NEXT_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_NEXT_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_PREV_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_PREV_BUTTON");
+		IMAGE_ZOMBATAR_PREV_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_PREV_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_SKIN_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_SKIN_BUTTON");
+		IMAGE_ZOMBATAR_SKIN_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_SKIN_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_TIDBITS_1 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_1");
+		IMAGE_ZOMBATAR_TIDBITS_10 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_10");
+		IMAGE_ZOMBATAR_TIDBITS_11 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_11");
+		IMAGE_ZOMBATAR_TIDBITS_12 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_12");
+		IMAGE_ZOMBATAR_TIDBITS_13 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_13");
+		IMAGE_ZOMBATAR_TIDBITS_14 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_14");
+		IMAGE_ZOMBATAR_TIDBITS_2 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_2");
+		IMAGE_ZOMBATAR_TIDBITS_3 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_3");
+		IMAGE_ZOMBATAR_TIDBITS_4 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_4");
+		IMAGE_ZOMBATAR_TIDBITS_5 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_5");
+		IMAGE_ZOMBATAR_TIDBITS_6 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_6");
+		IMAGE_ZOMBATAR_TIDBITS_7 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_7");
+		IMAGE_ZOMBATAR_TIDBITS_8 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_8");
+		IMAGE_ZOMBATAR_TIDBITS_9 = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_9");
+		IMAGE_ZOMBATAR_TIDBITS_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_BUTTON");
+		IMAGE_ZOMBATAR_TIDBITS_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_TIDBITS_BUTTON_OVER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TIDBITS_BUTTON_OVER");
+		IMAGE_ZOMBATAR_TOS_ARROW = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TOS_ARROW");
+		IMAGE_ZOMBATAR_TOS_SLIDER = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TOS_SLIDER");
+		IMAGE_ZOMBATAR_TOS_SLIDER_THUMB = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TOS_SLIDER_THUMB");
+		IMAGE_ZOMBATAR_TRIPTYCH = aMgr.GetImageThrow("IMAGE_ZOMBATAR_TRIPTYCH");
+		IMAGE_ZOMBATAR_VIEW_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_VIEW_BUTTON");
+		IMAGE_ZOMBATAR_VIEW_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_VIEW_BUTTON_HIGHLIGHT");
+		IMAGE_ZOMBATAR_WIDGET_BG = aMgr.GetImageThrow("IMAGE_ZOMBATAR_WIDGET_BG");
+		IMAGE_ZOMBATAR_WIDGET_INNER_BG = aMgr.GetImageThrow("IMAGE_ZOMBATAR_WIDGET_INNER_BG");
+		IMAGE_ZOMBATAR_ZOMBIE_BLANK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ZOMBIE_BLANK");
+		IMAGE_ZOMBATAR_ZOMBIE_BLANK_SKIN = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ZOMBIE_BLANK_SKIN");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieFinalNote Resources
+Image* Sexy::IMAGE_ZOMBIE_FINAL_NOTE;
+
+bool Sexy::ExtractDelayLoad_ZombieFinalNoteResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_FINAL_NOTE = aMgr.GetImageThrow("IMAGE_ZOMBIE_FINAL_NOTE");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieNote Resources
+Image* Sexy::IMAGE_ZOMBIE_NOTE;
+
+bool Sexy::ExtractDelayLoad_ZombieNoteResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_NOTE = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieNote1 Resources
+Image* Sexy::IMAGE_ZOMBIE_NOTE1;
+
+bool Sexy::ExtractDelayLoad_ZombieNote1Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_NOTE1 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE1");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieNote2 Resources
+Image* Sexy::IMAGE_ZOMBIE_NOTE2;
+
+bool Sexy::ExtractDelayLoad_ZombieNote2Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_NOTE2 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE2");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieNote3 Resources
+Image* Sexy::IMAGE_ZOMBIE_NOTE3;
+
+bool Sexy::ExtractDelayLoad_ZombieNote3Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_NOTE3 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE3");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieNote4 Resources
+Image* Sexy::IMAGE_ZOMBIE_NOTE4;
+
+bool Sexy::ExtractDelayLoad_ZombieNote4Resources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_NOTE4 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE4");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_ZombieNoteHelp Resources
+Image* Sexy::IMAGE_ZOMBIE_NOTE_HELP;
+
+bool Sexy::ExtractDelayLoad_ZombieNoteHelpResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_ZOMBIE_NOTE_HELP = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE_HELP");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// DelayLoad_Zombiquarium Resources
+Image* Sexy::IMAGE_AQUARIUM1;
+Image* Sexy::IMAGE_WAVECENTER;
+Image* Sexy::IMAGE_WAVESIDE;
+
+bool Sexy::ExtractDelayLoad_ZombiquariumResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_AQUARIUM1 = aMgr.GetImageThrow("IMAGE_AQUARIUM1");
+		IMAGE_WAVECENTER = aMgr.GetImageThrow("IMAGE_WAVECENTER");
+		IMAGE_WAVESIDE = aMgr.GetImageThrow("IMAGE_WAVESIDE");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// Init Resources
+Image* Sexy::IMAGE_BLANK;
+Image* Sexy::IMAGE_PARTNER_LOGO;
+Image* Sexy::IMAGE_POPCAP_LOGO;
+
+bool Sexy::ExtractInitResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		IMAGE_BLANK = aMgr.GetImageThrow("IMAGE_BLANK");
+		IMAGE_PARTNER_LOGO = aMgr.GetImageThrow("IMAGE_PARTNER_LOGO");
+		IMAGE_POPCAP_LOGO = aMgr.GetImageThrow("IMAGE_POPCAP_LOGO");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// LoaderBar Resources
+_Font* Sexy::FONT_BRIANNETOD16;
+Image* Sexy::IMAGE_LOADBAR_DIRT;
+Image* Sexy::IMAGE_LOADBAR_GRASS;
+Image* Sexy::IMAGE_PVZ_LOGO;
+Image* Sexy::IMAGE_REANIM_SODROLLCAP;
+Image* Sexy::IMAGE_TITLESCREEN;
+intptr_t Sexy::SOUND_BUTTONCLICK;
+intptr_t Sexy::SOUND_LOADINGBAR_FLOWER;
+intptr_t Sexy::SOUND_LOADINGBAR_ZOMBIE;
+
+bool Sexy::ExtractLoaderBarResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		FONT_BRIANNETOD16 = aMgr.GetFontThrow("FONT_BRIANNETOD16");
+		IMAGE_LOADBAR_DIRT = aMgr.GetImageThrow("IMAGE_LOADBAR_DIRT");
+		IMAGE_LOADBAR_GRASS = aMgr.GetImageThrow("IMAGE_LOADBAR_GRASS");
+		IMAGE_PVZ_LOGO = aMgr.GetImageThrow("IMAGE_PVZ_LOGO");
+		IMAGE_REANIM_SODROLLCAP = aMgr.GetImageThrow("IMAGE_REANIM_SODROLLCAP");
+		IMAGE_TITLESCREEN = aMgr.GetImageThrow("IMAGE_TITLESCREEN");
+		SOUND_BUTTONCLICK = aMgr.GetSoundThrow("SOUND_BUTTONCLICK");
+		SOUND_LOADINGBAR_FLOWER = aMgr.GetSoundThrow("SOUND_LOADINGBAR_FLOWER");
+		SOUND_LOADINGBAR_ZOMBIE = aMgr.GetSoundThrow("SOUND_LOADINGBAR_ZOMBIE");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// LoadingFonts Resources
+_Font* Sexy::FONT_BRIANNETOD12;
+_Font* Sexy::FONT_CONTINUUMBOLD14;
+_Font* Sexy::FONT_CONTINUUMBOLD14OUTLINE;
+_Font* Sexy::FONT_DWARVENTODCRAFT12;
+_Font* Sexy::FONT_DWARVENTODCRAFT15;
+_Font* Sexy::FONT_DWARVENTODCRAFT18;
+_Font* Sexy::FONT_DWARVENTODCRAFT18BRIGHTGREENINSET;
+_Font* Sexy::FONT_DWARVENTODCRAFT18GREENINSET;
+_Font* Sexy::FONT_DWARVENTODCRAFT18YELLOW;
+_Font* Sexy::FONT_DWARVENTODCRAFT24;
+_Font* Sexy::FONT_DWARVENTODCRAFT36BRIGHTGREENINSET;
+_Font* Sexy::FONT_DWARVENTODCRAFT36GREENINSET;
+_Font* Sexy::FONT_HOUSEOFTERROR16;
+_Font* Sexy::FONT_HOUSEOFTERROR20;
+_Font* Sexy::FONT_HOUSEOFTERROR28;
+Image* Sexy::FONT_IMAGE_HOUSEOFTERROR28;
+_Font* Sexy::FONT_PICO129;
+_Font* Sexy::FONT_TINYBOLD;
+
+bool Sexy::ExtractLoadingFontsResources(ResourceManager* theManager)
+{
+	gNeedRecalcVariableToIdMap = true;
+
+	ResourceManager& aMgr = *theManager;
+	try
+	{
+		FONT_BRIANNETOD12 = aMgr.GetFontThrow("FONT_BRIANNETOD12");
+		FONT_CONTINUUMBOLD14 = aMgr.GetFontThrow("FONT_CONTINUUMBOLD14");
+		FONT_CONTINUUMBOLD14OUTLINE = aMgr.GetFontThrow("FONT_CONTINUUMBOLD14OUTLINE");
+		FONT_DWARVENTODCRAFT12 = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT12");
+		FONT_DWARVENTODCRAFT15 = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT15");
+		FONT_DWARVENTODCRAFT18 = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT18");
+		FONT_DWARVENTODCRAFT18BRIGHTGREENINSET = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT18BRIGHTGREENINSET");
+		FONT_DWARVENTODCRAFT18GREENINSET = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT18GREENINSET");
+		FONT_DWARVENTODCRAFT18YELLOW = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT18YELLOW");
+		FONT_DWARVENTODCRAFT24 = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT24");
+		FONT_DWARVENTODCRAFT36BRIGHTGREENINSET = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT36BRIGHTGREENINSET");
+		FONT_DWARVENTODCRAFT36GREENINSET = aMgr.GetFontThrow("FONT_DWARVENTODCRAFT36GREENINSET");
+		FONT_HOUSEOFTERROR16 = aMgr.GetFontThrow("FONT_HOUSEOFTERROR16");
+		FONT_HOUSEOFTERROR20 = aMgr.GetFontThrow("FONT_HOUSEOFTERROR20");
+		FONT_HOUSEOFTERROR28 = aMgr.GetFontThrow("FONT_HOUSEOFTERROR28");
+		FONT_IMAGE_HOUSEOFTERROR28 = aMgr.GetImageThrow("FONT_IMAGE_HOUSEOFTERROR28");
+		FONT_PICO129 = aMgr.GetFontThrow("FONT_PICO129");
+		FONT_TINYBOLD = aMgr.GetFontThrow("FONT_TINYBOLD");
+	}
+	catch (ResourceManagerException&)
+	{
+		return false;
+	}
+	return true;
+}
+
+// LoadingImages Resources
+Image* Sexy::IMAGE_ACHEESEMENTS_BACK_HIGHLIGHT;
+Image* Sexy::IMAGE_ACHEESEMENTS_BEJEWELED;
+Image* Sexy::IMAGE_ACHEESEMENTS_BOOKWORM;
+Image* Sexy::IMAGE_ACHEESEMENTS_CHINA;
+Image* Sexy::IMAGE_ACHEESEMENTS_CHUZZLE;
+Image* Sexy::IMAGE_ACHEESEMENTS_HOLE_TILE;
+Image* Sexy::IMAGE_ACHEESEMENTS_ICONS;
+Image* Sexy::IMAGE_ACHEESEMENTS_MORE_BUTTON;
+Image* Sexy::IMAGE_ACHEESEMENTS_MORE_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ACHEESEMENTS_MORE_ROCK;
+Image* Sexy::IMAGE_ACHEESEMENTS_PEGGLE;
+Image* Sexy::IMAGE_ACHEESEMENTS_PIPE;
+Image* Sexy::IMAGE_ACHEESEMENTS_TOP_BUTTON;
+Image* Sexy::IMAGE_ACHEESEMENTS_TOP_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_ACHEESEMENTS_ZUMA;
+Image* Sexy::IMAGE_ALMANAC;
+Image* Sexy::IMAGE_ALMANAC_IMITATER;
+Image* Sexy::IMAGE_AWARDPICKUPGLOW;
+Image* Sexy::IMAGE_BEGHOULED_TWIST_OVERLAY;
+Image* Sexy::IMAGE_BRAIN;
+Image* Sexy::IMAGE_BUG_SPRAY;
+Image* Sexy::IMAGE_BUNGEECORD;
+Image* Sexy::IMAGE_BUNGEETARGET;
+Image* Sexy::IMAGE_BUTTON_DOWN_LEFT;
+Image* Sexy::IMAGE_BUTTON_DOWN_MIDDLE;
+Image* Sexy::IMAGE_BUTTON_DOWN_RIGHT;
+Image* Sexy::IMAGE_BUTTON_LEFT;
+Image* Sexy::IMAGE_BUTTON_MIDDLE;
+Image* Sexy::IMAGE_BUTTON_RIGHT;
+Image* Sexy::IMAGE_CARKEYS;
+Image* Sexy::IMAGE_CHOCOLATE;
+Image* Sexy::IMAGE_COBCANNON_POPCORN;
+Image* Sexy::IMAGE_COBCANNON_TARGET;
+Image* Sexy::IMAGE_COINBANK;
+Image* Sexy::IMAGE_CONVEYORBELT;
+Image* Sexy::IMAGE_CONVEYORBELT_BACKDROP;
+Image* Sexy::IMAGE_CRATER;
+Image* Sexy::IMAGE_CRATER_FADING;
+Image* Sexy::IMAGE_CRATER_ROOF_CENTER;
+Image* Sexy::IMAGE_CRATER_ROOF_LEFT;
+Image* Sexy::IMAGE_CRATER_WATER_DAY;
+Image* Sexy::IMAGE_CRATER_WATER_NIGHT;
+Image* Sexy::IMAGE_DIALOG_BIGBOTTOMLEFT;
+Image* Sexy::IMAGE_DIALOG_BIGBOTTOMMIDDLE;
+Image* Sexy::IMAGE_DIALOG_BIGBOTTOMRIGHT;
+Image* Sexy::IMAGE_DIALOG_BOTTOMLEFT;
+Image* Sexy::IMAGE_DIALOG_BOTTOMMIDDLE;
+Image* Sexy::IMAGE_DIALOG_BOTTOMRIGHT;
+Image* Sexy::IMAGE_DIALOG_CENTERLEFT;
+Image* Sexy::IMAGE_DIALOG_CENTERMIDDLE;
+Image* Sexy::IMAGE_DIALOG_CENTERRIGHT;
+Image* Sexy::IMAGE_DIALOG_HEADER;
+Image* Sexy::IMAGE_DIALOG_TOPLEFT;
+Image* Sexy::IMAGE_DIALOG_TOPMIDDLE;
+Image* Sexy::IMAGE_DIALOG_TOPRIGHT;
+Image* Sexy::IMAGE_DIRTBIG;
+Image* Sexy::IMAGE_DIRTSMALL;
+Image* Sexy::IMAGE_DOOMSHROOM_EXPLOSION_BASE;
+Image* Sexy::IMAGE_DUST_PUFFS;
+Image* Sexy::IMAGE_EDITBOX;
+Image* Sexy::IMAGE_FERTILIZER;
+Image* Sexy::IMAGE_FLAGMETER;
+Image* Sexy::IMAGE_FLAGMETERLEVELPROGRESS;
+Image* Sexy::IMAGE_FLAGMETERPARTS;
+Image* Sexy::IMAGE_ICE;
+Image* Sexy::IMAGE_ICETRAP;
+Image* Sexy::IMAGE_ICETRAP2;
+Image* Sexy::IMAGE_ICETRAP_PARTICLES;
+Image* Sexy::IMAGE_ICE_CAP;
+Image* Sexy::IMAGE_ICE_SPARKLES;
+Image* Sexy::IMAGE_ICON_POOLCLEANER;
+Image* Sexy::IMAGE_ICON_RAKE;
+Image* Sexy::IMAGE_ICON_ROOFCLEANER;
+Image* Sexy::IMAGE_IMITATERCLOUDS;
+Image* Sexy::IMAGE_IMITATERPUFFS;
+Image* Sexy::IMAGE_IMITATERSEED;
+Image* Sexy::IMAGE_IMITATERSEEDDISABLED;
+Image* Sexy::IMAGE_MELONPULT_PARTICLES;
+Image* Sexy::IMAGE_MINIGAME_TROPHY;
+Image* Sexy::IMAGE_MONEYBAG;
+Image* Sexy::IMAGE_MONEYBAG_HI_RES;
+Image* Sexy::IMAGE_NIGHT_GRAVE_GRAPHIC;
+Image* Sexy::IMAGE_OPTIONS_BACKTOGAMEBUTTON0;
+Image* Sexy::IMAGE_OPTIONS_BACKTOGAMEBUTTON2;
+Image* Sexy::IMAGE_OPTIONS_CHECKBOX0;
+Image* Sexy::IMAGE_OPTIONS_CHECKBOX1;
+Image* Sexy::IMAGE_OPTIONS_MENUBACK;
+Image* Sexy::IMAGE_OPTIONS_SLIDERKNOB2;
+Image* Sexy::IMAGE_OPTIONS_SLIDERSLOT;
+Image* Sexy::IMAGE_PACKET_PLANTS;
+Image* Sexy::IMAGE_PEA_PARTICLES;
+Image* Sexy::IMAGE_PEA_SHADOWS;
+Image* Sexy::IMAGE_PEA_SPLATS;
+Image* Sexy::IMAGE_PHONOGRAPH;
+Image* Sexy::IMAGE_PINATA;
+Image* Sexy::IMAGE_PLANTSHADOW;
+Image* Sexy::IMAGE_PLANTSHADOW2;
+Image* Sexy::IMAGE_PLANTSPEECHBUBBLE;
+Image* Sexy::IMAGE_POOL;
+Image* Sexy::IMAGE_POOLSPARKLY;
+Image* Sexy::IMAGE_POOL_BASE;
+Image* Sexy::IMAGE_POOL_BASE_NIGHT;
+Image* Sexy::IMAGE_POOL_CAUSTIC_EFFECT;
+Image* Sexy::IMAGE_POOL_NIGHT;
+Image* Sexy::IMAGE_POOL_SHADING;
+Image* Sexy::IMAGE_POOL_SHADING_NIGHT;
+Image* Sexy::IMAGE_POTATOMINE_PARTICLES;
+Image* Sexy::IMAGE_PRESENT;
+Image* Sexy::IMAGE_PRESENTOPEN;
+Image* Sexy::IMAGE_PROJECTILECACTUS;
+Image* Sexy::IMAGE_PROJECTILEPEA;
+Image* Sexy::IMAGE_PROJECTILESNOWPEA;
+Image* Sexy::IMAGE_PROJECTILE_STAR;
+Image* Sexy::IMAGE_PUFFSHROOM_PUFF1;
+Image* Sexy::IMAGE_QUICKPLAY_BACK_BUTTON;
+Image* Sexy::IMAGE_QUICKPLAY_BACK_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_QUICKPLAY_MINIGAMES_BUTTON;
+Image* Sexy::IMAGE_QUICKPLAY_MINIGAMES_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_QUICKPLAY_MINIGAMES_CLOUD;
+Image* Sexy::IMAGE_QUICKPLAY_PUZZLES_BUTTON;
+Image* Sexy::IMAGE_QUICKPLAY_PUZZLES_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_QUICKPLAY_PUZZLES_CLOUD;
+Image* Sexy::IMAGE_QUICKPLAY_SURVIVAL_BUTTON;
+Image* Sexy::IMAGE_QUICKPLAY_SURVIVAL_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_QUICKPLAY_SURVIVAL_CLOUD;
+Image* Sexy::IMAGE_QUICKPLAY_BACK_BUTTON_HIGHLIGHT;
+Image* Sexy::IMAGE_RAIN;
+Image* Sexy::IMAGE_REANIM_CABBAGEPULT_CABBAGE;
+Image* Sexy::IMAGE_REANIM_COBCANNON_COB;
+Image* Sexy::IMAGE_REANIM_COINGLOW;
+Image* Sexy::IMAGE_REANIM_COIN_GOLD_DOLLAR;
+Image* Sexy::IMAGE_REANIM_COIN_SILVER_DOLLAR;
+Image* Sexy::IMAGE_REANIM_CORNPULT_BUTTER;
+Image* Sexy::IMAGE_REANIM_CORNPULT_BUTTER_SPLAT;
+Image* Sexy::IMAGE_REANIM_CORNPULT_KERNAL;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH1;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH4;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH5;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH6;
+Image* Sexy::IMAGE_REANIM_DIAMOND;
+Image* Sexy::IMAGE_REANIM_GARLIC_BODY2;
+Image* Sexy::IMAGE_REANIM_GARLIC_BODY3;
+Image* Sexy::IMAGE_REANIM_MELONPULT_MELON;
+Image* Sexy::IMAGE_REANIM_POT_TOP_DARK;
+Image* Sexy::IMAGE_REANIM_PUMPKIN_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_PUMPKIN_DAMAGE3;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_ADVENTURE_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_ADVENTURE_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_ALMANAC_SHADOW;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_BG;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_CHALLENGES_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_CHALLENGES_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_KEY_SHADOW;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_VASEBREAKER_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_VASEBREAKER_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN2_PRESS;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS;
+Image* Sexy::IMAGE_REANIM_STINKY_TURN3;
+Image* Sexy::IMAGE_REANIM_TALLNUT_CRACKED1;
+Image* Sexy::IMAGE_REANIM_TALLNUT_CRACKED2;
+Image* Sexy::IMAGE_REANIM_TREE_BG;
+Image* Sexy::IMAGE_REANIM_WALLNUT_BODY;
+Image* Sexy::IMAGE_REANIM_WALLNUT_CRACKED1;
+Image* Sexy::IMAGE_REANIM_WALLNUT_CRACKED2;
+Image* Sexy::IMAGE_REANIM_WINTERMELON_PROJECTILE;
+Image* Sexy::IMAGE_REANIM_ZENGARDEN_BUGSPRAY_BOTTLE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BACKUP_INNERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BACKUP_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BALLOON_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOBSLED_OUTERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOBSLED_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_EYEGLOW_BLUE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_FOOT_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_FOOT_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_HEAD_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_HEAD_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_ICEBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_JAW_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_JAW_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_MOUTHGLOW_BLUE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_HAND_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_HAND_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_THUMB_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_THUMB_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BUCKET1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BUCKET2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BUCKET3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BUNGI_HEAD_SCARED;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_BASKETBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE_DAMAGE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE_DAMAGE_WITHBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE_WITHBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_SIDING_DAMAGE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CONE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CONE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CONE3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_HARDHAT;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_HARDHAT2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_HARDHAT3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_PICKAXE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DOLPHINRIDER_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FLAG1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FLAG3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FOOTBALL_HELMET;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FOOTBALL_HELMET2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FOOTBALL_HELMET3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FOOTBALL_LEFTARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_FOOTBALL_LEFTARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_PAPER_LEFTARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_PAPER_LEFTARM_LOWER;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_PAPER_PAPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_PAPER_PAPER3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_PAPER_MADHEAD;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_ZAMBONI_1_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_ZAMBONI_1_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_ZAMBONI_2_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_ZAMBONI_2_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_ZAMBONI_WHEEL_FLAT;
+Image* Sexy::IMAGE_REANIM_COIN_SILVER_DOLLAR;
+Image* Sexy::IMAGE_REANIM_COIN_GOLD_DOLLAR;
+Image* Sexy::IMAGE_REANIM_DIAMOND;
+Image* Sexy::IMAGE_REANIM_COINGLOW;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DISCO_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BACKUP_INNERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BACKUP_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POLEVAULTER_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_OUTERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BALLOON_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_IMP_ARM1_BONE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_IMP_ARM2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_BODY1_2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_BODY1_3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_DUCKXING;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_ZOMBIE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_FOOT2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_HEAD2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_OUTERARM_LOWER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_HEAD2_REDEYE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_GARGANTUAR_HEAD_REDEYE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DOLPHINRIDER_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POGO_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POGO_STICKDAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POGO_STICKDAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POGO_STICK2DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POGO_STICK2DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_POGO_STICKHANDS2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOBSLED_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOBSLED_OUTERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_JACKBOX_BOX;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_JACKBOX_OUTERARM_LOWER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_SNORKLE_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BUNGI_HEAD_SCARED;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_BASKETBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE_DAMAGE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE_WITHBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_POLE_DAMAGE_WITHBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_CATAPULT_SIDING_DAMAGE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_LADDER_1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_LADDER_1_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_LADDER_1_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_LADDER_5;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_LADDER_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_ICEBALL;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_HEAD_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_HEAD_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_JAW_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_JAW_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_HAND_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_HAND_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_THUMB_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_OUTERARM_THUMB_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_FOOT_DAMAGE1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_FOOT_DAMAGE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_EYEGLOW_BLUE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_BOSS_MOUTHGLOW_BLUE;
+Image* Sexy::IMAGE_REANIM_CABBAGEPULT_CABBAGE;
+Image* Sexy::IMAGE_REANIM_CORNPULT_KERNAL;
+Image* Sexy::IMAGE_REANIM_CORNPULT_BUTTER;
+Image* Sexy::IMAGE_REANIM_CORNPULT_BUTTER_SPLAT;
+Image* Sexy::IMAGE_REANIM_MELONPULT_MELON;
+Image* Sexy::IMAGE_REANIM_WINTERMELON_PROJECTILE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_DIGGER_PICKAXE;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_HEAD_GROSSOUT;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_HEAD_SUNGLASSES1;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_HEAD_SUNGLASSES2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_HEAD_SUNGLASSES3;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_HEAD_SUNGLASSES4;
+Image* Sexy::IMAGE_REANIM_GARLIC_BODY2;
+Image* Sexy::IMAGE_REANIM_GARLIC_BODY3;
+Image* Sexy::IMAGE_REANIM_COBCANNON_COB;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_YETI_OUTERARM_UPPER2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_YETI_OUTERARM_HAND;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_SNORKLE_HEAD;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_ADVENTURE_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_ADVENTURE_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_STARTADVENTURE_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_SURVIVAL_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_CHALLENGES_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_CHALLENGES_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_VASEBREAKER_BUTTON;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_VASEBREAKER_HIGHLIGHT;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN2_PRESS;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_WOODSIGN3_PRESS;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_BG;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_ALMANAC_SHADOW;
+Image* Sexy::IMAGE_REANIM_SELECTORSCREEN_KEY_SHADOW;
+Image* Sexy::IMAGE_REANIM_TREE_BG;
+Image* Sexy::IMAGE_REANIM_POT_TOP_DARK;
+Image* Sexy::IMAGE_REANIM_ZENGARDEN_BUGSPRAY_BOTTLE;
+Image* Sexy::IMAGE_REANIM_STINKY_TURN3;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH1;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH4;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH5;
+Image* Sexy::IMAGE_REANIM_CRAZYDAVE_MOUTH6;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_MUSTACHE2;
+Image* Sexy::IMAGE_REANIM_ZOMBIE_MUSTACHE3;
+Image* Sexy::SOUND_ACHIEVEMENT;
+Image* Sexy::SOUND_AWOOGA;
+Image* Sexy::SOUND_BLEEP;
+Image* Sexy::SOUND_BUZZER;
+Image* Sexy::SOUND_CHOMP;
+Image* Sexy::SOUND_CHOMP2;
+Image* Sexy::SOUND_CHOMPSOFT;
+Image* Sexy::SOUND_EVILLAUGH;
+Image* Sexy::SOUND_FLOOP;
+Image* Sexy::SOUND_FROZEN;
+Image* Sexy::SOUND_GULP;
+Image* Sexy::SOUND_GROAN;
+Image* Sexy::SOUND_GROAN2;
+Image* Sexy::SOUND_GROAN3;
+Image* Sexy::SOUND_GROAN4;
+Image* Sexy::SOUND_GROAN5;
+Image* Sexy::SOUND_GROAN6;
+Image* Sexy::SOUND_LOSEMUSIC;
+Image* Sexy::SOUND_MINDCONTROLLED;
+Image* Sexy::SOUND_PAUSE;
+Image* Sexy::SOUND_PLANT;
+Image* Sexy::SOUND_PLANT2;
+Image* Sexy::SOUND_POINTS;
+Image* Sexy::SOUND_SEEDLIFT;
+Image* Sexy::SOUND_SIREN;
+Image* Sexy::SOUND_SLURP;
+Image* Sexy::SOUND_SPLAT;
+Image* Sexy::SOUND_SPLAT2;
+Image* Sexy::SOUND_SPLAT3;
+Image* Sexy::SOUND_SUKHBIR;
+Image* Sexy::SOUND_SUKHBIR2;
+Image* Sexy::SOUND_SUKHBIR3;
+Image* Sexy::SOUND_SUKHBIR4;
+Image* Sexy::SOUND_SUKHBIR5;
+Image* Sexy::SOUND_SUKHBIR6;
+Image* Sexy::SOUND_TAP;
+Image* Sexy::SOUND_TAP2;
+Image* Sexy::SOUND_THROW;
+Image* Sexy::SOUND_THROW2;
+Image* Sexy::SOUND_BLOVER;
+Image* Sexy::SOUND_WINMUSIC;
+Image* Sexy::SOUND_LAWNMOWER;
+Image* Sexy::SOUND_BOING;
+Image* Sexy::SOUND_JACKINTHEBOX;
+Image* Sexy::SOUND_DIAMOND;
+Image* Sexy::SOUND_DOLPHIN_APPEARS;
+Image* Sexy::SOUND_DOLPHIN_BEFORE_JUMPING;
+Image* Sexy::SOUND_POTATO_MINE;
+Image* Sexy::SOUND_ZAMBONI;
+Image* Sexy::SOUND_BALLOON_POP;
+Image* Sexy::SOUND_THUNDER;
+Image* Sexy::SOUND_ZOMBIESPLASH;
+Image* Sexy::SOUND_BOWLING;
+Image* Sexy::SOUND_BOWLINGIMPACT;
+Image* Sexy::SOUND_BOWLINGIMPACT2;
+Image* Sexy::SOUND_GRAVEBUSTERCHOMP;
+Image* Sexy::SOUND_GRAVEBUTTON;
+Image* Sexy::SOUND_LIMBS_POP;
+Image* Sexy::SOUND_PLANTERN;
+Image* Sexy::SOUND_POGO_ZOMBIE;
+Image* Sexy::SOUND_SNOW_PEA_SPARKLES;
+Image* Sexy::SOUND_PLANT_WATER;
+Image* Sexy::SOUND_ZOMBIE_ENTERING_WATER;
+Image* Sexy::SOUND_ZOMBIE_FALLING_1;
+Image* Sexy::SOUND_ZOMBIE_FALLING_2;
+Image* Sexy::SOUND_PUFF;
+Image* Sexy::SOUND_FUME;
+Image* Sexy::SOUND_HUGE_WAVE;
+Image* Sexy::SOUND_SLOT_MACHINE;
+Image* Sexy::SOUND_COIN;
+Image* Sexy::SOUND_ROLL_IN;
+Image* Sexy::SOUND_DIGGER_ZOMBIE;
+Image* Sexy::SOUND_HATCHBACK_CLOSE;
+Image* Sexy::SOUND_HATCHBACK_OPEN;
+Image* Sexy::SOUND_KERNELPULT;
+Image* Sexy::SOUND_KERNELPULT2;
+Image* Sexy::SOUND_ZOMBAQUARIUM_DIE;
+Image* Sexy::SOUND_BUNGEE_SCREAM;
+Image* Sexy::SOUND_BUNGEE_SCREAM2;
+Image* Sexy::SOUND_BUNGEE_SCREAM3;
+Image* Sexy::SOUND_BUTTER;
+Image* Sexy::SOUND_JACK_SURPRISE;
+Image* Sexy::SOUND_JACK_SURPRISE2;
+Image* Sexy::SOUND_NEWSPAPER_RARRGH;
+Image* Sexy::SOUND_NEWSPAPER_RARRGH2;
+Image* Sexy::SOUND_NEWSPAPER_RIP;
+Image* Sexy::SOUND_SQUASH_HMM;
+Image* Sexy::SOUND_SQUASH_HMM2;
+Image* Sexy::SOUND_VASE_BREAKING;
+Image* Sexy::SOUND_POOL_CLEANER;
+Image* Sexy::SOUND_MAGNETSHROOM;
+Image* Sexy::SOUND_LADDER_ZOMBIE;
+Image* Sexy::SOUND_GARGANTUAR_THUMP;
+Image* Sexy::SOUND_BASKETBALL;
+Image* Sexy::SOUND_FIREPEA;
+Image* Sexy::SOUND_IGNITE;
+Image* Sexy::SOUND_IGNITE2;
+Image* Sexy::SOUND_READYSETPLANT;
+Image* Sexy::SOUND_DOOMSHROOM;
+Image* Sexy::SOUND_EXPLOSION;
+Image* Sexy::SOUND_FINALWAVE;
+Image* Sexy::SOUND_REVERSE_EXPLOSION;
+Image* Sexy::SOUND_RVTHROW;
+Image* Sexy::SOUND_SHIELDHIT;
+Image* Sexy::SOUND_SHIELDHIT2;
+Image* Sexy::SOUND_BOSSEXPLOSION;
+Image* Sexy::SOUND_CHERRYBOMB;
+Image* Sexy::SOUND_BONK;
+Image* Sexy::SOUND_SWING;
+Image* Sexy::SOUND_RAIN;
+Image* Sexy::SOUND_LIGHTFILL;
+Image* Sexy::SOUND_PLASTICHIT;
+Image* Sexy::SOUND_PLASTICHIT2;
+Image* Sexy::SOUND_JALAPENO;
+Image* Sexy::SOUND_BALLOONINFLATE;
+Image* Sexy::SOUND_BIGCHOMP;
+Image* Sexy::SOUND_MELONIMPACT;
+Image* Sexy::SOUND_MELONIMPACT2;
+Image* Sexy::SOUND_PLANTGROW;
+Image* Sexy::SOUND_SHOOP;
+Image* Sexy::SOUND_TAPGLASS;
+Image* Sexy::SOUND_JUICY;
+Image* Sexy::SOUND_COFFEE;
+Image* Sexy::SOUND_WAKEUP;
+Image* Sexy::SOUND_LOWGROAN;
+Image* Sexy::SOUND_LOWGROAN2;
+Image* Sexy::SOUND_PRIZE;
+Image* Sexy::SOUND_YUCK;
+Image* Sexy::SOUND_YUCK2;
+Image* Sexy::SOUND_GRASSSTEP;
+Image* Sexy::SOUND_SHOVEL;
+Image* Sexy::SOUND_COBLAUNCH;
+Image* Sexy::SOUND_WATERING;
+Image* Sexy::SOUND_POLEVAULT;
+Image* Sexy::SOUND_GRAVESTONE_RUMBLE;
+Image* Sexy::SOUND_DIRT_RISE;
+Image* Sexy::SOUND_FERTILIZER;
+Image* Sexy::SOUND_PORTAL;
+Image* Sexy::SOUND_BUGSPRAY;
+Image* Sexy::SOUND_SCREAM;
+Image* Sexy::SOUND_PAPER;
+Image* Sexy::SOUND_MONEYFALLS;
+Image* Sexy::SOUND_IMP;
+Image* Sexy::SOUND_IMP2;
+Image* Sexy::SOUND_HYDRAULIC_SHORT;
+Image* Sexy::SOUND_HYDRAULIC;
+Image* Sexy::SOUND_GARGANTUDEATH;
+Image* Sexy::SOUND_CERAMIC;
+Image* Sexy::SOUND_BOSSBOULDERATTACK;
+Image* Sexy::SOUND_CHIME;
+Image* Sexy::SOUND_CRAZYDAVESHORT1;
+Image* Sexy::SOUND_CRAZYDAVESHORT2;
+Image* Sexy::SOUND_CRAZYDAVESHORT3;
+Image* Sexy::SOUND_CRAZYDAVELONG1;
+Image* Sexy::SOUND_CRAZYDAVELONG2;
+Image* Sexy::SOUND_CRAZYDAVELONG3;
+Image* Sexy::SOUND_CRAZYDAVEEXTRALONG1;
+Image* Sexy::SOUND_CRAZYDAVEEXTRALONG2;
+Image* Sexy::SOUND_CRAZYDAVEEXTRALONG3;
+Image* Sexy::SOUND_CRAZYDAVECRAZY;
+Image* Sexy::SOUND_PHONOGRAPH;
+Image* Sexy::SOUND_DANCER;
+Image* Sexy::SOUND_FINALFANFARE;
+Image* Sexy::SOUND_CRAZYDAVESCREAM;
+Image* Sexy::SOUND_CRAZYDAVESCREAM2;
+Image* Sexy::IMAGE_BACKGROUND1,
+	&Sexy::IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY,
+	&Sexy::IMAGE_BACKGROUND1_GAMEOVER_MASK,
+	&Sexy::IMAGE_BACKGROUND1UNSODDED,
+	&Sexy::IMAGE_SOD1ROW,
+	&Sexy::IMAGE_SOD3ROW,
+	&Sexy::IMAGE_BACKGROUND2,
+	&Sexy::IMAGE_BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY,
+	&Sexy::IMAGE_BACKGROUND2_GAMEOVER_MASK,
+	&Sexy::IMAGE_BACKGROUND3,
+	&Sexy::IMAGE_BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY,
+	&Sexy::IMAGE_BACKGROUND3_GAMEOVER_MASK,
+	&Sexy::IMAGE_BACKGROUND4,
+	&Sexy::IMAGE_BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY,
+	&Sexy::IMAGE_BACKGROUND4_GAMEOVER_MASK,
+	&Sexy::IMAGE_FOG,
+	&Sexy::IMAGE_FOG_SOFTWARE,
+	&Sexy::IMAGE_BACKGROUND5,
+	&Sexy::IMAGE_BACKGROUND5_GAMEOVER_MASK,
+	&Sexy::IMAGE_BACKGROUND6BOSS,
+	&Sexy::IMAGE_BACKGROUND6_GAMEOVER_MASK,
+	&Sexy::IMAGE_BACKGROUND_MUSHROOMGARDEN,
+	&Sexy::IMAGE_BACKGROUND_GREENHOUSE,
+	&Sexy::IMAGE_BACKGROUND_GREENHOUSE_OVERLAY,
+	&Sexy::IMAGE_AQUARIUM1,
+	&Sexy::IMAGE_WAVECENTER,
+	&Sexy::IMAGE_WAVESIDE,
+	&Sexy::IMAGE_AWARDSCREEN_BACK,
+	&Sexy::IMAGE_CHALLENGE_BACKGROUND,
+	&Sexy::IMAGE_CHALLENGE_WINDOW,
+	&Sexy::IMAGE_CHALLENGE_WINDOW_HIGHLIGHT,
+	&Sexy::IMAGE_CHALLENGE_BLANK,
+	&Sexy::IMAGE_CHALLENGE_THUMBNAILS,
+	&Sexy::IMAGE_SURVIVAL_THUMBNAILS,
+	&Sexy::IMAGE_LOCK,
+	&Sexy::IMAGE_LOCK_OPEN,
+	&Sexy::IMAGE_ALMANAC_INDEXBACK,
+	&Sexy::IMAGE_ALMANAC_PLANTBACK,
+	&Sexy::IMAGE_ALMANAC_ZOMBIEBACK,
+	&Sexy::IMAGE_ALMANAC_PLANTCARD,
+	&Sexy::IMAGE_ALMANAC_ZOMBIECARD,
+	&Sexy::IMAGE_ALMANAC_ZOMBIEWINDOW,
+	&Sexy::IMAGE_ALMANAC_ZOMBIEWINDOW2,
+	&Sexy::IMAGE_ALMANAC_ZOMBIEBLANK,
+	&Sexy::IMAGE_ALMANAC_GROUNDDAY,
+	&Sexy::IMAGE_ALMANAC_GROUNDNIGHT,
+	&Sexy::IMAGE_ALMANAC_GROUNDPOOL,
+	&Sexy::IMAGE_ALMANAC_GROUNDNIGHTPOOL,
+	&Sexy::IMAGE_ALMANAC_GROUNDROOF,
+	&Sexy::IMAGE_ALMANAC_GROUNDICE,
+	&Sexy::IMAGE_ALMANAC_CLOSEBUTTON,
+	&Sexy::IMAGE_ALMANAC_CLOSEBUTTONHIGHLIGHT,
+	&Sexy::IMAGE_ALMANAC_INDEXBUTTON,
+	&Sexy::IMAGE_ALMANAC_INDEXBUTTONHIGHLIGHT,
+	&Sexy::IMAGE_STORE_BACKGROUND,
+	&Sexy::IMAGE_STORE_BACKGROUNDNIGHT,
+	&Sexy::IMAGE_STORE_CAR,
+	&Sexy::IMAGE_STORE_CAR_NIGHT,
+	&Sexy::IMAGE_STORE_CARCLOSED,
+	&Sexy::IMAGE_STORE_CARCLOSED_NIGHT,
+	&Sexy::IMAGE_STORE_HATCHBACKOPEN,
+	&Sexy::IMAGE_STORE_SIGN,
+	&Sexy::IMAGE_STORE_MAINMENUBUTTON,
+	&Sexy::IMAGE_STORE_MAINMENUBUTTONDOWN,
+	&Sexy::IMAGE_STORE_MAINMENUBUTTONHIGHLIGHT,
+	&Sexy::IMAGE_STORE_NEXTBUTTON,
+	&Sexy::IMAGE_STORE_NEXTBUTTONHIGHLIGHT,
+	&Sexy::IMAGE_STORE_NEXTBUTTONDISABLED,
+	&Sexy::IMAGE_STORE_PREVBUTTON,
+	&Sexy::IMAGE_STORE_PREVBUTTONHIGHLIGHT,
+	&Sexy::IMAGE_STORE_PREVBUTTONDISABLED,
+	&Sexy::IMAGE_STORE_PRICETAG,
+	&Sexy::IMAGE_STORE_PACKETUPGRADE,
+	&Sexy::IMAGE_STORE_MUSHROOMGARDENICON,
+	&Sexy::IMAGE_STORE_AQUARIUMGARDENICON,
+	&Sexy::IMAGE_STORE_TREEOFWISDOMICON,
+	&Sexy::IMAGE_STORE_FIRSTAIDWALLNUTICON,
+	&Sexy::IMAGE_STORE_PVZICON,
+	&Sexy::IMAGE_ZOMBIE_NOTE,
+	&Sexy::IMAGE_ZOMBIE_NOTE1,
+	&Sexy::IMAGE_ZOMBIE_NOTE2,
+	&Sexy::IMAGE_ZOMBIE_NOTE3,
+	&Sexy::IMAGE_ZOMBIE_NOTE4,
+	&Sexy::IMAGE_ZOMBIE_FINAL_NOTE,
+	&Sexy::IMAGE_ZOMBIE_NOTE_HELP,
+	&Sexy::FONT_BRIANNETOD32,
+	&Sexy::FONT_BRIANNETOD32BLACK,
+	&Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING1,
+	&Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING2,
+	&Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING3,
+	&Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING4,
+	&Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_SING5,
+	&Sexy::IMAGE_REANIM_SUNFLOWER_HEAD_WINK,
+	&Sexy::IMAGE_REANIM_CREDITS_DISCOLIGHTS,
+	&Sexy::IMAGE_REANIM_CREDITS_FOGMACHINE,
+	&Sexy::IMAGE_CREDITS_ZOMBIENOTE,
+	&Sexy::IMAGE_CREDITS_PLAYBUTTON,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_BG,
+	&Sexy::IMAGE_ZOMBATAR_PREV_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_PREV_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_NEXT_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_NEXT_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_ZOMBIE_BLANK,
+	&Sexy::IMAGE_ZOMBATAR_ZOMBIE_BLANK_SKIN,
+	&Sexy::IMAGE_ZOMBATAR_BACKGROUND_CRAZYDAVE,
+	&Sexy::IMAGE_ZOMBATAR_BACKGROUND_MENU,
+	&Sexy::IMAGE_ZOMBATAR_BACKGROUND_MENU_DOS,
+	&Sexy::IMAGE_ZOMBATAR_BACKGROUND_ROOF,
+	&Sexy::IMAGE_ZOMBATAR_WIDGET_BG,
+	&Sexy::IMAGE_ZOMBATAR_WIDGET_INNER_BG,
+	&Sexy::IMAGE_ZOMBATAR_COLORS_BG,
+	&Sexy::IMAGE_ZOMBATAR_LOGO,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_BACKDROPS_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_BACKDROPS_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_BACKDROPS_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_FACIAL_HAIR_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_HATS_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_HATS_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_HATS_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_SKIN_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_SKIN_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_BUTTON_OVER,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_BG_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_TRIPTYCH,
+	&Sexy::IMAGE_ZOMBATAR_COLORPICKER,
+	&Sexy::IMAGE_ZOMBATAR_COLORPICKER_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_COLORPICKER_NONE,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_BG_NONE,
+	&Sexy::IMAGE_ZOMBATAR_COLORS_BG_SMALL,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_1,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_2,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_3,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_4,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_5,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_6,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_7,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_8,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_9,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_10,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_11,
+	&Sexy::IMAGE_ZOMBATAR_CLOTHES_12,
+	&Sexy::IMAGE_ZOMBATAR_HATS_1,
+	&Sexy::IMAGE_ZOMBATAR_HATS_2,
+	&Sexy::IMAGE_ZOMBATAR_HATS_3,
+	&Sexy::IMAGE_ZOMBATAR_HATS_4,
+	&Sexy::IMAGE_ZOMBATAR_HATS_5,
+	&Sexy::IMAGE_ZOMBATAR_HATS_6,
+	&Sexy::IMAGE_ZOMBATAR_HATS_7,
+	&Sexy::IMAGE_ZOMBATAR_HATS_8,
+	&Sexy::IMAGE_ZOMBATAR_HATS_9,
+	&Sexy::IMAGE_ZOMBATAR_HATS_10,
+	&Sexy::IMAGE_ZOMBATAR_HATS_11,
+	&Sexy::IMAGE_ZOMBATAR_HATS_12,
+	&Sexy::IMAGE_ZOMBATAR_HATS_13,
+	&Sexy::IMAGE_ZOMBATAR_HATS_14,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_1,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_2,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_3,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_4,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_5,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_6,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_7,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_8,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_9,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_10,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_11,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_12,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_13,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_14,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_15,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_16,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_1,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_2,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_3,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_4,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_5,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_6,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_7,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_8,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_9,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_10,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_11,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_12,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_13,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_14,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_15,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_16,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_1,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_2,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_3,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_4,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_5,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_6,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_7,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_8,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_9,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_10,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_11,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_12,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_13,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_14,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_15,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_16,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_17,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_18,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_19,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_20,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_21,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_22,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_23,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_24,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_1,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_2,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_3,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_4,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_5,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_6,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_7,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_8,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_9,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_10,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_11,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_12,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_13,
+	&Sexy::IMAGE_ZOMBATAR_TIDBITS_14,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_1,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_2,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_3,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_4,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_5,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_6,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_7,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_8,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_9,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_10,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_11,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_12,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_13,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_14,
+	&Sexy::IMAGE_ZOMBATAR_HATS_1_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_1_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_2_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_11_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_12_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_13_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_14_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HAIR_15_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_1_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_4_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_8_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_9_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_10_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_11_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_12_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_14_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_15_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_16_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_18_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_21_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_22_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_23_MASK,
+	&Sexy::IMAGE_ZOMBATAR_FACIALHAIR_24_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_1_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_2_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_3_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_4_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_5_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_6_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_7_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_8_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_9_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_10_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_11_MASK,
+	&Sexy::IMAGE_ZOMBATAR_EYEWEAR_12_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HATS_3_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HATS_6_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HATS_7_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HATS_8_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HATS_9_MASK,
+	&Sexy::IMAGE_ZOMBATAR_HATS_11_MASK,
+	&Sexy::IMAGE_ZOMBATAR_BACKGROUND_BLANK,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_15,
+	&Sexy::IMAGE_ZOMBATAR_ACCESSORY_16,
+	&Sexy::IMAGE_ZOMBATAR_ACCEPT_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_ACCEPT_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_FINISHED_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_FINISHED_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_MAIN_BG,
+	&Sexy::IMAGE_ZOMBATAR_BACK_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_BACK_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_NEWZOMBIE_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_TOS_ARROW,
+	&Sexy::IMAGE_ZOMBATAR_BEGIN_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_BEGIN_BUTTON_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_TOS_SLIDER,
+	&Sexy::IMAGE_ZOMBATAR_TOS_SLIDER_THUMB,
+	&Sexy::IMAGE_ZOMBATAR_DISPLAY_WINDOW,
+	&Sexy::IMAGE_ZOMBATAR_MAINMENUBACK_HIGHLIGHT,
+	&Sexy::IMAGE_ZOMBATAR_VIEW_BUTTON,
+	&Sexy::IMAGE_ZOMBATAR_VIEW_BUTTON_HIGHLIGHT
+};
+
+Sexy::Image* Sexy::GetImageById(ResourceId theId)
+{
+	return *reinterpret_cast<Sexy::Image**>(gResources[static_cast<int>(theId)]);
+}
+
+Sexy::_Font* Sexy::GetFontById(ResourceId theId)
+{
+	return *reinterpret_cast<Sexy::_Font**>(gResources[static_cast<int>(theId)]);
+}
+
+intptr_t Sexy::GetSoundById(ResourceId theId)
+{
+	return *reinterpret_cast<intptr_t*>(gResources[static_cast<int>(theId)]);
+}
+
+Image*& Sexy::GetImageRefById(ResourceId theId)
+{
+	return *reinterpret_cast<Image**>(gResources[static_cast<int>(theId)]);
+}
+
+_Font*& Sexy::GetFontRefById(ResourceId theId)
+{
+	return *reinterpret_cast<_Font**>(gResources[static_cast<int>(theId)]);
+}
+
+intptr_t& Sexy::GetSoundRefById(ResourceId theId)
+{
+	return *reinterpret_cast<intptr_t*>(gResources[static_cast<int>(theId)]);
+}
+
+Sexy::ResourceId Sexy::GetIdByImage(Image* theImage)
+{
+	return GetIdByVariable(theImage);
+}
+
+Sexy::ResourceId Sexy::GetIdByFont(_Font* theFont)
+{
+	return GetIdByVariable(theFont);
+}
+
+Sexy::ResourceId Sexy::GetIdBySound(intptr_t theSound)
+{
+	return GetIdByVariable((void*)theSound);
+}
+
+Sexy::ResourceId Sexy::GetIdByVariable(void* theVariable)
+{
+	static std::map<void*, int> aMap;
+
+	if (gNeedRecalcVariableToIdMap)
+	{
+		gNeedRecalcVariableToIdMap = false;
+		aMap.clear();
+		for (int i = 0; i < static_cast<int>(ResourceId::RESOURCE_ID_MAX); i++)
+		{
+			void* value;
+			std::memcpy(&value, gResources[i], sizeof(void*));
+			aMap[value] = i;
+		}
+	}
+
+	std::map<void*, int>::iterator anIter = aMap.find(theVariable);
+	return anIter == aMap.end() ? ResourceId::RESOURCE_ID_MAX : (ResourceId)anIter->second;
+}

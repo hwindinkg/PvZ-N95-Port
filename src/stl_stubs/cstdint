@@ -1,0 +1,17 @@
+// cstdint - stub for Symbian port
+// Map uint32_t/uint8_t to Symbian TUint32/TUint8
+#ifndef _STL_STUBS_CSTDINT
+#define _STL_STUBS_CSTDINT
+
+#include <e32std.h>
+
+typedef TUint8  uint8_t;
+typedef TUint16 uint16_t;
+typedef TUint32 uint32_t;
+typedef TUint64 uint64_t;
+typedef TInt8   int8_t;
+typedef TInt16  int16_t;
+typedef TInt32  int32_t;
+typedef TInt64  int64_t;
+
+#endif

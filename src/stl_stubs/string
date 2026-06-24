@@ -1,0 +1,107 @@
+// Symbian S60 3rd FP1 std::string stub
+// Self-contained: no dependency on C headers or libc.
+// Uses a unique guard (NOT _GLIBCXX_STRING) to avoid conflict with the
+// SDK's stdapis/string which also defines std::string under _GLIBCXX_STRING.
+// The SDK's header may be pulled in first via e32 include chains, so we
+// must not rely on being found first via USERINCLUDE ordering.
+#ifndef _STL_STUBS_STRING
+#define _STL_STUBS_STRING 1
+
+// Also claim _GLIBCXX_STRING so that the SDK's stdapis/string
+// (which uses the _GLIBCXX_STRING guard) is skipped when its
+// <string> is found later in the SYSTEMINCLUDE search order.
+// This prevents the broken basic_string<char>-based definition
+// from conflicting with ours.
+#ifndef _GLIBCXX_STRING
+#define _GLIBCXX_STRING 1
+#endif
+
+namespace std {
+
+class string {
+public:
+    typedef unsigned int size_type;
+
+    string() : mData(0), mSize(0), mCapacity(0) {}
+    string(const char* s) : mData(0), mSize(0), mCapacity(0) { if (s) assign(s); }
+    string(const string& o) : mData(0), mSize(0), mCapacity(0) { assign(o.mData); }
+    ~string() { if (mData) delete[] mData; }
+
+    string& operator=(const string& o) { if (&o != this) assign(o.mData); return *this; }
+    string& operator=(const char* s) { assign(s); return *this; }
+
+    const char* c_str() const { return mData ? mData : ""; }
+    const char* data() const { return mData ? mData : ""; }
+    unsigned int length() const { return mSize; }
+    unsigned int size() const { return mSize; }
+    bool empty() const { return mSize == 0; }
+    int compare(const string& o) const { return strcmp(c_str(), o.c_str()); }
+
+    string& operator+=(const string& o) { append(o.mData, o.mSize); return *this; }
+    string& operator+=(const char* s) { if (s) { unsigned int n = strlen(s); append(s, n); } return *this; }
+
+    void clear() { if (mData) { mData[0] = 0; mSize = 0; } }
+
+    char operator[](unsigned int i) const { return mData ? mData[i] : 0; }
+    char& operator[](unsigned int i) { return mData[i]; }
+
+    friend bool operator==(const string& a, const string& b) { return strcmp(a.c_str(), b.c_str()) == 0; }
+    friend bool operator!=(const string& a, const string& b) { return strcmp(a.c_str(), b.c_str()) != 0; }
+    friend string operator+(const string& a, const string& b) { string r(a); r += b; return r; }
+    friend string operator+(const string& a, const char* b) { string r(a); r += b; return r; }
+
+private:
+    char* mData;
+    unsigned int mSize;
+    unsigned int mCapacity;
+
+    static unsigned int strlen(const char* s) {
+        unsigned int n = 0;
+        while (s[n]) ++n;
+        return n;
+    }
+
+    static int strcmp(const char* a, const char* b) {
+        while (*a && *a == *b) { ++a; ++b; }
+        return (unsigned char)*a - (unsigned char)*b;
+    }
+
+    static void memcpy(char* d, const char* s, unsigned int n) {
+        for (unsigned int i = 0; i < n; ++i) d[i] = s[i];
+    }
+
+    void assign(const char* s) {
+        if (!s) { clear(); return; }
+        unsigned int len = strlen(s);
+        reserve(len + 1);
+        memcpy(mData, s, len + 1);
+        mSize = len;
+    }
+
+    void append(const char* s, unsigned int n) {
+        if (!s || !n) return;
+        reserve(mSize + n + 1);
+        memcpy(mData + mSize, s, n);
+        mSize += n;
+        mData[mSize] = 0;
+    }
+
+    void reserve(unsigned int cap) {
+        if (cap > mCapacity) {
+            if (cap < 32) cap = 32;
+            char* newData = new char[cap];
+            if (mData) {
+                memcpy(newData, mData, mSize + 1);
+                delete[] mData;
+            } else {
+                newData[0] = 0;
+            }
+            mData = newData;
+            mCapacity = cap;
+        }
+    }
+};
+
+} // namespace std
+
+#endif // _GLIBCXX_STRING
