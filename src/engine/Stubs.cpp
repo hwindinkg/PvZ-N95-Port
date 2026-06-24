@@ -38,17 +38,14 @@ TCppRTExceptionsGlobals::TCppRTExceptionsGlobals() {}
 extern "C" const void* _ZTI15XLeaveException __attribute__((weak)) = 0;
 extern "C" const char _ZTS15XLeaveException[] __attribute__((weak)) = "15XLeaveException";
 
-// CallThrdProcEntry - process entry point (TInt return, creates CTrapCleanup)
-extern "C" TInt E32Main();
-extern "C" __attribute__((visibility("hidden"))) TInt CallThrdProcEntry() {
-    CTrapCleanup* cleanup = CTrapCleanup::New();
-    User::InitProcess();
-    TInt error = E32Main();
-    delete cleanup;
-    return error;
-}
-extern "C" __attribute__((visibility("hidden"))) void __cpp_initialize__aeabi_() { }
-extern "C" void* _Znwj(unsigned int);extern "C" void* _Znaj(unsigned int);extern "C" void _ZdlPv(void*);extern "C" void _ZdaPv(void*);static void* __force_new[] = { (void*)_Znwj, (void*)_Znaj, (void*)_ZdlPv, (void*)_ZdaPv };
+// NOTE: Under the standard abld toolchain the SDK's eexe.lib startup
+// (_E32Startup) provides the real process entry AND the real
+// __cpp_initialize__aeabi_ (which runs the global C++ constructors and
+// initialises the C++ exception runtime). The previous custom
+// CallThrdProcEntry + an EMPTY __cpp_initialize__aeabi_ were bandaids for
+// the old hand-rolled GCCE link; under abld the empty version SUPPRESSED
+// all static initialisation, so the first TRAP/Leave inside
+// EikStart::RunApplication crashed before E32Main could even log. Removed.
 
 // Software float IEEE 754 implementations
 // Uses integer bit manipulation to avoid circular aeabi calls

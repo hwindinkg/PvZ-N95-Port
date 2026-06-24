@@ -5,6 +5,7 @@
 static void BootLog(const char* msg) {
     RFs fs; RFile f;
     if (fs.Connect() != KErrNone) return;
+    fs.MkDirAll(_L("C:\\Data\\PvZ\\")); // ensure log dir exists
     TBuf8<128> b; b.Copy((const TUint8*)msg); b.Append('\n');
     if (f.Open(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny) != KErrNone)
         f.Create(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite);
