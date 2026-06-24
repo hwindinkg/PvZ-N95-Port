@@ -1,0 +1,17 @@
+; Auto-generated portable package for PvZ N95 (relative source names)
+; Used by build_sisx.cmd - run that script, it produces build/out/PvZ_N95.sisx
+&EN
+
+#{"Plants vs Zombies N95"},(0xE1234567),1,0,0
+%{"PvZ N95"}
+:"PvZ N95"
+
+; Supported platforms
+[0x101F7961], 0, 0, 0, {"S60 3rd Edition devices"}
+[0x102032BE], 0, 0, 0, {"S60 3rd Edition FP1 devices"}
+
+; Files to install (sources are relative - makesis runs from build/out/pkg)
+"PvZ_N95.exe"      - "!:\sys\bin\PvZ_N95.exe"
+"PvZ_N95.rsc"     - "!:\resource\apps\PvZ_N95.rsc"
+"PvZ_N95_loc.rsc" - "!:\resource\apps\PvZ_N95_loc.rsc"
+"PvZ_N95_reg.rsc" - "!:\private\10003a3f\import\apps\PvZ_N95_reg.rsc"

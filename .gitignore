@@ -30,3 +30,9 @@ abld.*
 Thumbs.db
 .DS_Store
 *.bak
+# Builder outputs (keep build/package.pkg)
+build/obj/
+build/out/
+key.key
+key.cer
+!build/package.pkg
