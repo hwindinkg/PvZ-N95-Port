@@ -81,14 +81,17 @@ call bldmake bldfiles
 if ERRORLEVEL 1 ( echo [ERROR] bldmake failed & popd & pause & exit /b 1 )
 
 echo.
+:: Delete any stale EXE so a failed compile cannot be packaged silently
+set "EXE=%SDK%\Epoc32\release\gcce\urel\PvZ_N95.exe"
+if exist "%EXE%" del /q "%EXE%"
+
 echo === abld build gcce urel ===
 call abld build gcce urel
 if ERRORLEVEL 1 ( echo [ERROR] abld build failed - see messages above & popd & pause & exit /b 1 )
 popd
 
-:: ============ 5. Verify the EXE was produced ============
-set "EXE=%SDK%\Epoc32\release\gcce\urel\PvZ_N95.exe"
-if not exist "%EXE%" ( echo [ERROR] abld did not produce %EXE% & pause & exit /b 1 )
+:: ============ 5. Verify the EXE was produced (fresh) ============
+if not exist "%EXE%" ( echo [ERROR] abld build FAILED - PvZ_N95.exe was not produced. Scroll up for the compiler error. & pause & exit /b 1 )
 echo [OK] Built EXE : %EXE%
 
 :: ============ 6. Signing cert (reuse or self-generate) ============
