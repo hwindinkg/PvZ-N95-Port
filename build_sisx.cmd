@@ -125,124 +125,124 @@ set "SD_LWN=%SRC%\Lawn"
 echo === Compiling source files ===
 echo   [CC] main_symbian.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\main_symbian.o" "%SD_SRC%\main_symbian.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: main_symbian.cpp & exit /b 1)
 echo   [CC] PvZApplication.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZApplication.o" "%SD_PLA%\PvZApplication.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: PvZApplication.cpp & exit /b 1)
 echo   [CC] PvZDocument.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZDocument.o" "%SD_PLA%\PvZDocument.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: PvZDocument.cpp & exit /b 1)
 echo   [CC] PvZAppUi.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZAppUi.o" "%SD_PLA%\PvZAppUi.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: PvZAppUi.cpp & exit /b 1)
 echo   [CC] PvZGameView.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZGameView.o" "%SD_PLA%\PvZGameView.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: PvZGameView.cpp & exit /b 1)
 echo   [CC] SymbianFixes.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\SymbianFixes.o" "%SD_ENG%\SymbianFixes.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: SymbianFixes.cpp & exit /b 1)
 echo   [CC] PvZVfs.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZVfs.o" "%SD_ENG%\PvZVfs.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: PvZVfs.cpp & exit /b 1)
 echo   [CC] PakInterface.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PakInterface.o" "%SD_ENG%\PakInterface.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: PakInterface.cpp & exit /b 1)
 echo   [CC] GLInterface.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GLInterface.o" "%SD_ENG%\GLInterface.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: GLInterface.cpp & exit /b 1)
 echo   [CC] Image.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Image.o" "%SD_ENG%\Image.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Image.cpp & exit /b 1)
 echo   [CC] NativeDisplay.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\NativeDisplay.o" "%SD_ENG%\NativeDisplay.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: NativeDisplay.cpp & exit /b 1)
 echo   [CC] MemoryImage.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\MemoryImage.o" "%SD_ENG%\MemoryImage.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: MemoryImage.cpp & exit /b 1)
 echo   [CC] GLImage.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GLImage.o" "%SD_ENG%\GLImage.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: GLImage.cpp & exit /b 1)
 echo   [CC] Color.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Color.o" "%SD_ENG%\Color.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Color.cpp & exit /b 1)
 echo   [CC] SexyMatrix.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\SexyMatrix.o" "%SD_ENG%\SexyMatrix.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: SexyMatrix.cpp & exit /b 1)
 echo   [CC] Buffer.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Buffer.o" "%SD_ENG%\Buffer.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Buffer.cpp & exit /b 1)
 echo   [CC] Graphics.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Graphics.o" "%SD_ENG%\Graphics.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Graphics.cpp & exit /b 1)
 echo   [CC] TodStringFile.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\TodStringFile.o" "%SD_ENG%\TodStringFile.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: TodStringFile.cpp & exit /b 1)
 echo   [CC] SexyAppBase.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\SexyAppBase.o" "%SD_ENG%\SexyAppBase.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: SexyAppBase.cpp & exit /b 1)
 echo   [CC] Widget.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Widget.o" "%SD_ENG%\Widget.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Widget.cpp & exit /b 1)
 echo   [CC] WidgetContainer.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\WidgetContainer.o" "%SD_ENG%\WidgetContainer.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: WidgetContainer.cpp & exit /b 1)
 echo   [CC] WidgetManager.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\WidgetManager.o" "%SD_ENG%\WidgetManager.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: WidgetManager.cpp & exit /b 1)
 echo   [CC] Font.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Font.o" "%SD_ENG%\Font.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Font.cpp & exit /b 1)
 echo   [CC] Stubs.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Stubs.o" "%SD_ENG%\Stubs.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Stubs.cpp & exit /b 1)
 echo   [CC] TodCommon.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\TodCommon.o" "%SD_TOD%\TodCommon.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: TodCommon.cpp & exit /b 1)
 echo   [CC] TodDebug.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\TodDebug.o" "%SD_TOD%\TodDebug.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: TodDebug.cpp & exit /b 1)
 echo   [CC] Resources_stub.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Resources_stub.o" "%SD_SRC%\Resources_stub.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Resources_stub.cpp & exit /b 1)
 echo   [CC] GameObject.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GameObject.o" "%SD_LWN%\GameObject.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: GameObject.cpp & exit /b 1)
 echo   [CC] Board.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Board.o" "%SD_LWN%\Board.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Board.cpp & exit /b 1)
 echo   [CC] Plant.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Plant.o" "%SD_LWN%\Plant.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Plant.cpp & exit /b 1)
 echo   [CC] Zombie.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Zombie.o" "%SD_LWN%\Zombie.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Zombie.cpp & exit /b 1)
 echo   [CC] Projectile.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Projectile.o" "%SD_LWN%\Projectile.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Projectile.cpp & exit /b 1)
 echo   [CC] Coin.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Coin.o" "%SD_LWN%\Coin.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Coin.cpp & exit /b 1)
 echo   [CC] LawnMower.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\LawnMower.o" "%SD_LWN%\LawnMower.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: LawnMower.cpp & exit /b 1)
 echo   [CC] GridItem.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GridItem.o" "%SD_LWN%\GridItem.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: GridItem.cpp & exit /b 1)
 echo   [CC] Challenge.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Challenge.o" "%SD_LWN%\Challenge.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: Challenge.cpp & exit /b 1)
 echo   [CC] LawnApp.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\LawnApp.o" "%SD_SRC%\LawnApp.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: LawnApp.cpp & exit /b 1)
 echo   [CC] ResourceManager.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\ResourceManager.o" "%SD_ENG%\ResourceManager.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: ResourceManager.cpp & exit /b 1)
 echo   [CC] stb_image.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\stb_image.o" "%SD_ENG%\stb_image.cpp"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: stb_image.cpp & exit /b 1)
 echo   [AS] newop.s
 arm-none-symbianelf-as -o "%OBJ%\newop.o" "%SRC%\engine\newop.s"
-if errorlevel 1 exit /b 1
+if errorlevel 1 (echo   [ERROR] compile FAILED: newop.cpp & exit /b 1)
 echo [OK] All sources compiled.
 echo.
 

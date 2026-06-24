@@ -19,7 +19,7 @@ extern "C" CApaApplication* NewApplication() {
     return CPvZApplication::NewApplication();
 }
 
-GLDEF_C TInt E32Main()
+TInt E32Main()
 {
     WriteLog("E32Main START");
     TInt err = EikStart::RunApplication(NewApplication);
