@@ -36,3 +36,7 @@ build/out/
 key.key
 key.cer
 !build/package.pkg
+# Keep the 3 precompiled resources needed for packaging
+!data/PvZ_N95.rsc
+!data/PvZ_N95_loc.rsc
+!data/PvZ_N95_reg.rsc
