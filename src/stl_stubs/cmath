@@ -1,26 +1,11 @@
 // cmath stub for Symbian S60 3rd FP1 (abld GCCE).
-// Declarations only; implementations link from the SDK math runtime
-// (same as the working manual build). Provides both global and std names.
+// INTENTIONALLY a no-op. The engine's Common.h already provides inline
+// sin/cos/fabs/sqrt/pow/atan2/sinf/cosf/fabsf (C++ linkage) and includes
+// <math.h> itself. The only consumers of <cmath> (Coin.cpp, TodCommon.h)
+// include Common.h and use the bare global names, never std::<fn>.
+// An earlier version re-declared these as extern "C" / via the
+// sqrtf->sqrtf_symbian macro and clashed with Common.h. Keep this empty.
 #ifndef PVZ_STUB_CMATH
 #define PVZ_STUB_CMATH
-
-extern "C" {
-    double sin(double);   double cos(double);   double tan(double);
-    double asin(double);  double acos(double);  double atan(double);
-    double atan2(double, double);
-    double sqrt(double);  double pow(double, double);
-    double exp(double);   double log(double);   double log10(double);
-    double floor(double); double ceil(double);  double fabs(double);
-    double fmod(double, double);
-    float  sinf(float);   float  cosf(float);   float  sqrtf(float);
-    float  floorf(float); float  ceilf(float);  float  fabsf(float);
-    float  powf(float, float);
-}
-
-namespace std {
-    using ::sin;  using ::cos;  using ::tan;  using ::asin; using ::acos;
-    using ::atan; using ::atan2; using ::sqrt; using ::pow; using ::exp;
-    using ::log;  using ::log10; using ::floor; using ::ceil; using ::fabs;
-    using ::fmod;
-}
+#include <math.h>   // header-guarded; harmless, gives global C math too
 #endif // PVZ_STUB_CMATH
