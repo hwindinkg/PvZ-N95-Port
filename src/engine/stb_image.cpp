@@ -13,4 +13,8 @@
 #define STBI_FREE(p)        User::Free(p)
 #define STBI_REALLOC(p,sz)  User::ReAlloc(p,sz)
 
+// Symbian/GCCE 3.4.3 (__GNUC__<5) would otherwise enable __thread, which
+// produces R_ARM_TLS_LE32 relocations + __aeabi_read_tp that Symbian rejects.
+#define STBI_NO_THREAD_LOCALS
+
 #include "stb_image.h"
