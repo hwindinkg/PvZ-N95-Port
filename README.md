@@ -36,6 +36,30 @@ RVCT 2.2 (build 349) is installed at:
 > relaxed/patched (or install build 435). This is the FIRST thing to check if the
 > RVCT build refuses to start.
 
+### ⚠️ RVCT license is EXPIRED (current hard blocker, 2026-06-24)
+`armcc` runs but FLEXlm rejects it:
+```
+Error: C3397E: Cannot obtain license for Compiler ... Feature has expired
+Expire date: 31-dec-2020   License path: C:\Symbian\ARM\license.dat
+```
+RVCT 2.2 [349] needs a valid FLEXlm license; the installed one expired 31-Dec-2020.
+**No repo change can fix this.** Options:
+1. **Clock roll-back (standard workaround):** disable Windows automatic time sync,
+   set the system date to before 31-Dec-2020 (e.g. 2019-06-01), run `build_rvct.cmd`,
+   then restore the clock. FLEXlm then accepts the license.
+   - ⚠️ Caveat: the self-signed cert from `makekeys`/`signsis` is created under the
+     rolled-back date. If the phone (real date ~2026) later rejects the cert as
+     not-yet/!-valid, regenerate the cert with a wide validity window, or sign the
+     `.sis` after restoring the clock.
+2. Install a **non-expired** `license.dat` (or RVCT 2.2 build 435 with a valid license).
+
+### bld.inf / PATH fixes already applied
+- `build_rvct.cmd` now prepends `%SDK%\Epoc32\gcc\bin` to PATH so bldmake's
+  `Checkgcc.pm` finds the correct `cpp.exe` (else: "CPP.EXE ... expected in \GCC\BIN\").
+- "This project does not support platform ARMV5" was a *consequence* of bldmake
+  failing (no makefiles generated). Once bldmake succeeds, armv5 is recognized.
+
+
 ### How to build (RVCT path — preferred)
 ```
 git pull

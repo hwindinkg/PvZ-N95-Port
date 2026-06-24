@@ -90,14 +90,15 @@ exit /b 1
 
 :rvdone
 
-:: ============ 4. PATH: SDK tools + RVCT + Perl ============
-set "PATH=%SDKTOOLS%;%RVCT22BIN%;%PATH%"
+:: ============ 4. PATH: SDK gcc\bin (preprocessor) + SDK tools + RVCT + Perl ============
+:: %SDK%\Epoc32\gcc\bin MUST be first so bldmake's Checkgcc.pm finds the right cpp.exe
+:: (it demands a cpp from a dir ending in \GCC\BIN\, else 'BLDMAKE ERROR ... CPP.EXE').
+set "PATH=%SDK%\Epoc32\gcc\bin;%SDKTOOLS%;%RVCT22BIN%;%PATH%"
 where armcc >nul 2>&1
 if ERRORLEVEL 1 ( echo [ERROR] armcc not on PATH after setup. & pause & exit /b 1 )
-echo --- armcc version ---
-armcc --version_number
-armcc 2>nul | findstr /I "RVCT ARM" 
-echo ---------------------
+echo --- armcc identification (FLEXlm license is checked here) ---
+armcc 2>&1 | findstr /I "RVCT Build license expired Error C3397"
+echo -----------------------------------------------------------
 
 :: Perl (abld/bldmake are Perl scripts)
 where perl >nul 2>&1
