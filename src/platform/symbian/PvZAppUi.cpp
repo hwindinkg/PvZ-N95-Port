@@ -44,7 +44,7 @@ void CPvZAppUi::ConstructL()
     { TBuf<64> b; b.Format(_L("EH test caught err=%d (expect -42)"), ehTest); Log(b); }
 
     Log(_L("step: BaseConstructL (TRAP)"));
-    TRAPD(bcErr, BaseConstructL(EAknEnableSkin));
+    TRAPD(bcErr, BaseConstructL());
     { TBuf<64> b; b.Format(_L("step: BaseConstructL returned err=%d"), bcErr); Log(b); }
     User::LeaveIfError(bcErr);
     Log(_L("step: BaseConstructL OK"));
@@ -73,6 +73,7 @@ void CPvZAppUi::ConstructL()
 
     Log(_L("step: GameView NewL"));
     iGameView = CPvZGameView::NewL();
+    iGameView->SetMopParent(this);   // MOP chain (skin/draw context) -- reference pattern
     Log(_L("step: InitGLES"));
     iGameView->InitGLES();
     Log(_L("step: InitGLES done"));
@@ -83,8 +84,14 @@ void CPvZAppUi::ConstructL()
         iLawnApp->mGraphics->SetGLInterface(iGameView->GetGL());
     Log(_L("step: GL wired"));
 
+    // Put the GL container on the control stack so it receives
+    // key/pointer events and participates in redraw -- this was the
+    // missing piece vs. the working Whisk3D reference.
+    AddToStackL(iGameView);
+    Log(_L("step: AddToStackL done"));
+
     Log(_L("step: start heartbeat timer"));
-    iTimer = CPeriodic::NewL(CActive::EPriorityStandard);
+    iTimer = CPeriodic::NewL(CActive::EPriorityIdle);  // below normal AOs (ICL decoder) -- reference uses sub-idle priority
     iTimer->Start(KFrameInterval, KFrameInterval, TCallBack(Tick, this));
     Log(_L("AppUi::ConstructL EXIT"));
 }

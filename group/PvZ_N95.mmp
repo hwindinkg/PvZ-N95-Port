@@ -1,13 +1,23 @@
 // group/PvZ_N95.mmp
 TARGET          PvZ_N95.exe
 TARGETTYPE      exe
-UID             0x1000007a 0xE1234567
+UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
+
+// PvZ loads many large bitmaps; default 1MB max heap is far too small.
+EPOCHEAPSIZE    0x20000 0x4000000        // min 128KB, max 64MB
+EPOCSTACKSIZE   0x14000                  // 80KB stack (GL + recursion headroom)
+
+// Self-signable caps; needed to write boot.log under C:\Data and read game files.
+CAPABILITY      ReadUserData WriteUserData
 
 
 SOURCEPATH      ..\src
 
 // === Main entry point ===
 SOURCE          main_symbian.cpp
+
+// Custom operator new/delete -> User::Alloc/Free (no scppnwdl.dll on N95)
+SOURCE          newdel_compat.cpp
 
 // === Platform layer (Symbian OS) ===
 SOURCEPATH      ..\src\platform\symbian
@@ -72,7 +82,6 @@ USERINCLUDE     ..\src\Sexy.TodLib
 USERINCLUDE     ..\src\Lawn
 USERINCLUDE     ..\src\stl_stubs
 
-SYSTEMINCLUDE   \Symbian\N95PVZ\src\stl_stubs
 SYSTEMINCLUDE   \epoc32\include
 SYSTEMINCLUDE   \epoc32\include\variant
 SYSTEMINCLUDE   \epoc32\include\stdapis

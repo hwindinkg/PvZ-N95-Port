@@ -87,3 +87,33 @@ src/
 
 Engine/port source is **LGPL-3.0-or-later**; PopCap-derived content remains
 under its original license. See source headers for per-file SPDX identifiers.
+
+## Building (recommended: standard `abld` toolchain)
+
+The reference N95 GL port ([Whisk3D](https://github.com/Dante-Leoncini/Whisk3D/tree/symbian))
+builds with the **standard Symbian `abld` build system**, which correctly emits
+C++ exception-unwinding tables (`.ARM.exidx`) and the E32 exception descriptor.
+The earlier hand-rolled GCCE link script did **not**, which caused a `KERN-EXEC 3`
+crash on the first `User::Leave`/`TRAP`. We now build the same way.
+
+```
+git pull
+build_abld.cmd
+```
+
+`build_abld.cmd`:
+1. auto-detects the S60 3rd FP1 SDK, the GCCE (`arm-none-symbianelf`) toolchain and Perl
+2. runs `bldmake bldfiles` then `abld build gcce urel` from `group/`
+3. packages with `makesis` + `signsis` (self-signs a cert if none is present)
+4. outputs `build\out\PvZ_N95.sisx`
+
+### Key fixes adopted from the reference
+- **`abld` build** instead of a manual GCCE link -> correct exception tables (fixes `KERN-EXEC 3`).
+- **`src/newdel_compat.cpp`**: custom `operator new/delete` -> `User::Alloc/Free`, so the
+  EXE never imports `scppnwdl.dll` (which does not exist on N95 firmware).
+- **AppUi container pattern**: `BaseConstructL()` (no flags), `SetMopParent(this)` and
+  `AddToStackL(iGameView)` so the GL `CCoeControl` is on the control stack.
+- **`.mmp` corrections**: UID2 = `0x100039CE` (GUI app, was wrongly `0x1000007a`),
+  `EPOCHEAPSIZE 0x20000 0x4000000` (64 MB; default 1 MB is far too small for PvZ bitmaps),
+  `EPOCSTACKSIZE 0x14000`, `CAPABILITY ReadUserData WriteUserData`, removed a broken
+  absolute `SYSTEMINCLUDE`.
