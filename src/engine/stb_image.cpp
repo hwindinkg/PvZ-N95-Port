@@ -11,6 +11,6 @@
 #include <e32std.h>
 #define STBI_MALLOC(sz)     User::Alloc(sz)
 #define STBI_FREE(p)        User::Free(p)
-#define STBI_REALLOC(p,sz)  User::Realloc(p,sz)
+#define STBI_REALLOC(p,sz)  User::ReAlloc(p,sz)
 
 #include "stb_image.h"
