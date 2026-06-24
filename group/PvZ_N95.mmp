@@ -56,7 +56,7 @@ SOURCE          TodDebug.cpp
 
 // === Resources ===
 SOURCEPATH      ..\src
-SOURCE          Resources.cpp
+SOURCE          Resources_stub.cpp   // full Resources.cpp needs hundreds of undeclared IMAGE_*/ExtractDelayLoad_*; stub matches trimmed Resources.h
 
 // === Lawn game logic ===
 SOURCEPATH      ..\src\Lawn
