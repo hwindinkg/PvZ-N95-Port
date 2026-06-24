@@ -94,6 +94,34 @@ popd
 if not exist "%EXE%" ( echo [ERROR] abld build FAILED - PvZ_N95.exe was not produced. Scroll up for the compiler error. & pause & exit /b 1 )
 echo [OK] Built EXE : %EXE%
 
+:: ============ 5b. DIAGNOSTIC: are C++ unwind tables present? ============
+:: A GCCE E32 image can only catch exceptions / handle User::Leave if the
+:: linked ELF contains .ARM.exidx (+ .ARM.extab) AND elf2e32 emits an
+:: exception descriptor. Check the intermediate ELF the linker produced.
+echo.
+echo === EH diagnostic: scanning linked ELF for .ARM.exidx ===
+set "SYM="
+for %%S in (
+  "%SDK%\Epoc32\release\gcce\urel\PvZ_N95.exe.sym"
+  "%SDK%\Epoc32\release\gcce\urel\PvZ_N95.sym"
+  "%SDK%\Epoc32\BUILD\*PvZ_N95*.sym"
+) do ( if not defined SYM if exist "%%~S" set "SYM=%%~S" )
+if not defined SYM (
+  echo [WARN] No .sym ELF found next to the EXE - cannot run readelf.
+) else (
+  echo [OK] ELF      : !SYM!
+  arm-none-symbianelf-readelf -S "!SYM!" > "%OUT%\exidx_check.txt" 2>&1
+  findstr /I "exidx extab" "%OUT%\exidx_check.txt"
+  findstr /I "exidx" "%OUT%\exidx_check.txt" >nul 2>&1
+  if ERRORLEVEL 1 (
+    echo [FAIL] .ARM.exidx NOT present -^> exceptions/Leave WILL crash. Need -fexceptions on every TU + correct runtime libs.
+  ) else (
+    echo [OK]   .ARM.exidx present -^> unwind tables exist. If it still crashes, the elf2e32 exception descriptor or runtime lib is the problem.
+  )
+  echo Full section table saved to: %OUT%\exidx_check.txt
+)
+echo.
+
 :: ============ 6. Signing cert (reuse or self-generate) ============
 set "KCER=" & set "KKEY=" & set "KPASS="
 for %%K in ("%ROOT%" "%BUILD%" "%ROOT%\sis") do (
