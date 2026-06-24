@@ -113,7 +113,10 @@ set "D=-DNDEBUG -D_UNICODE -D__GCCE__ -D__SYMBIAN32__ -D__SERIES60_31__ -D__SERI
 set "F=-O2 -fno-unit-at-a-time -Wall -Wno-ctor-dtor-privacy -Wno-unknown-pragmas -fexceptions -march=armv5t -mapcs -pipe -nostdinc -c -msoft-float"
 set "I=-I %SRC%/platform/symbian -I %SRC% -I %SRC%/engine -I %SRC%/Sexy.TodLib -I %SRC%/Lawn -I %SRC%/stl_stubs -I %SDK%/Epoc32/include -I %SDK%/Epoc32/include/variant -I %SDK%/Epoc32/include/stdapis"
 set "G=%SDK%/Epoc32/include/GCCE/GCCE.h"
-set "CC=arm-none-symbianelf-g++"
+set "CC=%GPP%"
+for %%A in ("%GPP%") do set "ASBIN=%%~dpA"
+set "AS=%ASBIN%arm-none-symbianelf-as.exe"
+if not exist "%AS%" set "AS=arm-none-symbianelf-as"
 
 set "SD_SRC=%SRC%"
 set "SD_ENG=%SRC%\engine"
@@ -241,7 +244,7 @@ echo   [CC] stb_image.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\stb_image.o" "%SD_ENG%\stb_image.cpp"
 if errorlevel 1 (echo   [ERROR] compile FAILED: stb_image.cpp & exit /b 1)
 echo   [AS] newop.s
-arm-none-symbianelf-as -o "%OBJ%\newop.o" "%SRC%\engine\newop.s"
+"%AS%" -o "%OBJ%\newop.o" "%SRC%\engine\newop.s"
 if errorlevel 1 (echo   [ERROR] compile FAILED: newop.cpp & exit /b 1)
 echo [OK] All sources compiled.
 echo.
