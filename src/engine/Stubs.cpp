@@ -18,25 +18,33 @@ void DrawSeedPacket(Sexy::Graphics* g, float x, float y, int st, int it, float a
     (void)g; (void)x; (void)y; (void)st; (void)it; (void)al; (void)gr; (void)sel; (void)im;
 }
 
-// RTTI vtable stubs (libsupc++ missing them)
-namespace __cxxabiv1 {
-    class __class_type_info { virtual void _d1() {} };
-    class __si_class_type_info : public __class_type_info { virtual void _d2() {} };
-    class __vmi_class_type_info : public __class_type_info { virtual void _d3() {} };
-    __class_type_info __ci; __si_class_type_info __si; __vmi_class_type_info __vi;
-}
+// RTTI base typeinfo vtables: DO NOT fake them here.
+// The previous fakes defined __cxxabiv1::__class_type_info / __si_ / __vmi_
+// with a single dummy virtual (_d1/_d2/_d3), producing vtables with the WRONG
+// layout. The compiler-generated typeinfo for caught classes (e.g.
+// _ZTI15XLeaveException) points at these vtables; during exception matching the
+// EH runtime calls __do_catch/__do_upcast through them and hits garbage ->
+// KERN-EXEC 3. The real, correctly-laid-out vtables are exported by
+// drtaeabi.dll (already in our import table), so letting the linker resolve
+// them from drtaeabi.dso fixes TRAP/Leave.
 
 // libsupc++ function stubs
-extern "C" void* __dynamic_cast(const void* s, const void* st, const void* dt, int o) { (void)s; (void)st; (void)dt; (void)o; return NULL; }
+// __dynamic_cast: provided by drtaeabi.dll (removed broken NULL-returning fake).
 extern "C" void __cxa_pure_virtual() { User::Panic(_L("pv"), 0); }
 
 // Symbian exception globals
 struct TCppRTExceptionsGlobals { TCppRTExceptionsGlobals(); } TCppRTExceptionsGlobalsInstance;
 TCppRTExceptionsGlobals::TCppRTExceptionsGlobals() {}
 
-// XLeaveException typeinfo symbols
-extern "C" const void* _ZTI15XLeaveException __attribute__((weak)) = 0;
-extern "C" const char _ZTS15XLeaveException[] __attribute__((weak)) = "15XLeaveException";
+// XLeaveException typeinfo: DO NOT define here.
+// The previous manual 'extern "C" const void* _ZTI15XLeaveException = 0;' created
+// a FAKE typeinfo object (4 bytes of zero) at a real address. When TRAPD's
+// generated 'catch (XLeaveException&)' runs, the C++ EH runtime takes
+// &_ZTI15XLeaveException as a valid std::type_info*, dereferences its (zero)
+// vtable pointer and calls through NULL -> KERN-EXEC 3 on the very first
+// User::Leave. Removing it lets the compiler emit the correct weak typeinfo
+// (from each catch(XLeaveException&)) / link the real one from euser, so
+// TRAP/Leave unwinding works.
 
 // NOTE: Under the standard abld toolchain the SDK's eexe.lib startup
 // (_E32Startup) provides the real process entry AND the real
