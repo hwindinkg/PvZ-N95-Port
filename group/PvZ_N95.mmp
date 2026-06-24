@@ -92,12 +92,6 @@ SYSTEMINCLUDE   \epoc32\include\stdapis
 
 // === Libraries ===
 LIBRARY         euser.lib
-// C/C++ runtime: GCCE's 'throw' calls __cxa_allocate_exception which needs a
-// malloc/free heap. Without these the FIRST throw/User::Leave dies in the
-// exception allocator (KERN-EXEC 3) before any unwinding. The working N95
-// reference (Whisk3D) links both of these for exactly this reason.
-LIBRARY         estlib.lib
-LIBRARY         libc.lib
 LIBRARY         cone.lib
 LIBRARY         eikcore.lib
 LIBRARY         avkon.lib
