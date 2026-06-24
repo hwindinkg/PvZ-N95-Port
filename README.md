@@ -4,116 +4,139 @@ A native **Symbian S60 3rd Edition (FP1)** port of
 [PvZ-Portable](https://github.com/wszqkzqk/PvZ-Portable) — *Plants vs. Zombies*
 running on the **Nokia N95** (Symbian OS 9.2, ARMv5, GCCE, OpenGL ES 1.1).
 
-> ⚠️ Work in progress. This repo contains the C++ source, the build files
-> (`.mmp`/`bld.inf`) and the resource scripts. Game assets are **not** shipped
-> here — you provide `main.pak` on the device (see *Assets* below).
+> ⚠️ **Work in progress.** Repo has the C++ source, build files
+> (`.mmp`/`bld.inf`) and resource scripts. Game assets are **not** shipped —
+> provide `main.pak` on the device (see *Assets*).
 
 ---
 
-## Status
+## Status (current)
 
-The game boots, initialises an EGL / OpenGL ES 1.1 context and runs the engine
-heartbeat. Recent work fixed the early-boot crashes that produced the
-"green grid / flashing purple screen that could not be closed".
+The app now **boots through the whole Symbian startup**: `E32Main` →
+`CPvZApplication::NewApplication` → `CreateDocumentL` → `CPvZAppUi::ConstructL`.
+All the early-boot structural crashes (purple flashing screen, un-closable
+window, double `E32Main`) are fixed.
 
-### Fixed in this revision
-| Symptom | Root cause | Fix |
-|---------|-----------|-----|
-| App could not be closed; **purple screen flashing** every frame; system dialogs overdrawn; app relaunched itself (`E32Main` twice in `boot.log`) | The whole game loop (`while(...) { RenderFrame(); User::After(); }`) ran **inside `CPvZAppUi::ConstructL()`**, starving the window server so it could never deliver key/exit events. The dark-purple `glClearColor` was swapped to screen every frame. | Game loop moved to a **`CPeriodic` heartbeat timer** (active object). `ConstructL` now returns normally and the active scheduler runs the UI. See `src/platform/symbian/PvZAppUi.cpp`. |
-| Commands / exit not handled | `CAknAppUi::BaseConstructL()` was never called | `BaseConstructL(EAknEnableSkin)` added at the top of `ConstructL`. |
-| `wgt_log.txt`: **`DrawAll: mGL NULL`** — widgets drew nothing | The `Sexy::Graphics` object keeps its **own** GL pointer; only `LawnApp::mGL` was set, never the Graphics object's. | After `InitGLES()` we call `mGraphics->SetGLInterface(GetGL())`. |
-| `rmgr_log.txt`: **green/purple checkerboard** instead of art; "image not found" | PNG decoding was **not implemented** — `ResourceManager::LoadImageFromPak()` threw the PNG bytes away and built a magenta placeholder. | Implemented a real decoder using the **Symbian Image Conversion Library (ICL)**: `CImageDecoder` → `CFbsBitmap (EColor16MA)` → ARGB (`0xAARRGGBB`) buffer handed to `MemoryImage::SetBits`. Driven synchronously with a nested `CActiveSchedulerWait`. Added `imageconversion.lib`. |
-| Case-insensitive PAK lookup broken | Typo `c += ('a' - 'a')` (`+= 0`, a no-op) | Corrected to `c += ('a' - 'A')`. |
+**Active blocker:** a `KERN-EXEC 3` on the **very first C++ `throw`** during the
+EH self-test in `ConstructL` (`boot.log` stops right after
+`EH T1: raw C++ throw/catch`, before `EH T1 caught=123`). This means C++
+exception support is not fully wired in the executable yet — see *Exception
+handling* below for the in-progress fix.
+
+`boot.log` / `rmgr_log.txt` / `wgt_log.txt` are written to `C:\Data\PvZ\`.
 
 ---
 
-## Building
+## Build (standard `abld` toolchain)
 
-Requires the **S60 3rd Edition FP1 SDK (Symbian OS 9.2)** and the **GCCE** ARM
-toolchain (plus the Open C/C++ plug-in for the libc functions used by the engine).
+The working N95 GL reference
+([Whisk3D](https://github.com/Dante-Leoncini/Whisk3D/tree/symbian)) builds with
+the **standard Symbian `abld` system**, which emits the C++ exception-unwinding
+tables (`.ARM.exidx`) and the E32 exception descriptor. We build the same way —
+the old hand-rolled GCCE link did not, which is why exceptions/`User::Leave`
+crashed.
+
+Requires the **S60 3rd Edition FP1 SDK (Symbian OS 9.2)**, the **GCCE**
+(`arm-none-symbianelf`) toolchain, Perl, and the **Open C / PIPS** plug-in
+(provides `libc.lib`/`estlib.lib`, needed by the C++ exception allocator and the
+engine's C runtime calls).
+
+```bat
+git pull
+build_abld.cmd        :: detects SDK+toolchain, runs bldmake + abld build gcce urel,
+                      :: then makesis + signsis -> build\out\PvZ_N95.sisx
+```
+
+Manual equivalent:
 
 ```bat
 cd group
 bldmake bldfiles
 abld build gcce urel
-:: package
 makesis ..\sis\PvZ_N95.pkg
-signsis PvZ_N95.sis PvZ_N95.sisx <your-cert>.cer <your-key>.key
+signsis PvZ_N95.sis PvZ_N95.sisx <cert>.cer <key>.key
 ```
 
-> The `.mmp` currently has a couple of absolute `SYSTEMINCLUDE` paths
-> (`stl_stubs`). Adjust them to your checkout location if you do not build from
-> `\Symbian\N95PVZ`.
+> **Signing keys are intentionally NOT in this repo.** Generate your own
+> self-signed cert (`makekeys`); never commit `.key`/`.cer`.
 
-> **Signing keys are intentionally not in this repo.** Generate your own
-> self-signed cert (`makekeys`) — never commit `.key`/`.cer`.
+---
+
+## Fix history
+
+### Early-boot / structural (DONE)
+| Symptom | Root cause | Fix |
+|---|---|---|
+| Un-closable window, **purple flashing**, system dialogs overdrawn, double `E32Main` | Whole game loop ran **inside `ConstructL`**, starving the window server | Loop moved to a **`CPeriodic` heartbeat** active object; `ConstructL` returns normally |
+| Commands/exit ignored | `CAknAppUi::BaseConstructL()` never called | `BaseConstructL()` added; `SetMopParent`+`AddToStackL` for the GL control |
+| `DrawAll: mGL NULL` | `Sexy::Graphics` GL pointer never set | `mGraphics->SetGLInterface(GetGL())` after `InitGLES()` |
+| green/purple checkerboard art | PNG decode was a magenta placeholder | Real decode via **ICL** (`CImageDecoder`→`CFbsBitmap EColor16MA`→ARGB); added `imageconversion.lib` |
+| case-insensitive PAK lookup no-op | typo `c += ('a'-'a')` | `c += ('a'-'A')` |
+| Loader death before `E32Main` (no `boot.log`) | empty `__cpp_initialize__aeabi_` suppressed **all** C++ static init under `abld` | removed the empty override + dead `CallThrdProcEntry`; `MkDirAll` added to early loggers |
+| `abld` link: `undefined reference to E32Main()` | `E32Main` was `extern "C"`; SDK startup (`callfirstprocessfn`) wants C++ linkage | `GLDEF_C TInt E32Main()` |
+| missing `scppnwdl.dll` import (not on N95) | default `operator new/delete` | `src/newdel_compat.cpp`: new/delete → `User::Alloc/Free` |
+| `.mmp` | wrong UID2 / tiny heap | UID2 `0x100039CE`, `EPOCHEAPSIZE 0x20000 0x4000000` (64 MB), `EPOCSTACKSIZE`, `CAPABILITY` |
+
+### Exception handling (IN PROGRESS — current blocker)
+Symptom: `KERN-EXEC 3` on the **first `throw`/`User::Leave`**.
+
+Investigated and changed so far:
+1. **Removed fake EH typeinfo** `_ZTI15XLeaveException = 0` (Stubs.cpp) — it was a
+   4-byte-zero object the runtime dereferenced as a `type_info*` → NULL vtable call.
+2. **Removed fake RTTI base vtables** (`__cxxabiv1::__class_type_info` etc. with a
+   single dummy virtual) — wrong vtable layout; the real ones come from
+   **`drtaeabi.dll`** (already imported). Also removed the broken NULL-returning
+   `__dynamic_cast`.
+3. **`OPTION GCCE -fexceptions -frtti`** in the `.mmp` so OUR frames get
+   `.ARM.exidx` unwind tables.
+4. **Added `LIBRARY estlib.lib` + `LIBRARY libc.lib`** — GCCE's `throw` calls
+   `__cxa_allocate_exception`, which needs a `malloc`/`free` heap. Without libc the
+   first throw dies in the allocator (matches the reference, which links both).
+
+A **layered EH self-test** lives at the top of `CPvZAppUi::ConstructL`
+(`src/platform/symbian/PvZAppUi.cpp`):
+- `EH T1` = raw `try{throw 123;}catch` → isolates pure C++ EH / `.ARM.exidx`.
+- `EH T2` = `TRAPD(.., User::Leave(-42))` → isolates the Symbian leave mechanism.
+
+**Reading the result in `boot.log`:**
+- `EH T1 caught=123` **and** `EH T2 caught err=-42` → EH works; remove the test and proceed to game init.
+- `EH T1` logs but no `caught` → pure C++ EH still broken (exidx/exception-descriptor/allocator).
+- `EH T1 caught=123` but `EH T2` dies → Symbian `TTrap`/leave path (see `SymbianFixes.cpp` no-op `TTrap::Trap`).
+
+> If the device now fails to **load** (no `boot.log` at all), `libc.dll` may be
+> absent on the N95 firmware — install the **Open C / PIPS** runtime, or revisit
+> whether the exception allocator can be backed by `User::Alloc` instead.
+
+---
+
+## Notes for the next session
+- Build = `build_abld.cmd` (standard `abld`), NOT the old custom GCCE link script.
+- `src/engine/Stubs.cpp` + `src/engine/SymbianFixes.cpp` hold the remaining
+  runtime stubs (soft-float `__aeabi_*`, `__cxa_*`, no-op `TTrap::Trap`). Several
+  were bandaids for the old link; prefer letting `euser`/`drtaeabi`/`libc`/
+  `libsupc++` provide the real ones (the linker uses a local weak/strong def in
+  preference to a `.dso` import, so a local stub silently shadows the real symbol).
+- Reference to diff against: **Whisk3D** (working N95 GL app; links `libc.lib`/
+  `estlib.lib`, no custom EH stubs).
 
 ---
 
 ## Assets
-
-The game reads its packed assets from:
-
-```
-C:\Data\PvZ\main.pak
-```
-
-Place a converted PvZ-Portable `main.pak` there before launching. Boot/render
-logs are written next to it in `C:\Data\PvZ\`.
-
----
+Place a converted PvZ-Portable `main.pak` at `C:\Data\PvZ\main.pak` before launching.
 
 ## Project layout
-
 ```
-group/        bld.inf, PvZ_N95.mmp, ABLD.BAT          (build configuration)
-data/         *.rss                                   (Avkon resources + registration)
-sis/          PvZ_N95.pkg                             (installer descriptor)
+group/   bld.inf, PvZ_N95.mmp        (build config)
+data/    *.rss                        (Avkon resources + registration)
+sis/     PvZ_N95.pkg                  (installer descriptor)
 src/
-  main_symbian.cpp                                    (E32Main entry point)
-  platform/symbian/  Application, Document, AppUi, GameView (EGL/GLES, heartbeat)
-  engine/            GLInterface, Graphics, ResourceManager (ICL), PAK/VFS, MemoryImage
-  Lawn/ Sexy.TodLib/ ...                              (ported game/engine code)
+  main_symbian.cpp                    (E32Main)
+  platform/symbian/                   Application, Document, AppUi, GameView (EGL/GLES, heartbeat)
+  engine/                             GLInterface, Graphics, ResourceManager (ICL), PAK/VFS, Stubs, SymbianFixes
+  Lawn/ Sexy.TodLib/ ...              (ported game/engine code)
 ```
-
----
 
 ## Credits & License
-
-- Original game framework & assets: PopCap *Plants vs. Zombies*.
-- PvZ-Portable by **Zhou Qiankang (wszqkzqk)** — https://github.com/wszqkzqk/PvZ-Portable
-  (LGPL-3.0-or-later AND LicenseRef-PopCap).
-- Symbian/N95 port: this repository.
-
-Engine/port source is **LGPL-3.0-or-later**; PopCap-derived content remains
-under its original license. See source headers for per-file SPDX identifiers.
-
-## Building (recommended: standard `abld` toolchain)
-
-The reference N95 GL port ([Whisk3D](https://github.com/Dante-Leoncini/Whisk3D/tree/symbian))
-builds with the **standard Symbian `abld` build system**, which correctly emits
-C++ exception-unwinding tables (`.ARM.exidx`) and the E32 exception descriptor.
-The earlier hand-rolled GCCE link script did **not**, which caused a `KERN-EXEC 3`
-crash on the first `User::Leave`/`TRAP`. We now build the same way.
-
-```
-git pull
-build_abld.cmd
-```
-
-`build_abld.cmd`:
-1. auto-detects the S60 3rd FP1 SDK, the GCCE (`arm-none-symbianelf`) toolchain and Perl
-2. runs `bldmake bldfiles` then `abld build gcce urel` from `group/`
-3. packages with `makesis` + `signsis` (self-signs a cert if none is present)
-4. outputs `build\out\PvZ_N95.sisx`
-
-### Key fixes adopted from the reference
-- **`abld` build** instead of a manual GCCE link -> correct exception tables (fixes `KERN-EXEC 3`).
-- **`src/newdel_compat.cpp`**: custom `operator new/delete` -> `User::Alloc/Free`, so the
-  EXE never imports `scppnwdl.dll` (which does not exist on N95 firmware).
-- **AppUi container pattern**: `BaseConstructL()` (no flags), `SetMopParent(this)` and
-  `AddToStackL(iGameView)` so the GL `CCoeControl` is on the control stack.
-- **`.mmp` corrections**: UID2 = `0x100039CE` (GUI app, was wrongly `0x1000007a`),
-  `EPOCHEAPSIZE 0x20000 0x4000000` (64 MB; default 1 MB is far too small for PvZ bitmaps),
-  `EPOCSTACKSIZE 0x14000`, `CAPABILITY ReadUserData WriteUserData`, removed a broken
-  absolute `SYSTEMINCLUDE`.
+- Original: PopCap *Plants vs. Zombies*.
+- PvZ-Portable by **Zhou Qiankang (wszqkzqk)** — https://github.com/wszqkzqk/PvZ-Portable (LGPL-3.0-or-later AND LicenseRef-PopCap).
+- Symbian/N95 port: this repository. Engine/port source **LGPL-3.0-or-later**; PopCap-derived content under its original license.
