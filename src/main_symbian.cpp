@@ -15,25 +15,20 @@ static void WriteLog(const char* msg) {
     f.Write(b); f.Close(); fs.Close();
 }
 
-// Application entry point required by EikStart
-extern "C" CApaApplication* NewApplication() {
+// Application entry point required by EikStart.
+LOCAL_C CApaApplication* NewApplication() {
     return CPvZApplication::NewApplication();
 }
 
-// usrt2_2.lib's process startup (callfirstprocessfn) references E32Main with
-// C linkage, so elf2e32 looks for the unmangled symbol "E32Main". Define it
-// extern "C" so the name matches exactly. A weak C++-mangled alias is also
-// provided in case any startup variant expects _Z7E32Mainv instead.
-extern "C" TInt E32Main()
+// Process entry point. Under the standard abld toolchain the SDK startup
+// (eexe.lib -> callfirstprocessfn.cpp) calls E32Main() with C++ LINKAGE, i.e.
+// the mangled symbol _Z7E32Mainv. The previous 'extern "C"' produced the
+// unmangled "E32Main" (needed only by the old hand-rolled GCCE link) and made
+// the abld link fail with: undefined reference to 'E32Main()'.
+GLDEF_C TInt E32Main()
 {
     WriteLog("E32Main START");
     TInt err = EikStart::RunApplication(NewApplication);
     WriteLog("E32Main END");
     return err;
-}
-
-// Weak C++-linkage alias -> same entry, harmless if unused / overridden.
-__attribute__((weak)) TInt E32Main_cpp_alias()
-{
-    return E32Main();
 }
