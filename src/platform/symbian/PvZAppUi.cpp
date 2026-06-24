@@ -38,8 +38,15 @@ void CPvZAppUi::ConstructL()
 {
     Log(_L("AppUi::ConstructL ENTER"));
 
-    Log(_L("step: BaseConstructL"));
-    BaseConstructL(EAknEnableSkin);
+    // --- EH self-test: does C++ exception unwinding (User::Leave/TRAP) work? ---
+    Log(_L("EH test: about to TRAP User::Leave(-42)"));
+    TRAPD(ehTest, User::Leave(-42));
+    { TBuf<64> b; b.Format(_L("EH test caught err=%d (expect -42)"), ehTest); Log(b); }
+
+    Log(_L("step: BaseConstructL (TRAP)"));
+    TRAPD(bcErr, BaseConstructL(EAknEnableSkin));
+    { TBuf<64> b; b.Format(_L("step: BaseConstructL returned err=%d"), bcErr); Log(b); }
+    User::LeaveIfError(bcErr);
     Log(_L("step: BaseConstructL OK"));
 
     Log(_L("step: CPvZVfs::NewL"));
