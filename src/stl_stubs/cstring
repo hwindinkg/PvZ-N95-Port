@@ -1,0 +1,36 @@
+// cstring stub for Symbian S60 3rd FP1 (abld GCCE, -nostdinc safe)
+// Declares the C string/memory functions used by the engine. The actual
+// implementations link from the SDK C runtime (same as the working manual
+// build). extern "C" + platform size type keeps it compatible if a real
+// <string.h> is also pulled in within the same translation unit.
+#ifndef PVZ_STUB_CSTRING
+#define PVZ_STUB_CSTRING
+#ifndef _CSTRING
+#define _CSTRING
+#endif
+
+extern "C" {
+    int    strcmp(const char*, const char*);
+    int    strncmp(const char*, const char*, unsigned int);
+    unsigned int strlen(const char*);
+    char*  strcpy(char*, const char*);
+    char*  strncpy(char*, const char*, unsigned int);
+    char*  strcat(char*, const char*);
+    char*  strncat(char*, const char*, unsigned int);
+    const char* strchr(const char*, int);
+    const char* strrchr(const char*, int);
+    const char* strstr(const char*, const char*);
+    int    strcasecmp(const char*, const char*);
+    void*  memcpy(void*, const void*, unsigned int);
+    void*  memmove(void*, const void*, unsigned int);
+    void*  memset(void*, int, unsigned int);
+    int    memcmp(const void*, const void*, unsigned int);
+}
+
+namespace std {
+    using ::strcmp;  using ::strncmp; using ::strlen;  using ::strcpy;
+    using ::strncpy; using ::strcat;  using ::strncat; using ::strchr;
+    using ::strrchr; using ::strstr;  using ::memcpy;  using ::memmove;
+    using ::memset;  using ::memcmp;
+}
+#endif // PVZ_STUB_CSTRING

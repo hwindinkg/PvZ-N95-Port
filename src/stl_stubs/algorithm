@@ -1,0 +1,27 @@
+// algorithm stub for Symbian S60 3rd FP1 (abld GCCE).
+// Minimal subset used by the engine (ImageFont.cpp etc.). inline templates
+// are ODR-safe across translation units.
+#ifndef PVZ_STUB_ALGORITHM
+#define PVZ_STUB_ALGORITHM
+namespace std {
+    template<typename T> inline const T& min(const T& a, const T& b) { return (b < a) ? b : a; }
+    template<typename T> inline const T& max(const T& a, const T& b) { return (a < b) ? b : a; }
+    template<typename T> inline void swap(T& a, T& b) { T t = a; a = b; b = t; }
+    template<typename T> inline T abs(const T& a) { return (a < 0) ? -a : a; }
+
+    template<typename It, typename T> inline void fill(It first, It last, const T& v) { for (; first != last; ++first) *first = v; }
+    template<typename In, typename Out> inline Out copy(In first, In last, Out d) { for (; first != last; ++first, ++d) *d = *first; return d; }
+    template<typename It, typename T> inline It find(It first, It last, const T& v) { for (; first != last; ++first) if (*first == v) break; return first; }
+
+    template<typename It> inline void sort(It first, It last) {
+        for (It i = first; i != last; ++i)
+            for (It j = i; j != last; ++j)
+                if (*j < *i) { swap(*i, *j); }
+    }
+    template<typename It, typename Cmp> inline void sort(It first, It last, Cmp cmp) {
+        for (It i = first; i != last; ++i)
+            for (It j = i; j != last; ++j)
+                if (cmp(*j, *i)) { swap(*i, *j); }
+    }
+}
+#endif // PVZ_STUB_ALGORITHM

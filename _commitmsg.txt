@@ -1,0 +1,11 @@
+Add cstring/cmath/cfloat/algorithm stubs for abld GCCE build
+
+Resources.cpp failed with '<cstring> not found' under the standard abld
+toolchain. Completed the existing stl_stubs shim set:
+- cstring   : strcmp/memcpy/strlen/... C decls + std:: aliases
+- cmath     : sin/cos/sqrt/fabs/ceil/fmod/pow/atan2/floor (+ std::)
+- cfloat    : FLT_EPSILON/FLT_MAX/... (mirrors existing float.h stub)
+- algorithm : std::min/max/swap/sort/fill/copy/find (inline templates)
+
+Declarations only; symbols link from the SDK runtime as in the manual
+build. stl_stubs is already on USERINCLUDE so no mmp change needed.
