@@ -1,6 +1,10 @@
 // group/PvZ_N95.mmp
 TARGET          PvZ_N95.exe
 TARGETTYPE      exe
+// Ensure C++ exceptions + RTTI are compiled in so OUR frames get .ARM.exidx
+// unwind tables; without them the first User::Leave/throw cannot unwind through
+// our code and the device takes KERN-EXEC 3.
+OPTION GCCE -fexceptions -frtti
 UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
 
 // PvZ loads many large bitmaps; default 1MB max heap is far too small.

@@ -38,10 +38,21 @@ void CPvZAppUi::ConstructL()
 {
     Log(_L("AppUi::ConstructL ENTER"));
 
-    // --- EH self-test: does C++ exception unwinding (User::Leave/TRAP) work? ---
-    Log(_L("EH test: about to TRAP User::Leave(-42)"));
+    // --- Layered EH self-test to pinpoint where unwinding dies ---
+    // Test 1: raw C++ throw/catch. If this line logs but "T1 caught" does NOT,
+    // pure C++ EH is broken (missing .ARM.exidx / personality) -> compile-flag
+    // or runtime-lib problem, NOT typeinfo.
+    Log(_L("EH T1: raw C++ throw/catch"));
+    {
+        volatile TInt caught = 0;
+        try { throw (TInt)123; } catch (TInt e) { caught = e; } catch (...) { caught = -1; }
+        TBuf<64> b; b.Format(_L("EH T1 caught=%d (expect 123)"), (TInt)caught); Log(b);
+    }
+    // Test 2: Symbian TRAP/Leave. If T1 passed but this dies, the leave
+    // mechanism (TTrap / euser) is the culprit, not generic C++ EH.
+    Log(_L("EH T2: about to TRAP User::Leave(-42)"));
     TRAPD(ehTest, User::Leave(-42));
-    { TBuf<64> b; b.Format(_L("EH test caught err=%d (expect -42)"), ehTest); Log(b); }
+    { TBuf<64> b; b.Format(_L("EH T2 caught err=%d (expect -42)"), ehTest); Log(b); }
 
     Log(_L("step: BaseConstructL (TRAP)"));
     TRAPD(bcErr, BaseConstructL());
