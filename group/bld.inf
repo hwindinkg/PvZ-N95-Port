@@ -3,7 +3,7 @@
 // Без этого файла "bldmake bldfiles" не найдёт проект вообще.
 
 PRJ_PLATFORMS
-GCCE WINSCW
+ARMV5 GCCE WINSCW
 
 PRJ_MMPFILES
 PvZ_N95.mmp

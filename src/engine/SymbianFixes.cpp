@@ -2,6 +2,8 @@
 #include "SymbianFixes.h"
 #include <e32std.h>
 
+#if defined(__GCCE__)  // Entire file is GCCE link-gap shims (weak __attribute__, GCCE-mangled euser symbols). RVCT/ARMCC links the real Symbian C++ runtime, so none of this is needed and the GCCE-only syntax would not compile.
+
 // ---------------------------------------------------------------------------
 // Legacy EKA1 process-entry trap-harness shim (weak).
 //
@@ -44,3 +46,5 @@ extern "C" __attribute__((weak)) void __cxa_call_terminate(void* /*ue_header*/)
     {
     User::Invariant();
     }
+
+#endif // __GCCE__

@@ -5,6 +5,7 @@
 
 namespace Sexy { SexyAppBase* gSexyAppBase = NULL; }
 
+#if defined(__GCCE__)  // GCCE has no C runtime for these; RVCT/ARMCC runtime provides them
 // Math stubs (not in Symbian libc)
 extern "C" double fmod(double x, double y) { (void)x; (void)y; return 0.0; }
 extern "C" int rand() { return 0; }
@@ -13,6 +14,7 @@ extern "C" int strncmp(const char* s1, const char* s2, unsigned int n) {
     while (n--) { if (*s1 != *s2) return (unsigned char)*s1 - (unsigned char)*s2; if (!*s1) return 0; s1++; s2++; }
     return 0;
 }
+#endif // __GCCE__ (C-lib math stubs)
 
 void DrawSeedPacket(Sexy::Graphics* g, float x, float y, int st, int it, float al, int gr, bool sel, bool im) {
     (void)g; (void)x; (void)y; (void)st; (void)it; (void)al; (void)gr; (void)sel; (void)im;
@@ -55,6 +57,7 @@ TCppRTExceptionsGlobals::TCppRTExceptionsGlobals() {}
 // all static initialisation, so the first TRAP/Leave inside
 // EikStart::RunApplication crashed before E32Main could even log. Removed.
 
+#if defined(__GCCE__)  // Hand-rolled EABI soft-float ONLY for GCCE; under RVCT these would conflict with (and wrongly override) the real runtime
 // Software float IEEE 754 implementations
 // Uses integer bit manipulation to avoid circular aeabi calls
 typedef unsigned int u32;
@@ -149,3 +152,4 @@ extern "C" int __aeabi_dcmple(double a,double b){u64 ad=*(u64*)&a,bd=*(u64*)&b;i
 extern "C" int __aeabi_dcmpgt(double a,double b){u64 ad=*(u64*)&a,bd=*(u64*)&b;if((ad^bd)>>63)return ad>>63;return ad>bd;}
 extern "C" int __aeabi_dcmpge(double a,double b){u64 ad=*(u64*)&a,bd=*(u64*)&b;if((ad^bd)>>63)return ad>>63;return ad>=bd;}
 extern "C" void abort() { User::Panic(_L("abort"), 0); }
+#endif // __GCCE__ (soft-float / EABI shims)

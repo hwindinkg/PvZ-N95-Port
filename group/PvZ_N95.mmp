@@ -5,6 +5,11 @@ TARGETTYPE      exe
 // unwind tables; without them the first User::Leave/throw cannot unwind through
 // our code and the device takes KERN-EXEC 3.
 OPTION GCCE -fexceptions -frtti
+// RVCT/ARMCC equivalent: enable C++ exceptions + RTTI so OUR throw/catch and the
+// EH self-test work, and so our frames get unwind tables. EKA2 Leave/TRAP itself
+// is longjmp-based and works regardless. Build ARM (not Thumb) to match reference.
+OPTION ARMCC --exceptions --rtti
+ALWAYS_BUILD_AS_ARM
 UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
 
 // PvZ loads many large bitmaps; default 1MB max heap is far too small.

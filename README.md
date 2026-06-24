@@ -1,142 +1,133 @@
-# PvZ-N95-Port
+# Plants vs. Zombies — Nokia N95 Port (Symbian S60 3rd Edition FP1)
 
-A native **Symbian S60 3rd Edition (FP1)** port of
-[PvZ-Portable](https://github.com/wszqkzqk/PvZ-Portable) — *Plants vs. Zombies*
-running on the **Nokia N95** (Symbian OS 9.2, ARMv5, GCCE, OpenGL ES 1.1).
+Port of the SexyAppFramework-based PvZ to the Nokia N95 (Symbian OS 9.2, S60 3rd FP1),
+OpenGL ES 1.1 renderer.
 
-> ⚠️ **Work in progress.** Repo has the C++ source, build files
-> (`.mmp`/`bld.inf`) and resource scripts. Game assets are **not** shipped —
-> provide `main.pak` on the device (see *Assets*).
-
----
-
-## Status (current)
-
-The app now **boots through the whole Symbian startup**: `E32Main` →
-`CPvZApplication::NewApplication` → `CreateDocumentL` → `CPvZAppUi::ConstructL`.
-All the early-boot structural crashes (purple flashing screen, un-closable
-window, double `E32Main`) are fixed.
-
-**Active blocker:** a `KERN-EXEC 3` on the **very first C++ `throw`** during the
-EH self-test in `ConstructL` (`boot.log` stops right after
-`EH T1: raw C++ throw/catch`, before `EH T1 caught=123`). This means C++
-exception support is not fully wired in the executable yet — see *Exception
-handling* below for the in-progress fix.
-
-`boot.log` / `rmgr_log.txt` / `wgt_log.txt` are written to `C:\Data\PvZ\`.
+> **READ THIS FIRST if you are an AI/dev continuing the work.** This file is the
+> single source of truth for the build journey, dead-ends already ruled out, and the
+> current plan. Do **not** repeat the mistakes listed under "Dead ends".
 
 ---
 
-## Build (standard `abld` toolchain)
+## Current state (2026-06-24)
 
-The working N95 GL reference
-([Whisk3D](https://github.com/Dante-Leoncini/Whisk3D/tree/symbian)) builds with
-the **standard Symbian `abld` system**, which emits the C++ exception-unwinding
-tables (`.ARM.exidx`) and the E32 exception descriptor. We build the same way —
-the old hand-rolled GCCE link did not, which is why exceptions/`User::Leave`
-crashed.
+- App **builds, signs, installs** and **launches** on the device.
+- It reaches `AppUi::ConstructL` and then **crashes (KERN-EXEC 3) on the very first raw
+  C++ `throw/catch`** (the `EH T1` self-test in boot.log).
+- **Root cause = broken C++ exception handling under GCCE 3.4.3** on S60 3rd FP1.
+  GCCE's stack unwinder cannot find `.ARM.exidx` in the E32 image, so the first
+  `throw` (and therefore the first `User::Leave` on EKA2, and Avkon's
+  `BaseConstructL`) dies.
 
-Requires the **S60 3rd Edition FP1 SDK (Symbian OS 9.2)**, the **GCCE**
-(`arm-none-symbianelf`) toolchain, Perl, and the **Open C / PIPS** plug-in
-(provides `libc.lib`/`estlib.lib`, needed by the C++ exception allocator and the
-engine's C runtime calls).
+## THE PLAN: switch toolchain to RVCT (like the reference project)
 
-```bat
+The working reference — **Whisk3D** (OpenGL ES app for N95):
+https://github.com/Dante-Leoncini/Whisk3D/tree/symbian — does **not** use GCCE.
+It builds with **ARM RealView (RVCT/ARMCC)** via standard `abld`. RVCT generates
+correct exception/unwind data and matches the RVCT-built Symbian runtime, so
+`throw`/`Leave`/`TRAP` all work. **We are migrating to RVCT.**
+
+RVCT 2.2 (build 349) is installed at:
+`C:\Symbian\ARM\RVCT\Programs\2.2\349\win_32-pentium` (armcc.exe etc.)
+
+> Symbian 9.2 officially expects RVCT 2.2 **build 435+**. Build **349** is older and
+> may be rejected by the SDK's version gate (`\epoc32\tools\compilation_config\`).
+> If `abld build armv5` complains about the RVCT build number, that gate must be
+> relaxed/patched (or install build 435). This is the FIRST thing to check if the
+> RVCT build refuses to start.
+
+### How to build (RVCT path — preferred)
+```
 git pull
-build_abld.cmd        :: detects SDK+toolchain, runs bldmake + abld build gcce urel,
-                      :: then makesis + signsis -> build\out\PvZ_N95.sisx
+build_rvct.cmd        :: auto-detects SDK + RVCT, runs: abld build armv5 urel -> makesis -> signsis
 ```
+Output: `build\out\PvZ_N95.sisx`. Install, run, send **boot.log** (C:\Data\PvZ\boot.log
+or wherever MkDirAll points). Success marker now: `EH T1 caught=123` then
+`EH T2 caught err=-42` -> exceptions + Leave both work -> proceed to game init.
 
-Manual equivalent:
-
-```bat
-cd group
-bldmake bldfiles
-abld build gcce urel
-makesis ..\sis\PvZ_N95.pkg
-signsis PvZ_N95.sis PvZ_N95.sisx <cert>.cer <key>.key
+### How to build (GCCE path — legacy/diagnostic only, EH is BROKEN)
 ```
-
-> **Signing keys are intentionally NOT in this repo.** Generate your own
-> self-signed cert (`makekeys`); never commit `.key`/`.cer`.
+build_abld.cmd        :: abld build gcce urel; only useful for the .ARM.exidx diagnostic
+```
 
 ---
 
-## Fix history
+## What changed for the RVCT migration (commit on 2026-06-24)
 
-### Early-boot / structural (DONE)
-| Symptom | Root cause | Fix |
-|---|---|---|
-| Un-closable window, **purple flashing**, system dialogs overdrawn, double `E32Main` | Whole game loop ran **inside `ConstructL`**, starving the window server | Loop moved to a **`CPeriodic` heartbeat** active object; `ConstructL` returns normally |
-| Commands/exit ignored | `CAknAppUi::BaseConstructL()` never called | `BaseConstructL()` added; `SetMopParent`+`AddToStackL` for the GL control |
-| `DrawAll: mGL NULL` | `Sexy::Graphics` GL pointer never set | `mGraphics->SetGLInterface(GetGL())` after `InitGLES()` |
-| green/purple checkerboard art | PNG decode was a magenta placeholder | Real decode via **ICL** (`CImageDecoder`→`CFbsBitmap EColor16MA`→ARGB); added `imageconversion.lib` |
-| case-insensitive PAK lookup no-op | typo `c += ('a'-'a')` | `c += ('a'-'A')` |
-| Loader death before `E32Main` (no `boot.log`) | empty `__cpp_initialize__aeabi_` suppressed **all** C++ static init under `abld` | removed the empty override + dead `CallThrdProcEntry`; `MkDirAll` added to early loggers |
-| `abld` link: `undefined reference to E32Main()` | `E32Main` was `extern "C"`; SDK startup (`callfirstprocessfn`) wants C++ linkage | `GLDEF_C TInt E32Main()` |
-| missing `scppnwdl.dll` import (not on N95) | default `operator new/delete` | `src/newdel_compat.cpp`: new/delete → `User::Alloc/Free` |
-| `.mmp` | wrong UID2 / tiny heap | UID2 `0x100039CE`, `EPOCHEAPSIZE 0x20000 0x4000000` (64 MB), `EPOCSTACKSIZE`, `CAPABILITY` |
+| File | Change |
+|---|---|
+| `build_rvct.cmd` | **NEW.** Detects SDK + RVCT 2.2 (any build under `...\Programs\2.2\*`), sets `RVCT22BIN/INC/LIB` + PATH, runs `bldmake` + `abld build armv5 urel`, then makesis/signsis. EXE path = `epoc32\release\armv5\urel\PvZ_N95.exe`. |
+| `group\bld.inf` | `PRJ_PLATFORMS` now `ARMV5 GCCE WINSCW` (added ARMV5 for RVCT). |
+| `group\PvZ_N95.mmp` | Added `OPTION ARMCC --exceptions --rtti` and `ALWAYS_BUILD_AS_ARM` (kept GCCE option for fallback). |
+| `src\engine\Stubs.cpp` | **Guarded** the hand-rolled soft-float (`__aeabi_*`), `abort`, and broken C-lib stubs (`fmod`->0, `rand`->0, `abs`, `strncmp`) under `#if defined(__GCCE__)`. RVCT links the **real** runtime for all of these — the GCCE shims must NOT compile under RVCT (they would conflict with / wrongly override the correct routines). Game stubs (`gSexyAppBase`, `DrawSeedPacket`, `__cxa_pure_virtual`, `TCppRTExceptionsGlobals`) remain unconditional. |
+| `src\engine\SymbianFixes.cpp` | **Entire body guarded** under `#if defined(__GCCE__)`. It only contains GCCE link-gap shims (weak `__attribute__`, GCCE-mangled euser symbols like `_ZN5TTrap4TrapERi`, `__cxa_call_terminate`). RVCT provides the real runtime; the GCCE-only syntax wouldn't even compile under ARMCC. |
 
-### Exception handling (IN PROGRESS — current blocker)
-Symptom: `KERN-EXEC 3` on the **first `throw`/`User::Leave`**.
-
-Investigated and changed so far:
-1. **Removed fake EH typeinfo** `_ZTI15XLeaveException = 0` (Stubs.cpp) — it was a
-   4-byte-zero object the runtime dereferenced as a `type_info*` → NULL vtable call.
-2. **Removed fake RTTI base vtables** (`__cxxabiv1::__class_type_info` etc. with a
-   single dummy virtual) — wrong vtable layout; the real ones come from
-   **`drtaeabi.dll`** (already imported). Also removed the broken NULL-returning
-   `__dynamic_cast`.
-3. **`OPTION GCCE -fexceptions -frtti`** in the `.mmp` so OUR frames get
-   `.ARM.exidx` unwind tables.
-4. **Added `LIBRARY estlib.lib` + `LIBRARY libc.lib`** — GCCE's `throw` calls
-   `__cxa_allocate_exception`, which needs a `malloc`/`free` heap. Without libc the
-   first throw dies in the allocator (matches the reference, which links both).
-
-A **layered EH self-test** lives at the top of `CPvZAppUi::ConstructL`
-(`src/platform/symbian/PvZAppUi.cpp`):
-- `EH T1` = raw `try{throw 123;}catch` → isolates pure C++ EH / `.ARM.exidx`.
-- `EH T2` = `TRAPD(.., User::Leave(-42))` → isolates the Symbian leave mechanism.
-
-**Reading the result in `boot.log`:**
-- `EH T1 caught=123` **and** `EH T2 caught err=-42` → EH works; remove the test and proceed to game init.
-- `EH T1` logs but no `caught` → pure C++ EH still broken (exidx/exception-descriptor/allocator).
-- `EH T1 caught=123` but `EH T2` dies → Symbian `TTrap`/leave path (see `SymbianFixes.cpp` no-op `TTrap::Trap`).
-
-> If the device now fails to **load** (no `boot.log` at all), `libc.dll` may be
-> absent on the N95 firmware — install the **Open C / PIPS** runtime, or revisit
-> whether the exception allocator can be backed by `User::Alloc` instead.
+### IMPORTANT: GCCE vs RVCT macro
+- GCCE defines `__GCCE__`. RVCT/ARMCC defines `__ARMCC_VERSION`.
+- All GCCE-specific runtime shims are now behind `#if defined(__GCCE__)`.
+- **When the RVCT build throws new errors, the fix pattern is usually:** another
+  GCCE-only hack needs a `#if defined(__GCCE__)` guard, OR a missing library/symbol
+  that RVCT expects. Check the build log and guard/add accordingly — do NOT re-add
+  broken hand-rolled runtime.
 
 ---
 
-## Notes for the next session
-- Build = `build_abld.cmd` (standard `abld`), NOT the old custom GCCE link script.
-- `src/engine/Stubs.cpp` + `src/engine/SymbianFixes.cpp` hold the remaining
-  runtime stubs (soft-float `__aeabi_*`, `__cxa_*`, no-op `TTrap::Trap`). Several
-  were bandaids for the old link; prefer letting `euser`/`drtaeabi`/`libc`/
-  `libsupc++` provide the real ones (the linker uses a local weak/strong def in
-  preference to a `.dso` import, so a local stub silently shadows the real symbol).
-- Reference to diff against: **Whisk3D** (working N95 GL app; links `libc.lib`/
-  `estlib.lib`, no custom EH stubs).
+## Expected first-RVCT-build issues (and how to react)
+
+1. **RVCT build-number rejected by abld** -> relax the SDK version gate (see note above).
+2. **Undefined refs to C functions** (`fmod`, `rand`, `strncmp`, `memcpy`...) -> RVCT may
+   need a C runtime lib. Try adding `LIBRARY euser.lib` already present; if stdio/string
+   are missing, the SDK's `estlib.lib` may help. **Do NOT** re-enable `libc.lib`/Open C —
+   `libc.dso` is NOT in this SDK (confirmed missing).
+3. **Duplicate symbol** for any `__aeabi_*`/`abort` -> means a GCCE shim leaked; ensure it's
+   under `#if defined(__GCCE__)`.
+4. **`--exceptions` unknown / EH still off** -> RVCT 2.2 supports `--exceptions --rtti`;
+   verify the option reached armcc in the verbose log.
 
 ---
 
-## Assets
-Place a converted PvZ-Portable `main.pak` at `C:\Data\PvZ\main.pak` before launching.
+## Dead ends — DO NOT retry these
 
-## Project layout
-```
-group/   bld.inf, PvZ_N95.mmp        (build config)
-data/    *.rss                        (Avkon resources + registration)
-sis/     PvZ_N95.pkg                  (installer descriptor)
-src/
-  main_symbian.cpp                    (E32Main)
-  platform/symbian/                   Application, Document, AppUi, GameView (EGL/GLES, heartbeat)
-  engine/                             GLInterface, Graphics, ResourceManager (ICL), PAK/VFS, Stubs, SymbianFixes
-  Lawn/ Sexy.TodLib/ ...              (ported game/engine code)
-```
+- ❌ **Fixing C++ EH under GCCE** (months of attempts): linking Symbian vs generic
+  libgcc/libsupc++, custom `__cxa_allocate_exception`, weak typeinfo/RTTI stubs,
+  `-fno-exceptions` experiments, elf2e32 exception-descriptor fiddling. GCCE 3.4.3
+  EH on S60 3rd is fundamentally unreliable here. **Use RVCT instead.**
+- ❌ **Custom `__cxa_allocate_exception` via User::Alloc** — was unsafe (didn't reserve
+  the `__cxa_exception` header); rolled back. Never reintroduce.
+- ❌ **Faking RTTI/typeinfo** (`_ZTI15XLeaveException = 0`, fake `__class_type_info`
+  vtables) — caused KERN-EXEC 3. Removed. `drtaeabi.dll` provides the real ones.
+- ❌ **Empty `__cpp_initialize__aeabi_`** — suppressed all static init -> crash. Removed.
+- ❌ **`libc.lib` / `estlib.lib` blindly** — `libc.dso` absent in this SDK.
+- ❌ **Whisk3D's exact ARMV6 + `--fpu vfpv2`** — that targets a newer SDK. Our 9.2 SDK
+  uses **ARMV5** (runs fine on N95's ARM11). Keep ARMV5.
 
-## Credits & License
-- Original: PopCap *Plants vs. Zombies*.
-- PvZ-Portable by **Zhou Qiankang (wszqkzqk)** — https://github.com/wszqkzqk/PvZ-Portable (LGPL-3.0-or-later AND LicenseRef-PopCap).
-- Symbian/N95 port: this repository. Engine/port source **LGPL-3.0-or-later**; PopCap-derived content under its original license.
+---
+
+## Code fixes already in place (still valid, toolchain-independent)
+
+These were real bugs fixed earlier and remain correct:
+1. **Blocking UI loop removed** — game loop moved from `ConstructL` into a `CPeriodic`
+   heartbeat (`RenderTick` ~16ms, `EPriorityIdle`). Was freezing the window server.
+2. **`BaseConstructL()`** called for proper Avkon init.
+3. **GL wired**: `SetGLInterface(...)`, plus `SetMopParent()` + `AddToStackL()` for the GL view.
+4. **PNG/JPEG decoder**: real Symbian ICL (`CImageDecoder` -> `CFbsBitmap(EColor16MA)` ->
+   ARGB `0xAARRGGBB` buffer) via `imageconversion.lib`. Replaced the purple/green checkerboard.
+5. **UID2 fixed** to `0x100039CE` (GUI app); was wrongly `0x1000007A`.
+6. **EPOCHEAPSIZE** up to 64MB, **EPOCSTACKSIZE** 80KB.
+7. **`newdel_compat.cpp`**: `operator new/delete` -> `User::Alloc/Free` (no `scppnwdl.dll`
+   on N95). Guarded `#if !defined(__WINS__)` (works for both GCCE and RVCT).
+8. **`Resources_stub.cpp`** compiled instead of full `Resources.cpp`.
+9. Case-insensitive PAK lookup typo fixed.
+
+---
+
+## Environment
+
+- SDK: `C:\Symbian\9.2\S60_3rd_FP1_2` (S60 3rd FP1, Symbian 9.2)
+- RVCT: `C:\Symbian\ARM\RVCT\Programs\2.2\349\win_32-pentium` (preferred)
+- GCCE (legacy/fallback): CSL ARM Toolchain (arm-none-symbianelf-g++ 3.4.3)
+- Build copy on dev machine: `C:\Symbian\PvZ-N95-Port-main` (git pull here, then run build_rvct.cmd)
+
+## Security
+- A GitHub PAT was exposed in chat earlier — **revoke it** (GitHub Settings ->
+  Developer settings -> Personal access tokens) if not already done.
