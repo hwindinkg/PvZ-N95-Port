@@ -29,3 +29,18 @@ extern "C" __attribute__((weak)) TInt _ZN5TTrap4TrapERi(TAny* /*aThis*/, TInt& a
 // User::UnTrap()  (static)  and  TTrap::UnTrap()  (if referenced) -- no-op pairs.
 extern "C" __attribute__((weak)) void _ZN4User6UnTrapEv(void) {}
 extern "C" __attribute__((weak)) void _ZN5TTrap6UnTrapEv(TAny* /*aThis*/) {}
+
+// ---------------------------------------------------------------------------
+// C++ ABI exception-runtime gap filler (weak).
+//
+// With __LEAVE_EQUALS_THROW__ active, leaves compile to C++ exceptions and the
+// compiler emits calls to EH ABI helpers. GCCE 3.4.3's bundled libsupc++.a
+// predates __cxa_call_terminate (added in GCC 4.x), so elf2e32 reports it as an
+// undefined symbol. Provide it ourselves: it is only ever reached when an
+// exception escapes a non-throwing context, in which case terminating the
+// thread is exactly the mandated behaviour. Weak, so a real libsupc++ wins.
+// ---------------------------------------------------------------------------
+extern "C" __attribute__((weak)) void __cxa_call_terminate(void* /*ue_header*/)
+    {
+    User::Invariant();
+    }
