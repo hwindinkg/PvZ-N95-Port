@@ -35,8 +35,8 @@ struct TCppRTExceptionsGlobals { TCppRTExceptionsGlobals(); } TCppRTExceptionsGl
 TCppRTExceptionsGlobals::TCppRTExceptionsGlobals() {}
 
 // XLeaveException typeinfo symbols
-extern "C" const void* _ZTI15XLeaveException = 0;
-extern "C" const char _ZTS15XLeaveException[] = "15XLeaveException";
+extern "C" const void* _ZTI15XLeaveException __attribute__((weak)) = 0;
+extern "C" const char _ZTS15XLeaveException[] __attribute__((weak)) = "15XLeaveException";
 
 // CallThrdProcEntry - process entry point (TInt return, creates CTrapCleanup)
 extern "C" TInt E32Main();
