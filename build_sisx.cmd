@@ -109,7 +109,7 @@ mkdir "%OUT%" 2>nul
 
 :: ============ 7. Compile flags ============
 set "PRODINC=%SDK%/Epoc32/include/variant/Symbian_OS_v9.2.hrh"
-set "D=-DNDEBUG -D_UNICODE -D__GCCE__ -D__SYMBIAN32__ -D__SERIES60_31__ -D__SERIES60_3X__ -D__EPOC32__ -D__MARM__ -D__EABI__ -D__MARM_ARMV5__ -D__EXE__ -D__PRODUCT_INCLUDE__=%PRODINC%"
+set "D=-DNDEBUG -D_UNICODE -D__GCCE__ -D__SYMBIAN32__ -D__SERIES60_31__ -D__SERIES60_3X__ -D__EPOC32__ -D__MARM__ -D__EABI__ -D__MARM_ARMV5__ -D__EXE__ -D__LEAVE_EQUALS_THROW__ -D__PRODUCT_INCLUDE__=%PRODINC%"
 set "F=-O2 -fno-unit-at-a-time -Wall -Wno-ctor-dtor-privacy -Wno-unknown-pragmas -fexceptions -march=armv5t -mapcs -pipe -nostdinc -c -msoft-float"
 set "I=-I %SRC%/platform/symbian -I %SRC% -I %SRC%/engine -I %SRC%/Sexy.TodLib -I %SRC%/Lawn -I %SRC%/stl_stubs -I %SDK%/Epoc32/include -I %SDK%/Epoc32/include/variant -I %SDK%/Epoc32/include/stdapis"
 set "G=%SDK%/Epoc32/include/GCCE/GCCE.h"
