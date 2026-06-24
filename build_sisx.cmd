@@ -124,7 +124,7 @@ set "SD_LWN=%SRC%\Lawn"
 :: ============ 8. Compile all sources ============
 echo === Compiling source files ===
 set "NFAIL=0"
-call :cc SD_PLA main_symbian
+call :cc SD_SRC main_symbian
 call :cc SD_PLA PvZApplication
 call :cc SD_PLA PvZDocument
 call :cc SD_PLA PvZAppUi
