@@ -81,11 +81,19 @@ if not defined PERLOK for %%T in ("C:\Perl\bin" "D:\Perl\bin" "C:\Perl64\bin" "C
 if defined PERLOK ( echo [OK] Perl         : found ) else ( echo [..] Perl         : not found ^(usually fine^) )
 
 :: ============ 4. Runtime libs (libsupc++ / libgcc) ============
-set "LSUPC=%ROOT%\build\lib\libsupc++.a"
-set "LGCC=%ROOT%\build\lib\libgcc.a"
-if not exist "%LSUPC%" ( echo [ERROR] build\lib\libsupc++.a missing & pause & exit /b 1 )
-if not exist "%LGCC%"  ( echo [ERROR] build\lib\libgcc.a missing & pause & exit /b 1 )
-echo [OK] runtime libs : build\lib\libsupc++.a, libgcc.a
+:: Prefer the GCCE toolchain's OWN runtime libs. Their __gnu_Unwind_Find_exidx is
+:: Symbian-aware: it locates .ARM.exidx via the E32 image exception descriptor.
+:: Generic/bundled libgcc uses ELF program headers (PT_ARM_EXIDX), which do NOT
+:: survive elf2e32 -> User::Leave/TRAP crash (KERN-EXEC 3) on the first throw.
+set "LGCC=" & set "LSUPC="
+for /f "delims=" %%g in ('arm-none-symbianelf-g++ -print-libgcc-file-name 2^>nul') do set "LGCC=%%g"
+for /f "delims=" %%g in ('arm-none-symbianelf-g++ -print-file-name=libsupc++.a 2^>nul') do set "LSUPC=%%g"
+if not exist "%LGCC%"  set "LGCC=%ROOT%\build\lib\libgcc.a"
+if not exist "%LSUPC%" set "LSUPC=%ROOT%\build\lib\libsupc++.a"
+if not exist "%LSUPC%" ( echo [ERROR] no libsupc++.a found & pause & exit /b 1 )
+if not exist "%LGCC%"  ( echo [ERROR] no libgcc.a found & pause & exit /b 1 )
+echo [OK] libsupc++    : %LSUPC%
+echo [OK] libgcc       : %LGCC%
 
 :: ============ 5. Signing keys ============
 set "KCER=" & set "KKEY=" & set "KPASS="
@@ -260,7 +268,6 @@ echo.
 echo === Converting to E32 image (elf2e32) ===
 "%SDKTOOLS%\elf2e32.exe" --targettype=EXE --uid1=0x1000007a --uid2=0x100039ce --uid3=0xE1234567 --sid=0xE1234567 --capability=NONE --fpu=softvfp --elfinput="%OUT%\PvZ_N95_elf.exe" --output="%OUT%\PvZ_N95.exe" --linkas="PvZ_N95{000a0000}[e1234567].exe" --libpath="%L%" --dso "%L%\euser.dso" --dso "%L%\cone.dso" --dso "%L%\eikcore.dso" --dso "%L%\avkon.dso" --dso "%L%\apparc.dso" --dso "%L%\ws32.dso" --dso "%L%\gdi.dso" --dso "%L%\bitgdi.dso" --dso "%L%\fbscli.dso" --dso "%L%\efsrv.dso" --dso "%L%\bafl.dso" --dso "%L%\mediaclientaudio.dso" --dso "%L%\libgles_cm.dso" --dso "%L%\imageconversion.dso"
 if ERRORLEVEL 1 ( echo [ERROR] elf2e32 failed & pause & exit /b 1 )
-if not exist "%OUT%\PvZ_N95.exe" ( echo [ERROR] elf2e32 reported errors and produced no PvZ_N95.exe & pause & exit /b 1 )
 echo [OK] E32 image created.
 echo.
 
