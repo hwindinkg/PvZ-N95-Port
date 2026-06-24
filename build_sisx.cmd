@@ -123,73 +123,131 @@ set "SD_LWN=%SRC%\Lawn"
 
 :: ============ 8. Compile all sources ============
 echo === Compiling source files ===
-set "NFAIL=0"
-for %%E in (
-  SD_SRC:main_symbian
-  SD_PLA:PvZApplication
-  SD_PLA:PvZDocument
-  SD_PLA:PvZAppUi
-  SD_PLA:PvZGameView
-  SD_ENG:SymbianFixes
-  SD_ENG:PvZVfs
-  SD_ENG:PakInterface
-  SD_ENG:GLInterface
-  SD_ENG:Image
-  SD_ENG:NativeDisplay
-  SD_ENG:MemoryImage
-  SD_ENG:GLImage
-  SD_ENG:Color
-  SD_ENG:SexyMatrix
-  SD_ENG:Buffer
-  SD_ENG:Graphics
-  SD_ENG:TodStringFile
-  SD_ENG:SexyAppBase
-  SD_ENG:Widget
-  SD_ENG:WidgetContainer
-  SD_ENG:WidgetManager
-  SD_ENG:Font
-  SD_ENG:Stubs
-  SD_TOD:TodCommon
-  SD_TOD:TodDebug
-  SD_SRC:Resources_stub
-  SD_LWN:GameObject
-  SD_LWN:Board
-  SD_LWN:Plant
-  SD_LWN:Zombie
-  SD_LWN:Projectile
-  SD_LWN:Coin
-  SD_LWN:LawnMower
-  SD_LWN:GridItem
-  SD_LWN:Challenge
-  SD_SRC:LawnApp
-  SD_ENG:ResourceManager
-  SD_ENG:stb_image
-) do (
-  for /f "tokens=1,2 delims=:" %%a in ("%%E") do (
-    set "DIR=!%%a!"
-    set "NM=%%b"
-    if not exist "!DIR!\!NM!.cpp" ( echo   [SKIP] !NM!.cpp ^(missing^) ) else (
-      echo   [CC] !NM!.cpp
-      "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\!NM!.o" "!DIR!\!NM!.cpp"
-      if errorlevel 1 ( echo   [ERROR] compile failed: !NM!.cpp & set /a NFAIL+=1 )
-    )
-  )
-)
-if not "%NFAIL%"=="0" ( echo [ERROR] %NFAIL% file^(s^) failed to compile. & pause & exit /b 1 )
-
-:: assemble newop.s (provides operator new/delete)
-if exist "%SRC%\engine\newop.s" (
-  echo   [AS] newop.s
-  arm-none-symbianelf-as -o "%OBJ%\newop.o" "%SRC%\engine\newop.s"
-  if ERRORLEVEL 1 ( echo [ERROR] assembler failed & pause & exit /b 1 )
-)
+echo   [CC] main_symbian.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\main_symbian.o" "%SD_SRC%\main_symbian.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] PvZApplication.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZApplication.o" "%SD_PLA%\PvZApplication.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] PvZDocument.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZDocument.o" "%SD_PLA%\PvZDocument.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] PvZAppUi.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZAppUi.o" "%SD_PLA%\PvZAppUi.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] PvZGameView.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZGameView.o" "%SD_PLA%\PvZGameView.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] SymbianFixes.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\SymbianFixes.o" "%SD_ENG%\SymbianFixes.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] PvZVfs.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PvZVfs.o" "%SD_ENG%\PvZVfs.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] PakInterface.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\PakInterface.o" "%SD_ENG%\PakInterface.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] GLInterface.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GLInterface.o" "%SD_ENG%\GLInterface.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Image.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Image.o" "%SD_ENG%\Image.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] NativeDisplay.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\NativeDisplay.o" "%SD_ENG%\NativeDisplay.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] MemoryImage.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\MemoryImage.o" "%SD_ENG%\MemoryImage.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] GLImage.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GLImage.o" "%SD_ENG%\GLImage.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Color.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Color.o" "%SD_ENG%\Color.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] SexyMatrix.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\SexyMatrix.o" "%SD_ENG%\SexyMatrix.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Buffer.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Buffer.o" "%SD_ENG%\Buffer.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Graphics.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Graphics.o" "%SD_ENG%\Graphics.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] TodStringFile.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\TodStringFile.o" "%SD_ENG%\TodStringFile.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] SexyAppBase.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\SexyAppBase.o" "%SD_ENG%\SexyAppBase.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Widget.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Widget.o" "%SD_ENG%\Widget.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] WidgetContainer.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\WidgetContainer.o" "%SD_ENG%\WidgetContainer.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] WidgetManager.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\WidgetManager.o" "%SD_ENG%\WidgetManager.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Font.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Font.o" "%SD_ENG%\Font.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Stubs.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Stubs.o" "%SD_ENG%\Stubs.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] TodCommon.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\TodCommon.o" "%SD_TOD%\TodCommon.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] TodDebug.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\TodDebug.o" "%SD_TOD%\TodDebug.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Resources_stub.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Resources_stub.o" "%SD_SRC%\Resources_stub.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] GameObject.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GameObject.o" "%SD_LWN%\GameObject.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Board.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Board.o" "%SD_LWN%\Board.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Plant.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Plant.o" "%SD_LWN%\Plant.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Zombie.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Zombie.o" "%SD_LWN%\Zombie.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Projectile.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Projectile.o" "%SD_LWN%\Projectile.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Coin.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Coin.o" "%SD_LWN%\Coin.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] LawnMower.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\LawnMower.o" "%SD_LWN%\LawnMower.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] GridItem.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GridItem.o" "%SD_LWN%\GridItem.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] Challenge.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Challenge.o" "%SD_LWN%\Challenge.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] LawnApp.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\LawnApp.o" "%SD_SRC%\LawnApp.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] ResourceManager.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\ResourceManager.o" "%SD_ENG%\ResourceManager.cpp"
+if errorlevel 1 exit /b 1
+echo   [CC] stb_image.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\stb_image.o" "%SD_ENG%\stb_image.cpp"
+if errorlevel 1 exit /b 1
+echo   [AS] newop.s
+arm-none-symbianelf-as -o "%OBJ%\newop.o" "%SRC%\engine\newop.s"
+if errorlevel 1 exit /b 1
 echo [OK] All sources compiled.
 echo.
 
-:: ============ 9. Link ELF (g++ driver) ============
 echo === Linking ELF executable ===
-set "OBJS="
-for %%f in ("%OBJ%\*.o") do set "OBJS=!OBJS! "%OBJ%\%%~nxf""
+set OBJS="%OBJ%\main_symbian.o" "%OBJ%\PvZApplication.o" "%OBJ%\PvZDocument.o" "%OBJ%\PvZAppUi.o" "%OBJ%\PvZGameView.o" "%OBJ%\SymbianFixes.o" "%OBJ%\PvZVfs.o" "%OBJ%\PakInterface.o" "%OBJ%\GLInterface.o" "%OBJ%\Image.o" "%OBJ%\NativeDisplay.o" "%OBJ%\MemoryImage.o" "%OBJ%\GLImage.o" "%OBJ%\Color.o" "%OBJ%\SexyMatrix.o" "%OBJ%\Buffer.o" "%OBJ%\Graphics.o" "%OBJ%\TodStringFile.o" "%OBJ%\SexyAppBase.o" "%OBJ%\Widget.o" "%OBJ%\WidgetContainer.o" "%OBJ%\WidgetManager.o" "%OBJ%\Font.o" "%OBJ%\Stubs.o" "%OBJ%\TodCommon.o" "%OBJ%\TodDebug.o" "%OBJ%\Resources_stub.o" "%OBJ%\GameObject.o" "%OBJ%\Board.o" "%OBJ%\Plant.o" "%OBJ%\Zombie.o" "%OBJ%\Projectile.o" "%OBJ%\Coin.o" "%OBJ%\LawnMower.o" "%OBJ%\GridItem.o" "%OBJ%\Challenge.o" "%OBJ%\LawnApp.o" "%OBJ%\ResourceManager.o" "%OBJ%\stb_image.o" "%OBJ%\newop.o"
 "%CC%" -nostdlib -shared -Wl,--target1-abs,--allow-multiple-definition,--soname,"PvZ_N95{000a0000}[e1234567].exe",--entry,_E32Startup,-u,_E32Startup %OBJS% "%EEXE%" "%USRT%" "%LSUPC%" "%LGCC%" "%L%\euser.dso" "%L%\cone.dso" "%L%\eikcore.dso" "%L%\avkon.dso" "%L%\apparc.dso" "%L%\ws32.dso" "%L%\gdi.dso" "%L%\bitgdi.dso" "%L%\fbscli.dso" "%L%\efsrv.dso" "%L%\bafl.dso" "%L%\mediaclientaudio.dso" "%L%\libgles_cm.dso" "%L%\imageconversion.dso" -o "%OUT%\PvZ_N95_elf.exe" -Wl,-Map,"%OUT%\PvZ_N95_elf.map"
 if ERRORLEVEL 1 ( echo [ERROR] link failed & pause & exit /b 1 )
 echo [OK] Linked.
