@@ -19,10 +19,20 @@ extern "C" CApaApplication* NewApplication() {
     return CPvZApplication::NewApplication();
 }
 
-TInt E32Main()
+// usrt2_2.lib's process startup (callfirstprocessfn) references E32Main with
+// C linkage, so elf2e32 looks for the unmangled symbol "E32Main". Define it
+// extern "C" so the name matches exactly. A weak C++-mangled alias is also
+// provided in case any startup variant expects _Z7E32Mainv instead.
+extern "C" TInt E32Main()
 {
     WriteLog("E32Main START");
     TInt err = EikStart::RunApplication(NewApplication);
     WriteLog("E32Main END");
     return err;
+}
+
+// Weak C++-linkage alias -> same entry, harmless if unused / overridden.
+__attribute__((weak)) TInt E32Main_cpp_alias()
+{
+    return E32Main();
 }
