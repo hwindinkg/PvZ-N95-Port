@@ -22,7 +22,7 @@ static void WriteLog(const char* msg) {
         else { TInt p=0; f.Seek(ESeekEnd,p); }
     }
     if (err != KErrNone) { fs.Close(); return; }
-    f.Write(b); f.Close(); fs.Close();
+    f.Write(b); f.Flush(); f.Close(); fs.Close();
 }
 
 // Application entry point required by EikStart.
