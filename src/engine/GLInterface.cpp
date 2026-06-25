@@ -124,8 +124,13 @@ void GLInterface::SetupGLState()
 {
     // --- GLES 1.1 fixed-pipeline state setup ---
 
-    // Enable texturing by default
-    glEnable(GL_TEXTURE_2D);
+    // Start with texturing DISABLED so the cached mTextureEnabled (EFalse,
+    // set in the constructor) matches the real GL state. If we enabled
+    // GL_TEXTURE_2D here, the first FillRect's SetTextureEnabled(EFalse) would
+    // early-return (cache already EFalse) and leave texturing ON with NO
+    // texture bound -> glDrawArrays samples a null texture -> KERN-EXEC 3 on
+    // PowerVR MBX (N95). Keep it off until something actually binds a texture.
+    glDisable(GL_TEXTURE_2D);
 
     // Disable features we do not use
     glDisable(GL_DITHER);
@@ -140,10 +145,13 @@ void GLInterface::SetupGLState()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Colour and texture arrays (enable client states)
+    // Vertex + colour arrays are always used. The TEXTURE_COORD array is
+    // toggled in lockstep with GL_TEXTURE_2D by SetTextureEnabled() -- on MBX,
+    // having the texcoord array enabled while texturing is off (no texture
+    // bound) can fault inside glDrawArrays. Start it disabled.
     glEnableClientState(GL_VERTEX_ARRAY);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     glEnableClientState(GL_COLOR_ARRAY);
+    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 
     // Texture environment: modulate texture with vertex colour
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
@@ -343,10 +351,12 @@ void GLInterface::SetTextureEnabled(TBool enabled)
     if (en)
     {
         glEnable(GL_TEXTURE_2D);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
     }
     else
     {
         glDisable(GL_TEXTURE_2D);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     }
 }
 
