@@ -17,25 +17,8 @@ RESOURCE TBUF
 
 RESOURCE EIK_APP_INFO
 {
-    cba = r_pvz_cba;
+    cba = R_AVKON_SOFTKEYS_OPTIONS_EXIT;
     menubar = r_pvz_menubar;
-}
-
-RESOURCE CBA r_pvz_cba
-{
-    buttons =
-    {
-        CBA_BUTTON
-        {
-            id = EAknSoftkeyOptions;
-            txt = "Options";
-        },
-        CBA_BUTTON
-        {
-            id = EAknSoftkeyExit;
-            txt = "Exit";
-        }
-    };
 }
 
 RESOURCE MENU_BAR r_pvz_menubar
