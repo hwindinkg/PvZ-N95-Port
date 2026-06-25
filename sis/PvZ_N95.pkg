@@ -1,7 +1,7 @@
 ; PvZ_N95.pkg -- Plants vs Zombies for Nokia N95 (S60 3rd FP1)
 &EN
 
-#{"Plants vs Zombies N95"},(0xE1234567),1,0,0
+#{"Plants vs Zombies N95"},(0xE1234567),1,1,0
 %{"PvZ N95"}
 :"PvZ N95"
 
@@ -10,7 +10,7 @@
 [0x102032BE], 0, 0, 0, {"S60 3rd Edition FP1 devices"}
 
 ; Files to install
-"\Symbian\9.2\S60_3rd_FP1_2\epoc32\release\gcce\urel\PvZ_N95.exe" - "!:\sys\bin\PvZ_N95.exe"
+"\Symbian\9.2\S60_3rd_FP1_2\epoc32\release\armv5\urel\PvZ_N95.exe" - "!:\sys\bin\PvZ_N95.exe"
 "\Symbian\9.2\S60_3rd_FP1_2\epoc32\data\z\resource\apps\PvZ_N95.rsc" - "!:\resource\apps\PvZ_N95.rsc"
 "\Symbian\9.2\S60_3rd_FP1_2\epoc32\data\z\resource\apps\PvZ_N95_loc.rsc" - "!:\resource\apps\PvZ_N95_loc.rsc"
 "\Symbian\9.2\S60_3rd_FP1_2\epoc32\data\z\private\10003a3f\import\apps\PvZ_N95_reg.rsc" - "!:\private\10003a3f\import\apps\PvZ_N95_reg.rsc"
