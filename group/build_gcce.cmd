@@ -44,6 +44,9 @@ for /f "delims=" %%v in ('arm-none-symbianelf-g++ -dumpversion 2^>nul') do set G
 echo [OK] GCCE found ^(version %GCCEVER%^)
 
 :: ============ 4. Build ============
+:: Delete any STALE exe first so a failed link can't silently package an old binary.
+set "EXE=%EPOCROOT%epoc32\release\gcce\urel\PvZ_N95.exe"
+if exist "%EXE%" del /q "%EXE%"
 echo [i] bldmake bldfiles ...
 call bldmake bldfiles || (echo [X] bldmake failed ^& pause ^& exit /b 1)
 echo [i] abld build gcce urel ...
