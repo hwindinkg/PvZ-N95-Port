@@ -1162,6 +1162,60 @@ bool ExtractLoadingImagesResources(ResourceManager* theManager);
 bool ExtractLoadingSoundsResources(ResourceManager* theManager);
 bool ExtractResourcesByName(ResourceManager* theResourceManager, const char* theName);
 
+
+// ==== M3-prep: extra globals referenced by game code (absent from trimmed resources) ====
+extern Image* IMAGE_BACKGROUND6;
+extern Image* IMAGE_BUGSPRAY;
+extern Image* IMAGE_FLAG;
+extern Image* IMAGE_GLOVE;
+extern Image* IMAGE_GREENHOUSE;
+extern Image* IMAGE_HOUSEDOOR_BOTTOM;
+extern Image* IMAGE_HOUSEDOOR_TOP;
+extern Image* IMAGE_MONEY_SIGN;
+extern Image* IMAGE_MUSHROOM_GARDEN;
+extern Image* IMAGE_REANIM_ZOMBIE_OUTERARM_UPPER2;
+extern Image* IMAGE_REANIM_ZOMBIE_SCREENDOOR1;
+extern Image* IMAGE_REANIM_ZOMBIE_SCREENDOOR2;
+extern Image* IMAGE_REANIM_ZOMBIE_SCREENDOOR3;
+extern Image* IMAGE_ROOFDOOR_BOTTOM;
+extern Image* IMAGE_ROOFDOOR_TOP;
+extern Image* IMAGE_SCARY_POT;
+extern Image* IMAGE_SEEDBANK;
+extern Image* IMAGE_SEEDBANK_BLANK;
+extern Image* IMAGE_SEEDBANK_CONVEYORBELT;
+extern Image* IMAGE_SEEDBANK_ICE;
+extern Image* IMAGE_SEEDBANK_ZOMBIE;
+extern Image* IMAGE_SEEDCHOOSER_BUTTON;
+extern Image* IMAGE_SEEDS;
+extern Image* IMAGE_SHOVEL;
+extern Image* IMAGE_SHOVELBANK;
+extern Image* IMAGE_SHOVEL_HI_RES;
+extern Image* IMAGE_SLOT_MACHINE_BACKGROUND;
+extern Image* IMAGE_SODBANK;
+extern Image* IMAGE_STORE_SPEECHBUBBLE;
+extern Image* IMAGE_STORE_SPEECHBUBBLE2;
+extern Image* IMAGE_SUN;
+extern Image* IMAGE_SUNBANK;
+extern Image* IMAGE_SUNFLOWER_TROPHY;
+extern Image* IMAGE_TACO;
+extern Image* IMAGE_TOMBSTONES;
+extern Image* IMAGE_TOMBSTONE_MOUNDS;
+extern Image* IMAGE_TREEOFWISDOM;
+extern Image* IMAGE_TREE_FOOD;
+extern Image* IMAGE_TROPHY;
+extern Image* IMAGE_TROPHY_HI_RES;
+extern Image* IMAGE_WATERINGCAN;
+extern Image* IMAGE_WHEELBARROW;
+extern Image* IMAGE_ZENSHOPBUTTON;
+extern Image* IMAGE_ZENSHOPBUTTON_HIGHLIGHT;
+extern Image* IMAGE_ZOMBIEPOGO;
+extern Image* IMAGE_ZOMBIE_NOTE_SMALL;
+extern Image* IMAGE_ZOMBIQUARIUM;
+extern _Font* FONT_COUNTER;
+extern _Font* FONT_DWARVEN;
+extern intptr_t SOUND_SHOOT;
+extern intptr_t SOUND_ZOMBIESARE_COMING;
+
 extern bool gNeedRecalcVariableToIdMap;
 
 } // namespace Sexy
