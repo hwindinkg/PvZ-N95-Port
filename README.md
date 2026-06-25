@@ -6,32 +6,52 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > engine boots, but the game shows only a static frame because the **asset/
 > resource pipeline is stubbed out**. This is the #1 thing to fix. Details below.
 
-## Current status (2026-06)
+## Current status (2026-06-25)
+
+The crash chain has been peeled back one layer at a time. We are now well past
+the engine-boot stage and into **real asset rendering** — the screen no longer
+freezes the whole phone.
 
 **Working:**
 - GCCE build pipeline (`group/build_gcce.cmd`) — compiles, links, makes SIS.
-- C++ runtime: EH / `User::Leave` / `TRAP` work (via `STATICLIBRARY libgcc.lib`). No more KERN-EXEC 3.
-- EGL/OpenGL ES context init, GL texture upload primitives (`glimage.cpp`, `GLInterface.cpp`).
-- `.pak` virtual filesystem (`PvZVfs.cpp`, `pakinterface.cpp`), PNG decode (`stb_image`).
-- `WidgetManager` draws (`DrawScreen -> DrawAll`).
-- App boots: `LawnApp::Init` -> title screen created -> `InitGLES` -> heartbeat `CPeriodic` (EPriorityLow).
-- Resource loading is now DRIVEN synchronously after GL is wired (commit 87157084): `LoadingThreadProc()` + `LoadingCompleted()` in `PvZAppUi::ConstructL`. This advanced the game from 1 widget to the GameSelector menu (`wgt_log: Widgets=2`).
+- C++ runtime: EH / `User::Leave` / `TRAP` work (via `STATICLIBRARY libgcc.lib`). No more startup KERN-EXEC 3.
+- EGL/OpenGL ES context init; GL texture upload primitives.
+- `.pak` virtual filesystem; ICL-based PNG **and JPEG** decode.
+- `WidgetManager` draws; `ConstructL` completes fully (heartbeat `CPeriodic` running, `Widgets=2` GameSelector menu).
+- **M1 in progress — single-image asset path proven up to decode.** `PvZAppUi::ConstructL` explicitly loads `IMAGE_TITLESCREEN` to exercise the path GetImage -> resources lookup -> PAK -> ICL decode -> MemoryImage -> lazy GL texture.
 
-**BROKEN / the real blocker — asset pipeline is stubbed:**
+**Recently fixed (this session):**
+- **ICL decode deadlock (whole-phone freeze).** `DecodeToBitmapL` waited on the
+  async `CImageDecoder::Convert` with `User::WaitForRequest` on the UI thread —
+  the codec's own active objects could never run, hanging the UI thread *and* the
+  window server (battery-pull required). Replaced with a proper `CActive` +
+  nested `CActiveSchedulerWait` driver, plus a `KErrUnderflow` (progressive
+  JPEG) guard and per-step `[dec]` logging. Result: `M1: TITLESCREEN OK 800x600`,
+  `decoded OK`.
+- **NPOT-texture KERN-EXEC 3 on the first textured draw.** After a clean decode
+  the app crashed on the very first frame (`gl_log` ends at `SetColor called`,
+  then KERN-EXEC 3). Root cause: the N95 GPU is a **PowerVR MBX (GL ES 1.1) that
+  supports power-of-two textures only**. The title art is 800x600 (NPOT); uploading
+  it via `glTexImage2D` and sampling 0..1 read out of bounds -> access violation.
+  Fix (`src/engine/Graphics.cpp`): `GetOrCreateTexture` now rounds W/H up with
+  `NextPow2`, allocates an **empty POT texture**, sub-uploads the image top-left
+  via `CopyImageToTextureSub`, and caches the padding ratio (uMax = w/potW,
+  vMax = h/potH). Both `DrawImage` overloads (full-image and src-rect) now scale
+  their texcoords by the cached uMax/vMax instead of assuming 0..1. *(Needs an
+  on-device build to confirm the title art renders.)*
+
+**Still the bigger blocker — bulk asset pipeline is stubbed:**
 - `group/PvZ_N95.mmp` compiles **`Resources_stub.cpp`**, NOT `Resources.cpp`.
-  => ALL `IMAGE_*` and `FONT_*` globals are **NULL**. Nothing has pixels to draw.
-- `src/engine/Stubs.h` no-ops the loaders:
-  - `TodLoadResources(...) { return true; }`  (loads nothing)
-  - `TodLoadNextResource() { return false; }`
-  - `TodStringListLoad`, `LoadProperties`, `ReanimatorLoadDefinitions`, `TodParticleLoadDefinitions` -> empty
-  - `DrawDirtyStuff() {}` (SexyAppBase-level)
-- `src/engine/SexyAppBase.cpp` is a **3.5 KB stub** (original is ~99 KB).
-- `src/engine/misc/ResourceManager.cpp` ~10 KB (original ~30 KB) — trimmed.
+  => ALL `IMAGE_*` and `FONT_*` globals are **NULL** except the one M1 image.
+- `src/engine/Stubs.h` no-ops the loaders (`TodLoadResources` returns true and
+  loads nothing, `TodLoadNextResource` returns false, string/property/reanimator/
+  particle loaders empty).
+- `src/engine/SexyAppBase.cpp` is a **3.5 KB stub** (original ~99 KB);
+  `ResourceManager.cpp` is trimmed vs upstream.
 
-Net effect: the engine runs game logic but every sprite is NULL, so the screen
-is just the GL clear-colour (purple) plus one manually drawn rect (white box).
-Chasing EGL/redraw/flush bugs was a dead end — **there is nothing to render until
-real resources load.**
+Net: the engine runs game logic, the single M1 image proves the decode+GL path,
+but the bulk `IMAGE_*/FONT_*` table is still NULL — M2 (restore `Resources.cpp`)
+is the next big step.
 
 ## The plan (milestones)
 

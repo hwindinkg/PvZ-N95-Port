@@ -33,7 +33,17 @@ struct TexCacheEntry
 {
     const Sexy::MemoryImage* mImage;
     GLuint  mTexID;
+    float   mUMax;   // = imgW / potW  (POT padding ratio)
+    float   mVMax;   // = imgH / potH
 };
+
+// PowerVR MBX (N95, GL ES 1.1) requires power-of-two textures. Round up.
+static TInt NextPow2(TInt v)
+{
+    TInt p = 1;
+    while (p < v) p <<= 1;
+    return p;
+}
 
 static const TInt KMaxTexCache = 512;
 
@@ -50,7 +60,22 @@ GLuint FindCachedTexture(const Sexy::MemoryImage* img)
     return 0;
 }
 
-void AddCachedTexture(const Sexy::MemoryImage* img, GLuint texID)
+TBool FindCachedTexCoords(const Sexy::MemoryImage* img, float& uMax, float& vMax)
+{
+    for (TInt i = 0; i < sTexCount; ++i)
+    {
+        if (sTexCache[i].mImage == img)
+        {
+            uMax = sTexCache[i].mUMax;
+            vMax = sTexCache[i].mVMax;
+            return ETrue;
+        }
+    }
+    uMax = 1.0f; vMax = 1.0f;
+    return EFalse;
+}
+
+void AddCachedTexture(const Sexy::MemoryImage* img, GLuint texID, float uMax, float vMax)
 {
     if (sTexCount >= KMaxTexCache)
     {
@@ -63,6 +88,8 @@ void AddCachedTexture(const Sexy::MemoryImage* img, GLuint texID)
 
     sTexCache[sTexCount].mImage = img;
     sTexCache[sTexCount].mTexID = texID;
+    sTexCache[sTexCount].mUMax  = uMax;
+    sTexCache[sTexCount].mVMax  = vMax;
     ++sTexCount;
 }
 
@@ -244,17 +271,23 @@ GLuint Graphics::GetOrCreateTexture(MemoryImage* img)
     if (w <= 0 || h <= 0)
         return 0;
 
-    // Create a new GL texture
-    texID = mGL->CreateTexture(w, h, NULL, GL_RGBA);
+    // PowerVR MBX (N95, GLES 1.1) supports ONLY power-of-two textures.
+    // Uploading an NPOT image (e.g. 800x600 titlescreen) and sampling it
+    // reads out of bounds -> KERN-EXEC 3 on the first draw. Allocate a POT
+    // texture, sub-upload the image top-left, map texcoords to w/potW, h/potH.
+    TInt potW = NextPow2(w);
+    TInt potH = NextPow2(h);
+
+    texID = mGL->CreateTexture(potW, potH, NULL, GL_RGBA);
     if (!texID)
         return 0;
 
-    // Upload pixel data (converts ARGB -> RGBA internally)
     if (img->GetBits())
-        mGL->CopyImageToTexture(img, texID);
+        mGL->CopyImageToTextureSub(img, texID, 0, 0);
 
-    // Cache for future use
-    AddCachedTexture(img, texID);
+    float uMax = (float)w / (float)potW;
+    float vMax = (float)h / (float)potH;
+    AddCachedTexture(img, texID, uMax, vMax);
 
     return texID;
 }
@@ -358,12 +391,14 @@ void Graphics::DrawImage(MemoryImage* img, int x, int y)
     float fh = static_cast<float>(img->GetHeight());
 
     // Normalise texture coordinates: assume source image fills the
-    // entire texture (no atlas packing).
+    // POT-padded texture: sample only the used sub-region.
+    float uMax = 1.0f, vMax = 1.0f;
+    FindCachedTexCoords(img, uMax, vMax);
     mGL->Begin(GL_TRIANGLE_STRIP);
     mGL->AddVertex(fx,      fy,      0.0f, 0.0f);
-    mGL->AddVertex(fx + fw, fy,      1.0f, 0.0f);
-    mGL->AddVertex(fx,      fy + fh, 0.0f, 1.0f);
-    mGL->AddVertex(fx + fw, fy + fh, 1.0f, 1.0f);
+    mGL->AddVertex(fx + fw, fy,      uMax, 0.0f);
+    mGL->AddVertex(fx,      fy + fh, 0.0f, vMax);
+    mGL->AddVertex(fx + fw, fy + fh, uMax, vMax);
     mGL->End();
 
     DisableClipRect();
@@ -401,10 +436,12 @@ void Graphics::DrawImage(MemoryImage* img, int x, int y, const Rect& srcRect)
     // Compute UV coordinates for the sub-rect
     float imgW = static_cast<float>(img->GetWidth());
     float imgH = static_cast<float>(img->GetHeight());
-    float u0 = static_cast<float>(srcRect.mX) / imgW;
-    float v0 = static_cast<float>(srcRect.mY) / imgH;
-    float u1 = static_cast<float>(srcRect.mX + srcRect.mWidth)  / imgW;
-    float v1 = static_cast<float>(srcRect.mY + srcRect.mHeight) / imgH;
+    float uMaxR = 1.0f, vMaxR = 1.0f;
+    FindCachedTexCoords(img, uMaxR, vMaxR);
+    float u0 = (static_cast<float>(srcRect.mX) / imgW) * uMaxR;
+    float v0 = (static_cast<float>(srcRect.mY) / imgH) * vMaxR;
+    float u1 = (static_cast<float>(srcRect.mX + srcRect.mWidth)  / imgW) * uMaxR;
+    float v1 = (static_cast<float>(srcRect.mY + srcRect.mHeight) / imgH) * vMaxR;
 
     mGL->Begin(GL_TRIANGLE_STRIP);
     mGL->AddVertex(fx,      fy,      u0, v0);
