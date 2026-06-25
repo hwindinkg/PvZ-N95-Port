@@ -1211,8 +1211,6 @@ extern Image* IMAGE_ZENSHOPBUTTON_HIGHLIGHT;
 extern Image* IMAGE_ZOMBIEPOGO;
 extern Image* IMAGE_ZOMBIE_NOTE_SMALL;
 extern Image* IMAGE_ZOMBIQUARIUM;
-extern _Font* FONT_COUNTER;
-extern _Font* FONT_DWARVEN;
 extern intptr_t SOUND_SHOOT;
 extern intptr_t SOUND_ZOMBIESARE_COMING;
 
