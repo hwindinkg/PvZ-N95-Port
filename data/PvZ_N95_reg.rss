@@ -1,5 +1,6 @@
 // data/PvZ_N95_reg.rss
 #include <appinfo.rh>
+#include <PvZ_N95_loc.rsg>   // R_PVZ_LOCALISABLE_APP_INFO
 
 UID2 KUidAppRegistrationResourceFile
 UID3 0xE1234567
@@ -8,6 +9,7 @@ RESOURCE APP_REGISTRATION_INFO
 {
     app_file                   = "PvZ_N95";
     localisable_resource_file  = "\\resource\\apps\\PvZ_N95_loc";
+    localisable_resource_id    = R_PVZ_LOCALISABLE_APP_INFO;
     embeddability              = KAppNotEmbeddable;
     newfile                    = 0;          // EFalse → 0 (RCOMP не понимает EFalse здесь)
 }
