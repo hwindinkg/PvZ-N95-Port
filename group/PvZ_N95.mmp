@@ -1,22 +1,14 @@
 // group/PvZ_N95.mmp
 TARGET          PvZ_N95.exe
 TARGETTYPE      exe
-// Ensure C++ exceptions + RTTI are compiled in so OUR frames get .ARM.exidx
-// unwind tables; without them the first User::Leave/throw cannot unwind through
-// our code and the device takes KERN-EXEC 3.
-OPTION GCCE -fexceptions -frtti
-// RVCT/ARMCC equivalent: enable C++ exceptions + RTTI so OUR throw/catch and the
-// EH self-test work, and so our frames get unwind tables. EKA2 Leave/TRAP itself
-// is longjmp-based and works regardless. Build ARM (not Thumb) to match reference.
-OPTION ARMCC --exceptions --rtti
-// CRITICAL: The Symbian RVCT build configuration appends --no_exceptions and
-// --no_rtti to the armcc command line by default. For armcc the LAST flag wins,
-// so those defaults silently OVERRIDE the OPTION ARMCC line above, producing a
-// binary with NO exception unwind tables (.ARM.exidx). The first real C++ throw
-// then crashes the device with KERN-EXEC 3. OPTION_REPLACE textually rewrites
-// the default flags so exceptions/RTTI are genuinely enabled.
-OPTION_REPLACE ARMCC --no_exceptions --exceptions
-OPTION_REPLACE ARMCC --no_rtti --rtti
+// === GCCE build, mirroring the proven Whisk3D reference ===
+// Whisk3D (the working N95 GL app) builds with GCCE and never touches the
+// exception flags: GCCE's default link pulls a WORKING EH unwinder from
+// libgcc/libsupc++, so User::Leave / TRAP (on EKA2 = throw / try-catch) really
+// works. The old RVCT path forced --no_exceptions on a link set that had no EH
+// runtime, so the first Leave inside BaseConstructL paniced KERN-EXEC 3.
+// Do NOT add -fno-exceptions here. RTTI is on by default. C runtime, soft-float,
+// operator new/delete come from libgcc + estlib.lib + libc.lib (see LIBRARY).
 ALWAYS_BUILD_AS_ARM
 UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
 
@@ -33,8 +25,6 @@ SOURCEPATH      ..\src
 // === Main entry point ===
 SOURCE          main_symbian.cpp
 
-// Custom operator new/delete -> User::Alloc/Free (no scppnwdl.dll on N95)
-SOURCE          newdel_compat.cpp
 
 // === Platform layer (Symbian OS) ===
 SOURCEPATH      ..\src\platform\symbian
@@ -64,7 +54,6 @@ SOURCE          WidgetContainer.cpp
 SOURCE          WidgetManager.cpp
 SOURCE          Font.cpp
 SOURCE          Stubs.cpp
-SOURCE          clib_stubs.cpp        // minimal C runtime: str*, fmod, rand (no estlib linked)
 SOURCE          ResourceManager.cpp      // Resource manager with image loading from PAK
 
 // === TodLib ===
@@ -119,6 +108,9 @@ LIBRARY         bafl.lib
 LIBRARY         mediaclientaudio.lib
 LIBRARY         libgles_cm.lib
 LIBRARY         imageconversion.lib   // ICL: PNG/JPEG decode (CImageDecoder)
+// --- Real C / C++ runtime (mirrors Whisk3D): operator new/delete, str*, fmod, rand ---
+LIBRARY         estlib.lib
+LIBRARY         libc.lib
 
 // === Resource files ===
 SOURCEPATH      ..\data
