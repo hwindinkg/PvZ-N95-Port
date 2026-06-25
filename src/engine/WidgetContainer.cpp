@@ -80,6 +80,35 @@ void WidgetContainer::DrawAll(Graphics* g)
     for (i = 0; i < mWidgetCount; i++)
     {
         Widget* w = mWidgets[i];
+        // [diag] Record which widget we are about to draw, flushing every
+        // iteration. If a widget's Draw() dereferences a NULL resource and
+        // panics (KERN-EXEC 3), the last "begin" line in this file names the
+        // culprit widget index + its geometry.
+        {
+            RFs dfs;
+            if (dfs.Connect() == KErrNone)
+            {
+                dfs.MkDirAll(_L("C:\\Data\\PvZ"));
+                RFile df;
+                TInt de = df.Open(dfs, _L("C:\\Data\\PvZ\\draw_progress.txt"), EFileWrite);
+                if (de != KErrNone)
+                    de = df.Replace(dfs, _L("C:\\Data\\PvZ\\draw_progress.txt"), EFileWrite);
+                if (de == KErrNone)
+                {
+                    TInt pos = 0;
+                    df.Seek(ESeekEnd, pos);
+                    TBuf8<128> dm;
+                    dm.Format(_L8("begin i=%d/%d vis=%d x=%d y=%d w=%d h=%d ptr=%08x\n"),
+                              i, (TInt)mWidgetCount, (TInt)w->mVisible,
+                              (TInt)w->mX, (TInt)w->mY, (TInt)w->mWidth, (TInt)w->mHeight,
+                              (TUint)w);
+                    df.Write(dm);
+                    df.Flush();
+                    df.Close();
+                }
+                dfs.Close();
+            }
+        }
         if (w->mVisible)
         {
             w->Draw(g);
