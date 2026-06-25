@@ -107,7 +107,7 @@ void CPvZAppUi::ConstructL()
     Log(_L("step: AddToStackL done"));
 
     Log(_L("step: start heartbeat timer"));
-    iTimer = CPeriodic::NewL(CActive::EPriorityIdle);  // below normal AOs (ICL decoder) -- reference uses sub-idle priority
+    iTimer = CPeriodic::NewL(CActive::EPriorityLow);  // match GTA3 re3-symbian render-loop priority (EPriorityIdle starved the loop)
     iTimer->Start(KFrameInterval, KFrameInterval, TCallBack(Tick, this));
     Log(_L("AppUi::ConstructL EXIT"));
 }
