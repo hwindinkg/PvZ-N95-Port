@@ -38,7 +38,7 @@ CPvZGameView::CPvZGameView()
 
 void CPvZGameView::ConstructL()
 {
-    Log(_L("GV:ConstructL start"));
+    Log(_L("GV:ConstructL start [BUILD v4 focus+diag]"));
     CreateWindowL();
     Log(_L("GV:CreateWindowL done"));
     // Cover the whole screen, like the GTA3 (re3-symbian) and Whisk3D
@@ -56,6 +56,11 @@ void CPvZGameView::ConstructL()
     // composite. The reference (re3-symbian) avoids this only incidentally; an
     // explicit background is the robust fix.
     Window().SetBackgroundColor(TRgb(38, 13, 51));
+    // [composite fix] Match the working re3-symbian reference: focus the control
+    // before activation. Without focus, AVKON foreground/composite state can
+    // leave our EGL window's first frame uncomposited (garbage shown until the
+    // Options menu forces a full recomposite).
+    SetFocus(ETrue);
     Log(_L("GV:SetDisplay done"));
     ActivateL();
     Log(_L("GV:ActivateL done"));
@@ -70,6 +75,23 @@ void CPvZGameView::InitGLES()
     EGLint major, minor;
     if (!eglInitialize(iEglDisplay, &major, &minor)) { Log(_L("GL:eglInit FAIL")); return; }
     Log(_L("GL:eglInit OK"));
+    // [diag] enumerate ALL window-capable configs the device offers (settles the
+    // 565-vs-888 question and proves this binary actually ran).
+    {
+        EGLConfig dAll[48]; EGLint dN = 0;
+        EGLint dq[] = { EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_NONE };
+        eglChooseConfig(iEglDisplay, dq, dAll, 48, &dN);
+        { TBuf<64> h; h.Format(_L("GL:diag cfgN=%d"), dN); Log(h); }
+        for (EGLint dqi = 0; dqi < dN && dqi < 16; dqi++) {
+            EGLint r=0,g=0,b=0,a=0,d=0;
+            eglGetConfigAttrib(iEglDisplay, dAll[dqi], EGL_RED_SIZE,&r);
+            eglGetConfigAttrib(iEglDisplay, dAll[dqi], EGL_GREEN_SIZE,&g);
+            eglGetConfigAttrib(iEglDisplay, dAll[dqi], EGL_BLUE_SIZE,&b);
+            eglGetConfigAttrib(iEglDisplay, dAll[dqi], EGL_ALPHA_SIZE,&a);
+            eglGetConfigAttrib(iEglDisplay, dAll[dqi], EGL_DEPTH_SIZE,&d);
+            TBuf<80> e; e.Format(_L("GL:diag[%d] %d%d%d a%d d%d"), dqi, r,g,b,a,d); Log(e);
+        }
+    }
 
     EGLConfig config;
     // Get configs with WINDOW_BIT
@@ -173,6 +195,13 @@ void CPvZGameView::InitGLES()
     }
     if (iEglSurface == EGL_NO_SURFACE) { Log(_L("GL:createSurface FAIL")); return; }
     Log(_L("GL:createSurface OK"));
+    {
+        EGLint sw=0, sh=0;
+        eglQuerySurface(iEglDisplay, iEglSurface, EGL_WIDTH, &sw);
+        eglQuerySurface(iEglDisplay, iEglSurface, EGL_HEIGHT, &sh);
+        TSize wsz = Size();
+        TBuf<80> b; b.Format(_L("GL:surf %dx%d win %dx%d"), sw, sh, wsz.iWidth, wsz.iHeight); Log(b);
+    }
 
     // Try context with ES 1.1, fallback to default
     EGLint ctx[] = {EGL_CONTEXT_CLIENT_VERSION, 1, EGL_NONE};
