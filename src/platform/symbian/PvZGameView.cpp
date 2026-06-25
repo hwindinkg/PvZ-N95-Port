@@ -95,28 +95,58 @@ void CPvZGameView::InitGLES()
         TBuf<64> dbg; dbg.Format(_L("GL:win DMode bufSize=%d"), bufferSize); Log(dbg);
     }
 
+    // [green-grid fix] EGL_BUFFER_SIZE is a MINIMUM, so asking for 16 returns
+    // an 888/24-bit config (boot log: "chosen cfg 888 d=24"). A 24-bit surface
+    // on the RGB565 (EColor64K) window makes the MBX driver blit a
+    // mismatched-format buffer -> the green "dense grid" garbage that only
+    // clears on a forced full recomposite (opening the menu). Fix: request the
+    // EXACT per-channel sizes for the window format and pick the exact match.
+    EGLint wantR, wantG, wantB;
+    if (bufferSize >= 24) { wantR = 8; wantG = 8; wantB = 8; }
+    else                  { wantR = 5; wantG = 6; wantB = 5; }
+
     EGLint attribs[] = {
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-        EGL_BUFFER_SIZE,  bufferSize,
+        EGL_RED_SIZE,     wantR,
+        EGL_GREEN_SIZE,   wantG,
+        EGL_BLUE_SIZE,    wantB,
         EGL_DEPTH_SIZE,   16,
         EGL_NONE
     };
+    EGLint attribs2[] = {
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_RED_SIZE,     wantR,
+        EGL_GREEN_SIZE,   wantG,
+        EGL_BLUE_SIZE,    wantB,
+        EGL_NONE
+    };
+    EGLint* chosenAttribs = attribs;
     if (!eglChooseConfig(iEglDisplay, attribs, NULL, 0, &numConfigs) || numConfigs == 0)
     {
         // Fall back to depth-less match if no depth config exists for this mode.
         Log(_L("GL:no cfg w/depth, retry no-depth"));
-        EGLint attribs2[] = {
-            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-            EGL_BUFFER_SIZE,  bufferSize,
-            EGL_NONE
-        };
         if (!eglChooseConfig(iEglDisplay, attribs2, NULL, 0, &numConfigs) || numConfigs == 0)
         { Log(_L("GL:no cfgs")); eglTerminate(iEglDisplay); return; }
-        eglChooseConfig(iEglDisplay, attribs2, &config, 1, &numConfigs);
+        chosenAttribs = attribs2;
     }
-    else
+
+    // eglChooseConfig sorts by DESCENDING component sizes, so [0] can still be a
+    // larger config than requested. Enumerate and take the EXACT R/G/B match for
+    // the window; fall back to the first only if nothing matches.
     {
-        eglChooseConfig(iEglDisplay, attribs, &config, 1, &numConfigs);
+        EGLConfig cfgList[32];
+        EGLint cfgGot = 0;
+        config = NULL;
+        eglChooseConfig(iEglDisplay, chosenAttribs, cfgList, 32, &cfgGot);
+        for (EGLint ci2 = 0; ci2 < cfgGot; ci2++)
+        {
+            EGLint rr = 0, gg = 0, bb2 = 0;
+            eglGetConfigAttrib(iEglDisplay, cfgList[ci2], EGL_RED_SIZE,   &rr);
+            eglGetConfigAttrib(iEglDisplay, cfgList[ci2], EGL_GREEN_SIZE, &gg);
+            eglGetConfigAttrib(iEglDisplay, cfgList[ci2], EGL_BLUE_SIZE,  &bb2);
+            if (rr == wantR && gg == wantG && bb2 == wantB) { config = cfgList[ci2]; break; }
+        }
+        if (config == NULL && cfgGot > 0) config = cfgList[0];
     }
 
     {
