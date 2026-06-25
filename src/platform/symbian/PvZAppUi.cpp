@@ -100,6 +100,25 @@ void CPvZAppUi::ConstructL()
         iLawnApp->mGraphics->SetGLInterface(iGameView->GetGL());
     Log(_L("step: GL wired"));
 
+    // --- CRITICAL: drive resource loading (no loading thread on this port) ---
+    // The original game spawns a background thread running LoadingThreadProc()
+    // while the TitleScreen shows a progress bar; when it finishes,
+    // LoadingCompleted() removes the title screen and shows the GameSelector
+    // (main menu). This Symbian port stubbed out threading and NEVER wired a
+    // replacement, so LoadingThreadProc() was never called -> resources never
+    // loaded -> the game sat forever on the title screen (the static purple
+    // frame with the white box; wgt_log showed Widgets=1). We run the load
+    // synchronously HERE -- after the GL interface is wired (textures need GL),
+    // and before the heartbeat timer starts.
+    if (iLawnApp)
+    {
+        Log(_L("step: LoadingThreadProc (sync) START"));
+        iLawnApp->LoadingThreadProc();
+        Log(_L("step: LoadingThreadProc DONE"));
+        iLawnApp->LoadingCompleted();   // remove title screen -> ShowGameSelector()
+        Log(_L("step: LoadingCompleted -> menu"));
+    }
+
     // Put the GL container on the control stack so it receives
     // key/pointer events and participates in redraw -- this was the
     // missing piece vs. the working Whisk3D reference.
