@@ -56,6 +56,7 @@ SOURCE          WidgetContainer.cpp
 SOURCE          WidgetManager.cpp
 SOURCE          Font.cpp
 SOURCE          Stubs.cpp
+SOURCE          clib_stubs.cpp        // minimal C runtime: str*, fmod, rand (no estlib linked)
 SOURCE          ResourceManager.cpp      // Resource manager with image loading from PAK
 
 // === TodLib ===
