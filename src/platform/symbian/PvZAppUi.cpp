@@ -47,7 +47,7 @@ void CPvZAppUi::ConstructL()
     // Symbian TRAP/Leave is used for error handling instead.
 
     Log(_L("step: BaseConstructL (TRAP)"));
-    TRAPD(bcErr, BaseConstructL());
+    TRAPD(bcErr, BaseConstructL(CAknAppUi::ENoScreenFurniture));
     { TBuf<64> b; b.Format(_L("step: BaseConstructL returned err=%d"), bcErr); Log(b); }
     User::LeaveIfError(bcErr);
     Log(_L("step: BaseConstructL OK"));
