@@ -91,15 +91,10 @@ __aeabi_llsl:
     movhs r0, #0
     bx lr
 
-@ Stubs (never actually called)
-.global __cxa_begin_catch; .type __cxa_begin_catch, %function; __cxa_begin_catch: bx lr
-.global __cxa_end_catch; .type __cxa_end_catch, %function; __cxa_end_catch: bx lr
-.global __cxa_end_cleanup; .type __cxa_end_cleanup, %function; __cxa_end_cleanup: bx lr
-.global __cxa_type_match; .type __cxa_type_match, %function; __cxa_type_match: mov r0,#0; bx lr
-.global __aeabi_unwind_cpp_pr0; .type __aeabi_unwind_cpp_pr0,%function;__aeabi_unwind_cpp_pr0:bx lr
-.global __aeabi_unwind_cpp_pr1; .type __aeabi_unwind_cpp_pr1,%function;__aeabi_unwind_cpp_pr1:bx lr
-.global _Unwind_VRS_Get; .type _Unwind_VRS_Get,%function;_Unwind_VRS_Get:mov r0,#0;bx lr
-.global _Unwind_VRS_Set; .type _Unwind_VRS_Set,%function;_Unwind_VRS_Set:mov r0,#0;bx lr
-.global _Unwind_VRS_Pop; .type _Unwind_VRS_Pop,%function;_Unwind_VRS_Pop:mov r0,#0;bx lr
-.global __cxa_begin_cleanup; .type __cxa_begin_cleanup,%function; __cxa_begin_cleanup: bx lr
-.global __cxa_call_unexpected; .type __cxa_call_unexpected,%function; __cxa_call_unexpected: bx lr
+
+@ NOTE: C++ EH ABI routines (__cxa_begin_catch/__cxa_end_catch/__cxa_end_cleanup,
+@ __aeabi_unwind_cpp_pr0/1, _Unwind_VRS_Get/Set/Pop, __cxa_begin_cleanup,
+@ __cxa_call_unexpected, __cxa_type_match) are intentionally NOT stubbed here.
+@ EKA2 implements User::Leave as a real C++ throw; TRAP is try/catch. The above
+@ routines MUST resolve to euser.dll's real exports. Dead 'bx lr' stubs broke
+@ stack unwinding -> KERN-EXEC 3 on the first User::Leave (in BaseConstructL).
