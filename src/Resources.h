@@ -11,21 +11,18 @@
 // =====================================================================
 //  Resources.h  --  AUTO-GENERATED to match src/Resources.cpp exactly.
 //  Declares every IMAGE_/FONT_/SOUND_ global DEFINED in Resources.cpp,
-//  plus prototypes for all Extract*Resources functions, so the real
-//  Resources.cpp compiles (replaces the trimmed stub header + stub cpp).
+//  plus prototypes for all Extract*Resources functions.
 //
-//  NOTE: SOUND_* are typed intptr_t (sound ids returned by
-//  ResourceManager::GetSoundThrow), NOT Image*. The previous cpp defined
-//  them as Image* which could not compile against GetSoundThrow.
+//  ResourceManager is a GLOBAL class (engine/ResourceManager.h); do NOT
+//  forward-declare it inside namespace Sexy or it collides under
+//  'using namespace Sexy'. SOUND_* are intptr_t (GetSoundThrow ids).
 // =====================================================================
 
 #include <e32def.h>
 #include "engine/Image.h"
-#include "engine/ResourceManager.h"   // ResourceManager, _Font, intptr_t
+#include "engine/ResourceManager.h"   // global ResourceManager, _Font, intptr_t
 
 namespace Sexy {
-
-class ResourceManager;
 
 // ---- Images (585) ----
 extern Image* IMAGE_ALMANAC_CLOSEBUTTON;
