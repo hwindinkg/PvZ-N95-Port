@@ -1374,32 +1374,10 @@ enum AdviceType
 // ---------------------------------------------------------------------------
 // Sound effect IDs (used by PlaySample / mSoundManager)
 // ---------------------------------------------------------------------------
-enum SoundEffect
-{
-    SOUND_LIGHTFILL,
-    SOUND_POINTS,
-    SOUND_HUGE_WAVE,
-    SOUND_SHOVEL,
-    SOUND_TAP,
-    SOUND_GRAVEBUTTON,
-    SOUND_ZOMBIESARE_COMING,
-    SOUND_BUTTONCLICK,
-    SOUND_SHOOT,
-    SOUND_BLOVER,
-    SOUND_DOOMSHROOM,
-    SOUND_POTATO_MINE,
-    SOUND_THROW,
-    SOUND_BOWLINGIMPACT2,
-    SOUND_ZOMBIESPLASH,
-    SOUND_BOING,
-    SOUND_BALLOON_POP,
-    SOUND_ZOMBAQUARIUM_DIE,
-    SOUND_LADDER_ZOMBIE,
-    SOUND_DIAMOND,
-    SOUND_TAP2,
-    SOUND_SEEDLIFT,
-    SOUND_ZOMBIE_ENTERING_WATER,
-    NUM_SOUND_EFFECTS
-};
+// [M2 fix] Removed dead 'enum SoundEffect' (was a stub-era leftover).
+// Its 23 enumerators duplicated the real Sexy::SOUND_* globals declared in
+// Resources.h (intptr_t handles assigned by ExtractLoadingSoundsResources).
+// With 'using namespace Sexy' active in game TUs, the enum values collided
+// with the globals -> bare SOUND_* became ambiguous/undeclared in board.cpp.
 
 #endif // __CONSTENUMS_H
