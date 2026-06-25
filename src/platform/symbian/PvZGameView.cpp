@@ -291,6 +291,18 @@ void CPvZGameView::RenderFrame(LawnApp* theApp)
     // -- exactly the "garbage until I press a key" symptom. Flushing every frame
     // makes each rendered frame appear immediately.
     CCoeEnv::Static()->WsSession().Flush();
+    // [composite kick] A pure-timer render loop on S60/MBX can leave the EGL
+    // window's FIRST composite pending until some WSERV EVENT (a key press /
+    // opening the Options menu) forces a redraw -- the exact "garbage until I
+    // press a key / open the menu" symptom. eglSwapBuffers + Flush push our
+    // pixels but do NOT make WSERV re-evaluate/composite the window region on
+    // their own. Invalidate the window for the first frames so the framework
+    // services a redraw (Draw() is empty, so it just validates the region) and
+    // WSERV composites the EGL surface -- programmatically replicating what
+    // opening the menu does.
+    if (fc <= 10) {
+        DrawableWindow()->Invalidate();
+    }
     if (fc <= 3 || fc % 100 == 0) {
         TBuf<64> b; b.Format(_L("RF%d:done"), fc); Log(b);
     }
