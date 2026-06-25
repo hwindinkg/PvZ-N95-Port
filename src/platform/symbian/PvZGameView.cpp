@@ -1,4 +1,5 @@
 #include "PvZGameView.h"
+#include <coemain.h>
 #include "../../engine/GLInterface.h"
 #include "../../engine/SymbianFixes.h"
 #include "../../engine/Graphics.h"
@@ -40,8 +41,10 @@ void CPvZGameView::ConstructL()
     Log(_L("GV:ConstructL start"));
     CreateWindowL();
     Log(_L("GV:CreateWindowL done"));
-    ::TSize screen(240, 320);
-    SetRect(::TRect(::TPoint(0,0), screen));
+    // Cover the whole screen, like the GTA3 (re3-symbian) and Whisk3D
+    // references. A hardcoded SetRect can leave the window not marked as
+    // fully covering the display, so WSERV shows stale video memory underneath.
+    SetExtentToWholeScreen();
     Window().SetRequiredDisplayMode(EColor64K);
     Log(_L("GV:SetDisplay done"));
     ActivateL();
@@ -211,6 +214,14 @@ void CPvZGameView::RenderFrame(LawnApp* theApp)
 
     if (fc <= 3) Log(_L("RF:swap"));
     eglSwapBuffers(iEglDisplay, iEglSurface);
+    // CRITICAL: push the queued composite to the window server NOW. Our render
+    // is a hand-rolled loop (unlike RenderWare's RwCameraShowRaster in the GTA3
+    // re3-symbian reference, which flushes internally). Without this, the swap
+    // command sits in the client-side WSERV buffer and the screen only refreshes
+    // when some OTHER event (a key press / opening the menu) flushes the session
+    // -- exactly the "garbage until I press a key" symptom. Flushing every frame
+    // makes each rendered frame appear immediately.
+    CCoeEnv::Static()->WsSession().Flush();
     if (fc <= 3 || fc % 100 == 0) {
         TBuf<64> b; b.Format(_L("RF%d:done"), fc); Log(b);
     }
