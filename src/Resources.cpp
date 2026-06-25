@@ -2284,9 +2284,9 @@ Sexy::Image* Sexy::GetImageById(ResourceId theId)
 	return *reinterpret_cast<Sexy::Image**>(gResources[static_cast<int>(theId)]);
 }
 
-Sexy::_Font* Sexy::GetFontById(ResourceId theId)
+_Font* Sexy::GetFontById(ResourceId theId)
 {
-	return *reinterpret_cast<Sexy::_Font**>(gResources[static_cast<int>(theId)]);
+	return *reinterpret_cast<_Font**>(gResources[static_cast<int>(theId)]);
 }
 
 intptr_t Sexy::GetSoundById(ResourceId theId)
@@ -2334,8 +2334,7 @@ Sexy::ResourceId Sexy::GetIdByVariable(void* theVariable)
 		aMap.clear();
 		for (int i = 0; i < static_cast<int>(RESOURCE_ID_MAX); i++)
 		{
-			void* value;
-			std::memcpy(&value, gResources[i], sizeof(void*));
+			void* value = *reinterpret_cast<void**>(gResources[i]);
 			aMap[value] = i;
 		}
 	}
