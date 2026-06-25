@@ -19,7 +19,7 @@ static void Log(const TDesC& aMsg)
     if (err == KErrNone) {
         TInt pos = 0; f.Seek(ESeekEnd, pos);
         TBuf8<512> buf8; buf8.Copy(aMsg); buf8.Append('\n');
-        f.Write(buf8); f.Close();
+        f.Write(buf8); f.Flush(); f.Close();
     }
     fs.Close();
 }
