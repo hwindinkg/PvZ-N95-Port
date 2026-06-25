@@ -110,75 +110,74 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
     Log("LoadImageByResName: ");
     Log(aResName);
 
-    // Build candidate file paths from resource name.
-    // Convention: "IMAGE_TITLESCREEN" -> "images/titlescreen.png"
-    // Skip "IMAGE_" prefix, lowercase, replace spaces with nothing.
+    // Build a lowercase stem from the resource name. "IMAGE_TITLESCREEN" -> "titlescreen".
+    // If the name has no IMAGE_ prefix, use the whole (lowercased) name as the stem.
     const char* prefix = "IMAGE_";
-    int prefixLen = strlen(prefix);
-    int nameLen = strlen(aResName);
-
-    if (nameLen <= prefixLen || strncmp(aResName, prefix, prefixLen) != 0)
+    int prefixLen = (int)strlen(prefix);
+    const char* stemSrc = aResName;
+    if (strncmp(aResName, prefix, prefixLen) == 0)
+        stemSrc = aResName + prefixLen;
+    if (!*stemSrc)
         return NULL;
 
-    // Extract the part after IMAGE_
-    const char* stem = aResName + prefixLen;
+    char stem[200];
+    {
+        char* d = stem;
+        const char* s2 = stemSrc;
+        int w = 0;
+        while (*s2 && w < 199)
+        {
+            char c = *s2;
+            if (c >= 'A' && c <= 'Z') c += ('a' - 'A'); // tolower
+            *d++ = c; w++; s2++;
+        }
+        *d = 0;
+    }
 
-    // Build path: "images/" + lowercase(stem) + ".png"
+    // The port previously hardcoded "images/<stem>.png". Real PvZ assets are a
+    // mix: photos like the title screen are .jpg, sprites are .png, some packs
+    // store compiled "._" images or flat paths. Probe a matrix of
+    // {prefix} x {extension} and load the first one that exists in the PAK.
+    // (ICL's CImageDecoder auto-detects JPEG/PNG/GIF from the data, so the
+    // extension only needs to match what is actually stored in the PAK.)
+    static const char* kPrefixes[] = { "images/", "", "IMAGES/", "data/images/" };
+    static const char* kExts[]     = { ".jpg", ".png", ".gif", "._", ".jpeg", "" };
+    const int nPre = (int)(sizeof(kPrefixes)/sizeof(kPrefixes[0]));
+    const int nExt = (int)(sizeof(kExts)/sizeof(kExts[0]));
+
     char path[256];
-    strcpy(path, "images/");
-
-    char* dst = path + 7; // after "images/"
-    const char* src = stem;
-    int written = 7;
-    while (*src && written < 245)
+    for (int pi = 0; pi < nPre; pi++)
     {
-        char c = *src;
-        if (c >= 'A' && c <= 'Z')
-            c += ('a' - 'A');  // tolower
-        *dst++ = c;
-        written++;
-        src++;
-    }
-    strcpy(dst, ".png");
+        for (int ei = 0; ei < nExt; ei++)
+        {
+            // path = prefix + stem + ext (guard against overflow)
+            int pl = (int)strlen(kPrefixes[pi]);
+            int sl = (int)strlen(stem);
+            int xl = (int)strlen(kExts[ei]);
+            if (pl + sl + xl >= (int)sizeof(path))
+                continue;
+            strcpy(path, kPrefixes[pi]);
+            strcpy(path + pl, stem);
+            strcpy(path + pl + sl, kExts[ei]);
 
-    Log("  trying path: ");
-    Log(path);
-
-    // Check if file exists in PAK
-    TInt fsize = gPak->GetFileSize(path);
-    if (fsize > 0)
-    {
-        Log("  FOUND in PAK, loading...");
-        return LoadImageFromPak("", path);
-    }
-
-    // Try alternate: without the "images/" prefix (some PAKs use flat paths)
-    Log("  not found, trying alternate paths...");
-
-    // Try 2: lowercase name directly
-    char path2[256];
-    dst = path2;
-    src = aResName;  // full resource name
-    written = 0;
-    while (*src && written < 250)
-    {
-        char c = *src;
-        if (c >= 'A' && c <= 'Z')
-            c += ('a' - 'A');
-        *dst++ = c;
-        written++;
-        src++;
-    }
-    strcpy(dst, ".png");
-
-    fsize = gPak->GetFileSize(path2);
-    if (fsize > 0)
-    {
-        Log("  found alternate path");
-        return LoadImageFromPak("", path2);
+            TInt fsize = gPak->GetFileSize(path);
+            if (fsize > 0)
+            {
+                Log("  FOUND in PAK: ");
+                Log(path);
+                Sexy::Image* img = LoadImageFromPak("", path);
+                if (img)
+                    return img;
+                // Found the file but decode failed -- keep probing other
+                // candidates rather than giving up entirely.
+                Log("  (decode failed, continuing probe)");
+            }
+        }
     }
 
-    Log("  image not found in PAK");
+    Log("  image not found in PAK (tried images/ & flat, .jpg/.png/.gif/._/.jpeg)");
+    Log("  stem was: ");
+    Log(stem);
     return NULL;
 }
 
