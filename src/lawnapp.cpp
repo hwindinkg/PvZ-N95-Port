@@ -1810,6 +1810,14 @@ void LawnApp::LoadingCompleted()
     mTitleScreen = NULL;
 
     mResourceManager->DeleteImage("IMAGE_TITLESCREEN");
+    // [crash fix] DeleteImage frees the Image object but leaves this global
+    // pointer DANGLING (non-NULL, pointing at freed memory). TitleScreen::Draw
+    // guards with 'if (IMAGE_TITLESCREEN) g->DrawImage(IMAGE_TITLESCREEN,0,0)',
+    // which is useless against a freed-but-non-NULL pointer -> DrawImage then
+    // dereferences freed memory -> KERN-EXEC 3 on the first menu frame
+    // (draw_progress.txt: widget i=1 panics right after a single SetColor,
+    // exactly matching TitleScreen::Draw). Null it so the guard works.
+    IMAGE_TITLESCREEN = NULL;
 
     ShowGameSelector();
 }
