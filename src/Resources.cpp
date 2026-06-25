@@ -26,7 +26,7 @@
 
 using namespace Sexy;
 
-bool gNeedRecalcVariableToIdMap = false;
+bool Sexy::gNeedRecalcVariableToIdMap = false;
 
 bool Sexy::ExtractLoadingImagesResources(ResourceManager* theManager)
 {
