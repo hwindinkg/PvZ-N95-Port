@@ -43,6 +43,16 @@ void CPvZGameView::ConstructL()
     ::TSize screen(240, 320);
     SetRect(::TRect(::TPoint(0,0), screen));
     Window().SetRequiredDisplayMode(EColor64K);
+    // --- CRITICAL for EGL/OpenGL ES windows ---
+    // This is a pure GL window: every pixel comes from eglSwapBuffers, NOT from
+    // CCoeControl::Draw() (which is intentionally empty). A normal Symbian
+    // "redraw window" keeps a window-server backing store fed by Draw(); since
+    // ours is never fed, WSERV displays uninitialised video memory (the green
+    // grid garbage) until some external event (opening the Options menu) forces
+    // a full recomposite -- which is exactly the reported symptom. Disabling the
+    // redraw store tells WSERV the client owns all drawing, so our continuously
+    // swapped GL frames are shown immediately.
+    Window().EnableRedrawStore(EFalse);
     Log(_L("GV:SetDisplay done"));
     ActivateL();
     Log(_L("GV:ActivateL done"));
