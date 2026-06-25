@@ -1958,7 +1958,7 @@ intptr_t Sexy::SOUND_DANCER;
 intptr_t Sexy::SOUND_FINALFANFARE;
 intptr_t Sexy::SOUND_CRAZYDAVESCREAM;
 intptr_t Sexy::SOUND_CRAZYDAVESCREAM2;
-void* gResources[static_cast<int>(Sexy::ResourceId::RESOURCE_ID_MAX)] =
+void* gResources[static_cast<int>(Sexy::RESOURCE_ID_MAX)] =
 {
 	&Sexy::IMAGE_BACKGROUND1,
 	&Sexy::IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY,
@@ -2332,7 +2332,7 @@ Sexy::ResourceId Sexy::GetIdByVariable(void* theVariable)
 	{
 		gNeedRecalcVariableToIdMap = false;
 		aMap.clear();
-		for (int i = 0; i < static_cast<int>(ResourceId::RESOURCE_ID_MAX); i++)
+		for (int i = 0; i < static_cast<int>(RESOURCE_ID_MAX); i++)
 		{
 			void* value;
 			std::memcpy(&value, gResources[i], sizeof(void*));
@@ -2341,5 +2341,5 @@ Sexy::ResourceId Sexy::GetIdByVariable(void* theVariable)
 	}
 
 	std::map<void*, int>::iterator anIter = aMap.find(theVariable);
-	return anIter == aMap.end() ? ResourceId::RESOURCE_ID_MAX : (ResourceId)anIter->second;
+	return anIter == aMap.end() ? RESOURCE_ID_MAX : (ResourceId)anIter->second;
 }

@@ -16,7 +16,7 @@
 namespace Sexy {
 
 // ---- ResourceId enum (generated from gResources[] order; 317 entries) ----
-enum class ResourceId : int
+enum ResourceId
 {
 	IMAGE_BACKGROUND1_ID,
 	IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY_ID,
