@@ -46,6 +46,16 @@ void CPvZGameView::ConstructL()
     // fully covering the display, so WSERV shows stale video memory underneath.
     SetExtentToWholeScreen();
     Window().SetRequiredDisplayMode(EColor64K);
+    // [green-mess fix] Until WSERV composites our EGL surface, it paints the
+    // window's own background. With no background set, that is uninitialised
+    // video memory -> the "green mess" seen before the first full recomposite
+    // (which is why opening the Options menu, forcing a full-screen redraw,
+    // suddenly shows the correct frame). Set the window background to the same
+    // colour as glClearColor(0.15,0.05,0.20) so WSERV's own fill matches our
+    // GL clear -> no garbage even on the very first frame, with or without a
+    // composite. The reference (re3-symbian) avoids this only incidentally; an
+    // explicit background is the robust fix.
+    Window().SetBackgroundColor(TRgb(38, 13, 51));
     Log(_L("GV:SetDisplay done"));
     ActivateL();
     Log(_L("GV:ActivateL done"));
