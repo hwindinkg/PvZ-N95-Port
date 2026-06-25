@@ -5,13 +5,23 @@
 #include "platform/symbian/PvZApplication.h"
 
 static void WriteLog(const char* msg) {
+    // Truncate the log on the first write of each launch so we never have to
+    // delete the old boot.log by hand. Subsequent writes append.
+    static TBool gFirst = ETrue;
     RFs fs; RFile f;
     if (fs.Connect() != KErrNone) return;
     fs.MkDirAll(_L("C:\\Data\\PvZ\\")); // ensure log dir exists
     TBuf8<128> b; b.Copy((const TUint8*)msg); b.Append('\n');
-    if (f.Open(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny) != KErrNone)
-        f.Create(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite);
-    else { TInt p=0; f.Seek(ESeekEnd,p); }
+    TInt err;
+    if (gFirst) {
+        err = f.Replace(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny);
+        gFirst = EFalse;
+    } else {
+        err = f.Open(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny);
+        if (err != KErrNone) err = f.Create(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny);
+        else { TInt p=0; f.Seek(ESeekEnd,p); }
+    }
+    if (err != KErrNone) { fs.Close(); return; }
     f.Write(b); f.Close(); fs.Close();
 }
 
