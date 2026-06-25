@@ -46,8 +46,12 @@ void CPvZAppUi::ConstructL()
     // unreliable under RVCT 2.2 on EKA2 -- it crashed here with KERN-EXEC 3.
     // Symbian TRAP/Leave is used for error handling instead.
 
-    Log(_L("step: BaseConstructL (TRAP)"));
-    TRAPD(bcErr, BaseConstructL(CAknAppUi::ENoScreenFurniture));
+    // --- DIAGNOSTIC bisection: log env pointers, then call BaseConstructL the
+    //     EXACT way the working Whisk3D reference does (default flags). If this
+    //     still faults, the cause is the process/binary env, not the flags/resource.
+    { TBuf<80> p; p.Format(_L("probe: iEikonEnv=%x iCoeEnv=%x"), (TUint)iEikonEnv, (TUint)iCoeEnv); Log(p); }
+    Log(_L("step: BaseConstructL() [default flags, Whisk3D-style]"));
+    TRAPD(bcErr, BaseConstructL());
     { TBuf<64> b; b.Format(_L("step: BaseConstructL returned err=%d"), bcErr); Log(b); }
     User::LeaveIfError(bcErr);
     Log(_L("step: BaseConstructL OK"));
