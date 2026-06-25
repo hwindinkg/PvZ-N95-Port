@@ -129,6 +129,7 @@ TARGETPATH      \resource\apps
 END
 
 START RESOURCE PvZ_N95_loc.rss
+HEADER
 TARGETPATH      \resource\apps
 END
 
