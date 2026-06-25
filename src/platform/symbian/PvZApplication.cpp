@@ -10,7 +10,7 @@ static void BootLog(const char* msg) {
     if (f.Open(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite|EFileShareAny) != KErrNone)
         f.Create(fs, _L("C:\\Data\\PvZ\\boot.log"), EFileWrite);
     else { TInt p=0; f.Seek(ESeekEnd,p); }
-    f.Write(b); f.Close(); fs.Close();
+    f.Write(b); f.Flush(); f.Close(); fs.Close();
 }
 
 CApaApplication* CPvZApplication::NewApplication() {
