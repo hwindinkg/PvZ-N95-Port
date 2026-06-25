@@ -43,16 +43,6 @@ void CPvZGameView::ConstructL()
     ::TSize screen(240, 320);
     SetRect(::TRect(::TPoint(0,0), screen));
     Window().SetRequiredDisplayMode(EColor64K);
-    // --- CRITICAL for EGL/OpenGL ES windows ---
-    // This is a pure GL window: every pixel comes from eglSwapBuffers, NOT from
-    // CCoeControl::Draw() (which is intentionally empty). A normal Symbian
-    // "redraw window" keeps a window-server backing store fed by Draw(); since
-    // ours is never fed, WSERV displays uninitialised video memory (the green
-    // grid garbage) until some external event (opening the Options menu) forces
-    // a full recomposite -- which is exactly the reported symptom. Disabling the
-    // redraw store tells WSERV the client owns all drawing, so our continuously
-    // swapped GL frames are shown immediately.
-    Window().EnableRedrawStore(EFalse);
     Log(_L("GV:SetDisplay done"));
     ActivateL();
     Log(_L("GV:ActivateL done"));
@@ -71,33 +61,61 @@ void CPvZGameView::InitGLES()
     EGLConfig config;
     // Get configs with WINDOW_BIT
     EGLint numConfigs;
+    // Match the EGL config to the WINDOW's native pixel format. The N95 frame
+    // buffer is RGB565 (EColor64K). If we pick an RGB888 config (configs[0] on
+    // this driver), the surface format mismatches the window -> the MBX driver
+    // blits garbage and WSERV only shows a correct frame after a forced
+    // recomposite (the "green grid until the Options menu opens" symptom).
+    // This mirrors the working Whisk3D reference, which derives EGL_BUFFER_SIZE
+    // from Window().DisplayMode().
+    EGLint bufferSize = 16; // EColor64K / RGB565 default
+    switch (Window().DisplayMode())
+    {
+        case EColor4K:   bufferSize = 12; break;
+        case EColor64K:  bufferSize = 16; break;
+        case EColor16M:  bufferSize = 24; break;
+        case EColor16MU:
+        case EColor16MA: bufferSize = 32; break;
+        default:         bufferSize = 16; break;
+    }
+    {
+        TBuf<64> dbg; dbg.Format(_L("GL:win DMode bufSize=%d"), bufferSize); Log(dbg);
+    }
+
     EGLint attribs[] = {
         EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+        EGL_BUFFER_SIZE,  bufferSize,
+        EGL_DEPTH_SIZE,   16,
         EGL_NONE
     };
     if (!eglChooseConfig(iEglDisplay, attribs, NULL, 0, &numConfigs) || numConfigs == 0)
-    { Log(_L("GL:no cfgs")); eglTerminate(iEglDisplay); return; }
+    {
+        // Fall back to depth-less match if no depth config exists for this mode.
+        Log(_L("GL:no cfg w/depth, retry no-depth"));
+        EGLint attribs2[] = {
+            EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
+            EGL_BUFFER_SIZE,  bufferSize,
+            EGL_NONE
+        };
+        if (!eglChooseConfig(iEglDisplay, attribs2, NULL, 0, &numConfigs) || numConfigs == 0)
+        { Log(_L("GL:no cfgs")); eglTerminate(iEglDisplay); return; }
+        eglChooseConfig(iEglDisplay, attribs2, &config, 1, &numConfigs);
+    }
+    else
+    {
+        eglChooseConfig(iEglDisplay, attribs, &config, 1, &numConfigs);
+    }
 
-    EGLConfig* configs = new EGLConfig[numConfigs];
-    eglChooseConfig(iEglDisplay, attribs, configs, numConfigs, &numConfigs);
-
-    // Log all configs for debugging
-    config = NULL;
-    for (EGLint i = 0; i < numConfigs && i < 20; i++) {
-        EGLint rb, gb, bb, depth, stencil, rtype;
-        eglGetConfigAttrib(iEglDisplay, configs[i], EGL_RED_SIZE, &rb);
-        eglGetConfigAttrib(iEglDisplay, configs[i], EGL_GREEN_SIZE, &gb);
-        eglGetConfigAttrib(iEglDisplay, configs[i], EGL_BLUE_SIZE, &bb);
-        eglGetConfigAttrib(iEglDisplay, configs[i], EGL_DEPTH_SIZE, &depth);
-        eglGetConfigAttrib(iEglDisplay, configs[i], EGL_STENCIL_SIZE, &stencil);
-        eglGetConfigAttrib(iEglDisplay, configs[i], EGL_RENDERABLE_TYPE, &rtype);
+    {
+        EGLint rb, gb, bb, depth;
+        eglGetConfigAttrib(iEglDisplay, config, EGL_RED_SIZE, &rb);
+        eglGetConfigAttrib(iEglDisplay, config, EGL_GREEN_SIZE, &gb);
+        eglGetConfigAttrib(iEglDisplay, config, EGL_BLUE_SIZE, &bb);
+        eglGetConfigAttrib(iEglDisplay, config, EGL_DEPTH_SIZE, &depth);
         TBuf<128> b;
-        b.Format(_L("CFG%d: %d%d%d d=%d st=%d rtype=0x%x"), i, rb, gb, bb, depth, stencil, rtype);
+        b.Format(_L("GL:chosen cfg %d%d%d d=%d"), rb, gb, bb, depth);
         Log(b);
     }
-    // Take first config (don't filter by rtype - N95 EGL may not set it)
-    config = configs[0];
-    delete[] configs;
 
     if (!config)
     { Log(_L("GL:no ES cfg")); eglTerminate(iEglDisplay); return; }
