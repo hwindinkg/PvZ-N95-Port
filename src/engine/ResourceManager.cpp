@@ -261,31 +261,94 @@ bool ResourceManager::AddImage(const char* name, Sexy::Image* img)
 // ---------------------------------------------------------------------------
 namespace {
 
+// Helper: log "<label> WxH" using the narrow Log().
+static void LogSize(const char* aLabel, TInt aW, TInt aH)
+    {
+    TBuf8<96> b;
+    b.Copy(TPtrC8((const TUint8*)aLabel));
+    b.AppendFormat(_L8(" %dx%d"), aW, aH);
+    char tmp[100];
+    TInt n = b.Length(); if (n > 99) n = 99;
+    for (TInt i = 0; i < n; i++) tmp[i] = (char)b[i];
+    tmp[n] = 0;
+    Log(tmp);
+    }
+
+// Active-object wrapper around CImageDecoder::Convert.
+// ICL decode is asynchronous and is serviced PARTLY by active objects running
+// in THIS thread. Blocking the UI thread with User::WaitForRequest deadlocks:
+// the codec plug-in's own AOs can never run, so the request never completes,
+// and because the UI thread owns the window server connection the ENTIRE phone
+// UI freezes (battery-pull required). The correct pattern is a CActive driving
+// a nested CActiveSchedulerWait so the scheduler keeps pumping until decode
+// completes. A guard bounds the progressive-decode underflow loop.
+class CDecodeWaiter : public CActive
+    {
+public:
+    CDecodeWaiter(CImageDecoder& aDecoder, CFbsBitmap& aBmp)
+        : CActive(EPriorityStandard), iDecoder(aDecoder), iBmp(aBmp),
+          iErr(KErrNone), iGuard(0)
+        { CActiveScheduler::Add(this); }
+    ~CDecodeWaiter() { Cancel(); }
+
+    // Runs the whole decode (Convert + any ContinueConvert passes) and blocks
+    // via a nested scheduler until done. Returns the final error code.
+    TInt RunDecode()
+        {
+        iDecoder.Convert(&iStatus, iBmp);
+        SetActive();
+        iWait.Start();
+        return iErr;
+        }
+
+private:
+    void RunL()
+        {
+        if (iStatus == KErrUnderflow && iGuard < 128)
+            {
+            iGuard++;
+            iDecoder.ContinueConvert(&iStatus);  // progressive/interlaced pass
+            SetActive();
+            return;            // keep pumping; do NOT stop the wait yet
+            }
+        iErr = iStatus.Int();
+        if (iWait.IsStarted()) iWait.AsyncStop();
+        }
+    void DoCancel()
+        {
+        iDecoder.Cancel();
+        if (iWait.IsStarted()) iWait.AsyncStop();
+        }
+
+private:
+    CImageDecoder& iDecoder;
+    CFbsBitmap&    iBmp;
+    CActiveSchedulerWait iWait;
+    TInt iErr;
+    TInt iGuard;
+    };
+
 void DecodeToBitmapL(RFs& aFs, const TUint8* aData, TInt aLen, CFbsBitmap& aBmp)
     {
+    Log("  [dec] DataNewL");
     TPtrC8 dataPtr(aData, aLen);
     CImageDecoder* decoder = CImageDecoder::DataNewL(aFs, dataPtr);
     CleanupStack::PushL(decoder);
 
     TFrameInfo frameInfo = decoder->FrameInfo(0);
     TSize sz = frameInfo.iOverallSizeInPixels;
+    LogSize("  [dec] frame", sz.iWidth, sz.iHeight);
+
     User::LeaveIfError(aBmp.Create(sz, EColor16MA));
+    Log("  [dec] bitmap created; Convert via CActive+nested scheduler");
 
-    // Synchronous decode: Convert() is asynchronous, but we block on the
-    // request directly with User::WaitForRequest -- no active object (and thus
-    // no protected CActive::SetActive call) is required.
-    TRequestStatus status;
-    decoder->Convert(&status, aBmp);
-    User::WaitForRequest(status);
+    CDecodeWaiter* waiter = new (ELeave) CDecodeWaiter(*decoder, aBmp);
+    CleanupStack::PushL(waiter);
+    TInt err = waiter->RunDecode();
+    CleanupStack::PopAndDestroy(waiter);
 
-    // Progressive / interlaced images may require additional passes.
-    while (status == KErrUnderflow)
-        {
-        decoder->ContinueConvert(&status);
-        User::WaitForRequest(status);
-        }
-
-    User::LeaveIfError(status.Int());
+    LogSize("  [dec] convert done err", err, 0);
+    User::LeaveIfError(err);
 
     CleanupStack::PopAndDestroy(decoder);
     }
