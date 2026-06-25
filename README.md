@@ -28,6 +28,21 @@ freezes the whole phone.
   nested `CActiveSchedulerWait` driver, plus a `KErrUnderflow` (progressive
   JPEG) guard and per-step `[dec]` logging. Result: `M1: TITLESCREEN OK 800x600`,
   `decoded OK`.
+- **First-frame KERN-EXEC 3 from a stale GL texture-state cache.** Even after the
+  NPOT fix the app still crashed on the first real draw (`gl_log` ends at
+  `SetColor called`, purple `glClear` shows, then KERN-EXEC 3 — and crucially NO
+  `GLI::CreateTexture` line, proving the crash is *before* any texture upload, in
+  the first `FillRect`). Root cause: `GLInterface` constructor sets
+  `mTextureEnabled = EFalse`, but `SetupGLState()` did `glEnable(GL_TEXTURE_2D)`.
+  The first `FillRect` -> `SetTextureEnabled(EFalse)` early-returned on the stale
+  cache, so `GL_TEXTURE_2D` stayed ON with NO texture bound. On PowerVR MBX,
+  `glDrawArrays` then samples a null texture -> access violation. Fix
+  (`src/engine/GLInterface.cpp`): `SetupGLState` now starts with texturing
+  DISABLED (matching the cache) and the `GL_TEXTURE_COORD_ARRAY` client state
+  disabled; `SetTextureEnabled` toggles `GL_TEXTURE_2D` AND the texcoord array in
+  lockstep, so we never draw textured-without-a-texture and never leave the
+  texcoord array live while texturing is off. *(Needs an on-device build to
+  confirm the title screen renders.)*
 - **NPOT-texture KERN-EXEC 3 on the first textured draw.** After a clean decode
   the app crashed on the very first frame (`gl_log` ends at `SetColor called`,
   then KERN-EXEC 3). Root cause: the N95 GPU is a **PowerVR MBX (GL ES 1.1) that
@@ -81,6 +96,28 @@ Logs are written to `C:\Data\PvZ\` on the device (RFile + Flush each line, no co
 - `rmgr_log.txt` — ResourceManager loading (which groups loaded)
 - `wgt_log.txt` — widget manager (`Widgets=N` count)
 - `gl_log.txt`, `gfx_log.txt` — low-level GL/graphics
+
+## Diagnostic history — the KERN-EXEC 3 crash chain (newest first)
+
+Each fix peeled back one layer. Kept here so the next session doesn't re-walk it.
+
+1. **GL texture-state cache desync** (`GLInterface.cpp`) — `SetupGLState` enabled
+   `GL_TEXTURE_2D` while the cache said disabled; first `FillRect` drew textured
+   with no texture bound. *Fixed: start texturing off + lockstep texcoord array.*
+2. **NPOT texture** (`Graphics.cpp`) — 800x600 title art uploaded to a non-POT
+   texture; MBX is POT-only. *Fixed: pad to POT + scale texcoords by w/potW.*
+3. **ICL decode deadlock** (`ResourceManager.cpp`) — `User::WaitForRequest` on the
+   UI thread froze the whole phone. *Fixed: `CActive` + `CActiveSchedulerWait`.*
+4. **Asset loader stubbed** — `LoadingThreadProc` never called; added synchronous
+   load after GL init. (Bulk loader still stubbed — see M2.)
+5. **C++ EH runtime missing under RVCT** — `User::Leave` (= `throw`) crashed with
+   no unwinder. *Fixed: switched toolchain RVCT -> GCCE + `libgcc.lib` (matches
+   the working Whisk3D reference).*
+
+**Debugging method that worked:** on-device file logs with `RFile::Flush()` per
+line, then read where each log stream stops. The combination of *which* log ends
+and *which* expected line is absent (e.g. `gl_log` has `SetColor` but no
+`CreateTexture`) localises the fault to a few lines without a debugger.
 
 ## Reference ports (clone & compare — this is how the bugs got found)
 - **re3-symbian (GTA3)** — https://gitlab.com/shinovon/re3-symbian — full game, GCCE, RenderWare-on-EGL, `.pak`-style VFS, `CPeriodic` loop, `SetExtentToWholeScreen`. Best reference. Key file: `src/skel/symbian/symbian.cpp`.
