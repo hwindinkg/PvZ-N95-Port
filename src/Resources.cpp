@@ -90,7 +90,6 @@ bool Sexy::ExtractDelayLoad_AlmanacResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ALMANAC_CLOSEBUTTON = aMgr.GetImageThrow("IMAGE_ALMANAC_CLOSEBUTTON");
 		IMAGE_ALMANAC_CLOSEBUTTONHIGHLIGHT = aMgr.GetImageThrow("IMAGE_ALMANAC_CLOSEBUTTONHIGHLIGHT");
@@ -111,10 +110,6 @@ bool Sexy::ExtractDelayLoad_AlmanacResources(ResourceManager* theManager)
 		IMAGE_ALMANAC_ZOMBIEWINDOW = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIEWINDOW");
 		IMAGE_ALMANAC_ZOMBIEWINDOW2 = aMgr.GetImageThrow("IMAGE_ALMANAC_ZOMBIEWINDOW2");
 	}
-	catch (ResourceManagerException&)
-	{
-		return false;
-	}
 	return true;
 }
 
@@ -126,13 +121,8 @@ bool Sexy::ExtractDelayLoad_AwardScreenResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_AWARDSCREEN_BACK = aMgr.GetImageThrow("IMAGE_AWARDSCREEN_BACK");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -147,15 +137,10 @@ bool Sexy::ExtractDelayLoad_Background1Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND1 = aMgr.GetImageThrow("IMAGE_BACKGROUND1");
 		IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND1_GAMEOVER_INTERIOR_OVERLAY");
 		IMAGE_BACKGROUND1_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND1_GAMEOVER_MASK");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -170,15 +155,10 @@ bool Sexy::ExtractDelayLoad_Background2Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND2 = aMgr.GetImageThrow("IMAGE_BACKGROUND2");
 		IMAGE_BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND2_GAMEOVER_INTERIOR_OVERLAY");
 		IMAGE_BACKGROUND2_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND2_GAMEOVER_MASK");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -193,15 +173,10 @@ bool Sexy::ExtractDelayLoad_Background3Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND3 = aMgr.GetImageThrow("IMAGE_BACKGROUND3");
 		IMAGE_BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND3_GAMEOVER_INTERIOR_OVERLAY");
 		IMAGE_BACKGROUND3_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND3_GAMEOVER_MASK");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -218,17 +193,12 @@ bool Sexy::ExtractDelayLoad_Background4Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND4 = aMgr.GetImageThrow("IMAGE_BACKGROUND4");
 		IMAGE_BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND4_GAMEOVER_INTERIOR_OVERLAY");
 		IMAGE_BACKGROUND4_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND4_GAMEOVER_MASK");
 		IMAGE_FOG = aMgr.GetImageThrow("IMAGE_FOG");
 		IMAGE_FOG_SOFTWARE = aMgr.GetImageThrow("IMAGE_FOG_SOFTWARE");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -242,14 +212,9 @@ bool Sexy::ExtractDelayLoad_Background5Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND5 = aMgr.GetImageThrow("IMAGE_BACKGROUND5");
 		IMAGE_BACKGROUND5_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND5_GAMEOVER_MASK");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -263,14 +228,9 @@ bool Sexy::ExtractDelayLoad_Background6Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND6BOSS = aMgr.GetImageThrow("IMAGE_BACKGROUND6BOSS");
 		IMAGE_BACKGROUND6_GAMEOVER_MASK = aMgr.GetImageThrow("IMAGE_BACKGROUND6_GAMEOVER_MASK");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -285,15 +245,10 @@ bool Sexy::ExtractDelayLoad_BackgroundUnsoddedResources(ResourceManager* theMana
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND1UNSODDED = aMgr.GetImageThrow("IMAGE_BACKGROUND1UNSODDED");
 		IMAGE_SOD1ROW = aMgr.GetImageThrow("IMAGE_SOD1ROW");
 		IMAGE_SOD3ROW = aMgr.GetImageThrow("IMAGE_SOD3ROW");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -313,7 +268,6 @@ bool Sexy::ExtractDelayLoad_ChallengeScreenResources(ResourceManager* theManager
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_CHALLENGE_BACKGROUND = aMgr.GetImageThrow("IMAGE_CHALLENGE_BACKGROUND");
 		IMAGE_CHALLENGE_BLANK = aMgr.GetImageThrow("IMAGE_CHALLENGE_BLANK");
@@ -323,10 +277,6 @@ bool Sexy::ExtractDelayLoad_ChallengeScreenResources(ResourceManager* theManager
 		IMAGE_LOCK = aMgr.GetImageThrow("IMAGE_LOCK");
 		IMAGE_LOCK_OPEN = aMgr.GetImageThrow("IMAGE_LOCK_OPEN");
 		IMAGE_SURVIVAL_THUMBNAILS = aMgr.GetImageThrow("IMAGE_SURVIVAL_THUMBNAILS");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -350,7 +300,6 @@ bool Sexy::ExtractDelayLoad_CreditsResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		FONT_BRIANNETOD32 = aMgr.GetFontThrow("FONT_BRIANNETOD32");
 		FONT_BRIANNETOD32BLACK = aMgr.GetFontThrow("FONT_BRIANNETOD32BLACK");
@@ -365,10 +314,6 @@ bool Sexy::ExtractDelayLoad_CreditsResources(ResourceManager* theManager)
 		IMAGE_REANIM_SUNFLOWER_HEAD_SING5 = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_SING5");
 		IMAGE_REANIM_SUNFLOWER_HEAD_WINK = aMgr.GetImageThrow("IMAGE_REANIM_SUNFLOWER_HEAD_WINK");
 	}
-	catch (ResourceManagerException&)
-	{
-		return false;
-	}
 	return true;
 }
 
@@ -380,13 +325,8 @@ bool Sexy::ExtractDelayLoad_GreenHouseGardenResources(ResourceManager* theManage
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND_GREENHOUSE = aMgr.GetImageThrow("IMAGE_BACKGROUND_GREENHOUSE");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -399,13 +339,8 @@ bool Sexy::ExtractDelayLoad_GreenHouseOverlayResources(ResourceManager* theManag
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND_GREENHOUSE_OVERLAY = aMgr.GetImageThrow("IMAGE_BACKGROUND_GREENHOUSE_OVERLAY");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -418,13 +353,8 @@ bool Sexy::ExtractDelayLoad_MushroomGardenResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BACKGROUND_MUSHROOMGARDEN = aMgr.GetImageThrow("IMAGE_BACKGROUND_MUSHROOMGARDEN");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -460,7 +390,6 @@ bool Sexy::ExtractDelayLoad_StoreResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_STORE_AQUARIUMGARDENICON = aMgr.GetImageThrow("IMAGE_STORE_AQUARIUMGARDENICON");
 		IMAGE_STORE_BACKGROUND = aMgr.GetImageThrow("IMAGE_STORE_BACKGROUND");
@@ -486,10 +415,6 @@ bool Sexy::ExtractDelayLoad_StoreResources(ResourceManager* theManager)
 		IMAGE_STORE_PVZICON = aMgr.GetImageThrow("IMAGE_STORE_PVZICON");
 		IMAGE_STORE_SIGN = aMgr.GetImageThrow("IMAGE_STORE_SIGN");
 		IMAGE_STORE_TREEOFWISDOMICON = aMgr.GetImageThrow("IMAGE_STORE_TREEOFWISDOMICON");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -723,7 +648,6 @@ bool Sexy::ExtractDelayLoad_ZombatarResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBATAR_ACCEPT_BUTTON = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCEPT_BUTTON");
 		IMAGE_ZOMBATAR_ACCEPT_BUTTON_HIGHLIGHT = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ACCEPT_BUTTON_HIGHLIGHT");
@@ -946,10 +870,6 @@ bool Sexy::ExtractDelayLoad_ZombatarResources(ResourceManager* theManager)
 		IMAGE_ZOMBATAR_ZOMBIE_BLANK = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ZOMBIE_BLANK");
 		IMAGE_ZOMBATAR_ZOMBIE_BLANK_SKIN = aMgr.GetImageThrow("IMAGE_ZOMBATAR_ZOMBIE_BLANK_SKIN");
 	}
-	catch (ResourceManagerException&)
-	{
-		return false;
-	}
 	return true;
 }
 
@@ -961,13 +881,8 @@ bool Sexy::ExtractDelayLoad_ZombieFinalNoteResources(ResourceManager* theManager
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_FINAL_NOTE = aMgr.GetImageThrow("IMAGE_ZOMBIE_FINAL_NOTE");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -980,13 +895,8 @@ bool Sexy::ExtractDelayLoad_ZombieNoteResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_NOTE = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -999,13 +909,8 @@ bool Sexy::ExtractDelayLoad_ZombieNote1Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_NOTE1 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE1");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1018,13 +923,8 @@ bool Sexy::ExtractDelayLoad_ZombieNote2Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_NOTE2 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE2");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1037,13 +937,8 @@ bool Sexy::ExtractDelayLoad_ZombieNote3Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_NOTE3 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE3");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1056,13 +951,8 @@ bool Sexy::ExtractDelayLoad_ZombieNote4Resources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_NOTE4 = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE4");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1075,13 +965,8 @@ bool Sexy::ExtractDelayLoad_ZombieNoteHelpResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_ZOMBIE_NOTE_HELP = aMgr.GetImageThrow("IMAGE_ZOMBIE_NOTE_HELP");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1096,15 +981,10 @@ bool Sexy::ExtractDelayLoad_ZombiquariumResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_AQUARIUM1 = aMgr.GetImageThrow("IMAGE_AQUARIUM1");
 		IMAGE_WAVECENTER = aMgr.GetImageThrow("IMAGE_WAVECENTER");
 		IMAGE_WAVESIDE = aMgr.GetImageThrow("IMAGE_WAVESIDE");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1119,15 +999,10 @@ bool Sexy::ExtractInitResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		IMAGE_BLANK = aMgr.GetImageThrow("IMAGE_BLANK");
 		IMAGE_PARTNER_LOGO = aMgr.GetImageThrow("IMAGE_PARTNER_LOGO");
 		IMAGE_POPCAP_LOGO = aMgr.GetImageThrow("IMAGE_POPCAP_LOGO");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1148,7 +1023,6 @@ bool Sexy::ExtractLoaderBarResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		FONT_BRIANNETOD16 = aMgr.GetFontThrow("FONT_BRIANNETOD16");
 		IMAGE_LOADBAR_DIRT = aMgr.GetImageThrow("IMAGE_LOADBAR_DIRT");
@@ -1159,10 +1033,6 @@ bool Sexy::ExtractLoaderBarResources(ResourceManager* theManager)
 		SOUND_BUTTONCLICK = aMgr.GetSoundThrow("SOUND_BUTTONCLICK");
 		SOUND_LOADINGBAR_FLOWER = aMgr.GetSoundThrow("SOUND_LOADINGBAR_FLOWER");
 		SOUND_LOADINGBAR_ZOMBIE = aMgr.GetSoundThrow("SOUND_LOADINGBAR_ZOMBIE");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
@@ -1192,7 +1062,6 @@ bool Sexy::ExtractLoadingFontsResources(ResourceManager* theManager)
 	gNeedRecalcVariableToIdMap = true;
 
 	ResourceManager& aMgr = *theManager;
-	try
 	{
 		FONT_BRIANNETOD12 = aMgr.GetFontThrow("FONT_BRIANNETOD12");
 		FONT_CONTINUUMBOLD14 = aMgr.GetFontThrow("FONT_CONTINUUMBOLD14");
@@ -1212,10 +1081,6 @@ bool Sexy::ExtractLoadingFontsResources(ResourceManager* theManager)
 		FONT_IMAGE_HOUSEOFTERROR28 = aMgr.GetImageThrow("FONT_IMAGE_HOUSEOFTERROR28");
 		FONT_PICO129 = aMgr.GetFontThrow("FONT_PICO129");
 		FONT_TINYBOLD = aMgr.GetFontThrow("FONT_TINYBOLD");
-	}
-	catch (ResourceManagerException&)
-	{
-		return false;
 	}
 	return true;
 }
