@@ -68,7 +68,7 @@ SOURCE          TodDebug.cpp
 
 // === Resources ===
 SOURCEPATH      ..\src
-SOURCE          Resources_stub.cpp   // full Resources.cpp needs hundreds of undeclared IMAGE_*/ExtractDelayLoad_*; stub matches trimmed Resources.h
+SOURCE          Resources.cpp   // M2: real resource extractor (replaces Resources_stub.cpp); header declares all globals
 
 // === Lawn game logic ===
 SOURCEPATH      ..\src\Lawn
