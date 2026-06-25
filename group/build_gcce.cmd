@@ -10,7 +10,7 @@ title PvZ N95 - abld + GCCE (gcce urel)  [mirrors working Whisk3D toolchain]
 cd /d "%~dp0"
 set "GROUP=%~dp0"
 if "%GROUP:~-1%"=="\" set "GROUP=%GROUP:~0,-1%"
-pushd "%GROUP%\.." & set "ROOT=%CD%" & popd
+for %%i in ("%GROUP%\..") do set "ROOT=%%~fi"
 set "BUILD=%ROOT%\build"
 set "OUT=%BUILD%\out"
 if not exist "%OUT%" mkdir "%OUT%"
@@ -100,10 +100,21 @@ echo [OK] Built %EXE%
 
 :: ============ 5. Package into build\out ============
 copy /y "%EXE%" "%OUT%\PvZ_N95.exe" >nul
+:: clean any stale artifacts so a failure can't masquerade as success
+if exist "%OUT%\PvZ_N95.sis"  del /q "%OUT%\PvZ_N95.sis"
+if exist "%OUT%\PvZ_N95.sisx" del /q "%OUT%\PvZ_N95.sisx"
+
+if not exist "%ROOT%\sis\PvZ_N95.pkg" (
+  echo [X] pkg not found: %ROOT%\sis\PvZ_N95.pkg
+  goto :fail
+)
 cd /d "%ROOT%\sis"
 echo [i] makesis -> %OUT%\PvZ_N95.sis ...
 call makesis PvZ_N95.pkg "%OUT%\PvZ_N95.sis"
-if not exist "%OUT%\PvZ_N95.sis" ( echo [X] makesis failed & goto :fail )
+if not exist "%OUT%\PvZ_N95.sis" (
+  echo [X] makesis failed -- see error above. Nothing packaged.
+  goto :fail
+)
 echo [i] signsis ^(self-signed^) ...
 if exist rd.cer if exist rd.key call signsis "%OUT%\PvZ_N95.sis" "%OUT%\PvZ_N95.sisx" rd.cer rd.key >nul 2>nul
 
