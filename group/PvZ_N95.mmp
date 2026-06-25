@@ -1,14 +1,16 @@
 // group/PvZ_N95.mmp
 TARGET          PvZ_N95.exe
 TARGETTYPE      exe
-// === GCCE build, mirroring the proven Whisk3D reference ===
-// Whisk3D (the working N95 GL app) builds with GCCE and never touches the
-// exception flags: GCCE's default link pulls a WORKING EH unwinder from
-// libgcc/libsupc++, so User::Leave / TRAP (on EKA2 = throw / try-catch) really
-// works. The old RVCT path forced --no_exceptions on a link set that had no EH
-// runtime, so the first Leave inside BaseConstructL paniced KERN-EXEC 3.
-// Do NOT add -fno-exceptions here. RTTI is on by default. C runtime, soft-float,
-// operator new/delete come from libgcc + estlib.lib + libc.lib (see LIBRARY).
+// === GCCE build (mirrors the working Whisk3D toolchain) ===
+// IMPORTANT: GCCE on Symbian links NO default libraries -- not even libgcc.
+// libgcc supplies the EABI helpers (__aeabi_idiv/__aeabi_uidivmod, soft-float
+// __aeabi_dcmp*, etc.) AND the C++ exception unwinder. Without it the link fails
+// (undefined __aeabi_*) or User::Leave/TRAP can't unwind at runtime. So we link
+// it explicitly via STATICLIBRARY libgcc.lib below.
+// C runtime (str*, fmod, rand) + operator new/delete come from our own
+// clib_stubs.cpp + newdel_compat.cpp (NO OpenC/PIPS needed -- this SDK has no
+// libc.dso). Do NOT add estlib.lib/libc.lib here. Do NOT add -fno-exceptions:
+// GCCE's default EH, backed by libgcc, is what makes Leave/TRAP unwind.
 ALWAYS_BUILD_AS_ARM
 UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
 
@@ -25,6 +27,8 @@ SOURCEPATH      ..\src
 // === Main entry point ===
 SOURCE          main_symbian.cpp
 
+// Custom operator new/delete -> User::Alloc/Free (no scppnwdl.dll on N95)
+SOURCE          newdel_compat.cpp
 
 // === Platform layer (Symbian OS) ===
 SOURCEPATH      ..\src\platform\symbian
@@ -54,6 +58,7 @@ SOURCE          WidgetContainer.cpp
 SOURCE          WidgetManager.cpp
 SOURCE          Font.cpp
 SOURCE          Stubs.cpp
+SOURCE          clib_stubs.cpp        // minimal C runtime: str*, fmod, rand (no estlib linked)
 SOURCE          ResourceManager.cpp      // Resource manager with image loading from PAK
 
 // === TodLib ===
@@ -108,9 +113,8 @@ LIBRARY         bafl.lib
 LIBRARY         mediaclientaudio.lib
 LIBRARY         libgles_cm.lib
 LIBRARY         imageconversion.lib   // ICL: PNG/JPEG decode (CImageDecoder)
-// --- Real C / C++ runtime (mirrors Whisk3D): operator new/delete, str*, fmod, rand ---
-LIBRARY         estlib.lib
-LIBRARY         libc.lib
+// --- GCCE EABI helpers + C++ EH unwinder (GCCE links nothing by default) ---
+STATICLIBRARY   libgcc.lib
 
 // === Resource files ===
 SOURCEPATH      ..\data
