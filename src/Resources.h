@@ -7,20 +7,11 @@
 */
 #ifndef __RESOURCES_H__
 #define __RESOURCES_H__
-
-// =====================================================================
-//  Resources.h  --  AUTO-GENERATED to match src/Resources.cpp exactly.
-//  Declares every IMAGE_/FONT_/SOUND_ global DEFINED in Resources.cpp,
-//  plus prototypes for all Extract*Resources functions.
-//
-//  ResourceManager is a GLOBAL class (engine/ResourceManager.h); do NOT
-//  forward-declare it inside namespace Sexy or it collides under
-//  'using namespace Sexy'. SOUND_* are intptr_t (GetSoundThrow ids).
-// =====================================================================
-
+// AUTO-GENERATED to match src/Resources.cpp. ResourceManager is GLOBAL
+// (engine/ResourceManager.h); do not redeclare it in namespace Sexy.
 #include <e32def.h>
 #include "engine/Image.h"
-#include "engine/ResourceManager.h"   // global ResourceManager, _Font, intptr_t
+#include "engine/ResourceManager.h"
 
 namespace Sexy {
 
@@ -804,7 +795,7 @@ extern intptr_t SOUND_FINALFANFARE;
 extern intptr_t SOUND_CRAZYDAVESCREAM;
 extern intptr_t SOUND_CRAZYDAVESCREAM2;
 
-// ---- Resource extractor prototypes (28) ----
+// ---- Extractor prototypes (30) ----
 bool ExtractDelayLoad_AlmanacResources(ResourceManager* theManager);
 bool ExtractDelayLoad_AwardScreenResources(ResourceManager* theManager);
 bool ExtractDelayLoad_Background1Resources(ResourceManager* theManager);
@@ -832,11 +823,11 @@ bool ExtractDelayLoad_ZombiquariumResources(ResourceManager* theManager);
 bool ExtractInitResources(ResourceManager* theManager);
 bool ExtractLoaderBarResources(ResourceManager* theManager);
 bool ExtractLoadingFontsResources(ResourceManager* theManager);
+bool ExtractLoadingImagesResources(ResourceManager* theManager);
+bool ExtractLoadingSoundsResources(ResourceManager* theManager);
 bool ExtractResourcesByName(ResourceManager* theResourceManager, const char* theName);
 
-// Set true when the variable->id map must be recomputed (defined in Resources.cpp)
 extern bool gNeedRecalcVariableToIdMap;
 
 } // namespace Sexy
-
 #endif // __RESOURCES_H__
