@@ -1,21 +1,17 @@
 // group/PvZ_N95.mmp
 TARGET          PvZ_N95.exe
 TARGETTYPE      exe
-// Ensure C++ exceptions + RTTI are compiled in so OUR frames get .ARM.exidx
-// unwind tables; without them the first User::Leave/throw cannot unwind through
-// our code and the device takes KERN-EXEC 3.
-OPTION GCCE -fexceptions -frtti
-// RVCT/ARMCC equivalent: enable C++ exceptions + RTTI so OUR throw/catch and the
-// EH self-test work, and so our frames get unwind tables. EKA2 Leave/TRAP itself
-// is longjmp-based and works regardless. Build ARM (not Thumb) to match reference.
-OPTION ARMCC --exceptions --rtti
-// CRITICAL: The Symbian RVCT build configuration appends --no_exceptions and
-// --no_rtti to the armcc command line by default. For armcc the LAST flag wins,
-// so those defaults silently OVERRIDE the OPTION ARMCC line above, producing a
-// binary with NO exception unwind tables (.ARM.exidx). The first real C++ throw
-// then crashes the device with KERN-EXEC 3. OPTION_REPLACE textually rewrites
-// the default flags so exceptions/RTTI are genuinely enabled.
-OPTION_REPLACE ARMCC --no_exceptions --exceptions
+// Build WITHOUT C++ exceptions, matching the working Whisk3D reference.
+// Symbian's native error mechanism is TRAP/Leave. With --exceptions ON, the RVCT
+// TRAPD macro expands to a real C++ try/catch(XLeaveException&) that requires the
+// EABI unwinder (__cxa_*/_Unwind_*). This link set does NOT provide that runtime,
+// so the first User::Leave (e.g. deep inside CAknAppUi::BaseConstructL) unwinds
+// into missing code and the device panics with KERN-EXEC 3. Disabling exceptions
+// makes TRAP/Leave use the native longjmp-based handler, which needs no runtime.
+// RTTI stays ON (dynamic_cast is used; RTTI does not need the EH runtime).
+OPTION GCCE -fno-exceptions -frtti
+OPTION ARMCC --no_exceptions --rtti
+// Keep the toolchain default --no_exceptions (do NOT replace it). Force RTTI on.
 OPTION_REPLACE ARMCC --no_rtti --rtti
 ALWAYS_BUILD_AS_ARM
 UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
