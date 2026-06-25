@@ -9,6 +9,14 @@ OPTION GCCE -fexceptions -frtti
 // EH self-test work, and so our frames get unwind tables. EKA2 Leave/TRAP itself
 // is longjmp-based and works regardless. Build ARM (not Thumb) to match reference.
 OPTION ARMCC --exceptions --rtti
+// CRITICAL: The Symbian RVCT build configuration appends --no_exceptions and
+// --no_rtti to the armcc command line by default. For armcc the LAST flag wins,
+// so those defaults silently OVERRIDE the OPTION ARMCC line above, producing a
+// binary with NO exception unwind tables (.ARM.exidx). The first real C++ throw
+// then crashes the device with KERN-EXEC 3. OPTION_REPLACE textually rewrites
+// the default flags so exceptions/RTTI are genuinely enabled.
+OPTION_REPLACE ARMCC --no_exceptions --exceptions
+OPTION_REPLACE ARMCC --no_rtti --rtti
 ALWAYS_BUILD_AS_ARM
 UID             0x100039CE 0xE1234567   // UID2=KUidApp (GUI app) -- was wrongly 0x1000007a (UID1)
 
