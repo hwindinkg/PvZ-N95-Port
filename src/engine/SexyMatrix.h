@@ -17,6 +17,13 @@ namespace Sexy
 class SexyMatrix3
 {
 public:
+    // RVCT/armcc does not enable anonymous structs by default. The
+    // #pragma anon_unions directive turns on support for anonymous unions
+    // AND anonymous structures so the named members (m00..m22) are visible.
+    // Harmless on GCC/MSVC which already accept this layout.
+#if defined(__ARMCC_VERSION) || defined(__CC_ARM)
+#pragma anon_unions
+#endif
     union
     {
         float m[3][3];
