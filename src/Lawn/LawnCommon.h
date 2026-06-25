@@ -23,18 +23,12 @@ inline int Rand(int range)
     return (range > 0) ? (Math::Random() % range) : 0;
 }
 
-inline float RandRangeFloat(float theMin, float theMax)
-{
-    if (theMax <= theMin) return theMin;
-    float r = static_cast<float>(Math::Random()) / static_cast<float>(KMaxTUint);
-    return theMin + r * (theMax - theMin);
-}
-
-inline int RandRangeInt(int theMin, int theMax)
-{
-    if (theMax <= theMin) return theMin;
-    return theMin + static_cast<int>(Math::Random()) % (theMax - theMin + 1);
-}
+// NOTE: RandRangeFloat / RandRangeInt are defined out-of-line in
+// src/Sexy.TodLib/todcommon.cpp. Previously they were also defined inline
+// here, which produced two definitions of the same global symbol and an
+// armlink L6200E "multiply defined" error. Keep only declarations here.
+float RandRangeFloat(float theMin, float theMax);
+int   RandRangeInt(int theMin, int theMax);
 
 // ---------------------------------------------------------------------------
 // Reanimation / resource loading stubs
