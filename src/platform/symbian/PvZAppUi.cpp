@@ -38,21 +38,13 @@ void CPvZAppUi::ConstructL()
 {
     Log(_L("AppUi::ConstructL ENTER"));
 
-    // --- Layered EH self-test to pinpoint where unwinding dies ---
-    // Test 1: raw C++ throw/catch. If this line logs but "T1 caught" does NOT,
-    // pure C++ EH is broken (missing .ARM.exidx / personality) -> compile-flag
-    // or runtime-lib problem, NOT typeinfo.
-    Log(_L("EH T1: raw C++ throw/catch"));
-    {
-        volatile TInt caught = 0;
-        try { throw (TInt)123; } catch (TInt e) { caught = e; } catch (...) { caught = -1; }
-        TBuf<64> b; b.Format(_L("EH T1 caught=%d (expect 123)"), (TInt)caught); Log(b);
-    }
-    // Test 2: Symbian TRAP/Leave. If T1 passed but this dies, the leave
-    // mechanism (TTrap / euser) is the culprit, not generic C++ EH.
-    Log(_L("EH T2: about to TRAP User::Leave(-42)"));
-    TRAPD(ehTest, User::Leave(-42));
-    { TBuf<64> b; b.Format(_L("EH T2 caught err=%d (expect -42)"), ehTest); Log(b); }
+    // NOTE: The EH self-test (raw C++ throw/catch) was removed.
+    // This port follows the Whisk3D reference design and does NOT rely on C++
+    // exceptions: the engine never throws (operator new returns NULL on OOM,
+    // resource errors use return codes / User::Leave). The only real C++ throw
+    // in the whole codebase was this diagnostic, and raw throw/catch is
+    // unreliable under RVCT 2.2 on EKA2 -- it crashed here with KERN-EXEC 3.
+    // Symbian TRAP/Leave is used for error handling instead.
 
     Log(_L("step: BaseConstructL (TRAP)"));
     TRAPD(bcErr, BaseConstructL());
