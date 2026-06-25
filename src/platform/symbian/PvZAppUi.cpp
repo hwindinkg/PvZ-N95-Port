@@ -38,6 +38,15 @@ void CPvZAppUi::ConstructL()
 {
     Log(_L("AppUi::ConstructL ENTER"));
 
+    // === DECISIVE EH/Leave self-test ===
+    // On EKA2, User::Leave == 'throw XLeaveException' and TRAP == try/catch.
+    // If C++ exception unwinding is broken in this RVCT binary, this Leave will
+    // hard-fault (KERN-EXEC 3) instead of being caught -> proving that the
+    // BaseConstructL crash is really the FIRST internal Leave, not app logic.
+    Log(_L("EHTEST: about to User::Leave(KErrNotFound) inside TRAP"));
+    { TRAPD(ehErr, User::Leave(KErrNotFound));
+      TBuf<64> b; b.Format(_L("EHTEST: SURVIVED, caught err=%d"), ehErr); Log(b); }
+
     // NOTE: The EH self-test (raw C++ throw/catch) was removed.
     // This port follows the Whisk3D reference design and does NOT rely on C++
     // exceptions: the engine never throws (operator new returns NULL on OOM,
