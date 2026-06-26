@@ -6,6 +6,7 @@
 #include "../../engine/Image.h"
 #include "../LawnApp.h"
 #include "../Lawn/Board.h"
+#include <aknappui.h>   // CAknAppUi / CAknAppUiBase::SetOrientationL (landscape)
 
 // Simple log function that ALWAYS flushes
 static void Log(const TDesC& aMsg) {
@@ -41,6 +42,25 @@ void CPvZGameView::ConstructL()
     Log(_L("GV:ConstructL start [BUILD v4 focus+diag]"));
     CreateWindowL();
     Log(_L("GV:CreateWindowL done"));
+    // [ORIENTATION] PvZ is a LANDSCAPE game: its canvas is 4:3 (GL ortho 400x300).
+    // The N95's default (numeric slide) is PORTRAIT 240x320 (3:4), so a 4:3 frame
+    // gets squished vertically -- the "vertical wallpaper" symptom. Lock the app to
+    // LANDSCAPE (320x240, which is EXACTLY 4:3 -> perfect full-screen fit, no
+    // letterbox) the same way the re3-symbian GTA3 reference (also landscape) does:
+    // SetOrientationL right after CreateWindowL and BEFORE SetExtentToWholeScreen so
+    // the window (and therefore the EGL surface created later) is sized landscape.
+    // Bonus: this matches the N95 multimedia slider, which exposes the gaming/media
+    // keys in landscape.
+    {
+        CAknAppUi* aknAppUi = static_cast<CAknAppUi*>(CCoeEnv::Static()->AppUi());
+        if (aknAppUi)
+        {
+            TRAPD(oErr, aknAppUi->SetOrientationL(CAknAppUiBase::EAppUiOrientationLandscape));
+            if (oErr != KErrNone) { TBuf<48> b; b.Format(_L("GV:SetOrientation err=%d"), oErr); Log(b); }
+            else Log(_L("GV:SetOrientation Landscape OK"));
+        }
+        else Log(_L("GV:SetOrientation no AppUi"));
+    }
     // Cover the whole screen, like the GTA3 (re3-symbian) and Whisk3D
     // references. A hardcoded SetRect can leave the window not marked as
     // fully covering the display, so WSERV shows stale video memory underneath.
@@ -242,7 +262,16 @@ void CPvZGameView::InitGLES()
     if (iGL) {
         iGL->Init();
         Log(_L("GL:iGL->Init done"));
-        iGL->SetViewport(0, 0, 240, 320);
+        // [ORIENTATION] Use the ACTUAL window size (landscape 320x240 after
+        // SetOrientationL), not a hardcoded portrait 240x320. UpdateViewport()
+        // fits the 4:3 game canvas into the surface (320x240 is exactly 4:3, so
+        // it fills the whole screen with no letterbox).
+        TSize vsz = Size();
+        { TBuf<48> b; b.Format(_L("GL:viewport from Size %dx%d"), vsz.iWidth, vsz.iHeight); Log(b); }
+        if (vsz.iWidth > 0 && vsz.iHeight > 0)
+            iGL->UpdateViewport(vsz.iWidth, vsz.iHeight);
+        else
+            iGL->SetViewport(0, 0, 320, 240);   // fallback: landscape default
         Log(_L("GL:SetViewport done"));
     }
     Log(_L("GL:InitGLES done"));
