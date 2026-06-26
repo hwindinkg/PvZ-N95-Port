@@ -16,29 +16,21 @@ public:
     virtual void Update() {}
     virtual void Draw(Graphics* g) {
         if (!g) return;
-        // Fill background with dark purple
+        // [M3 fix] This widget is the legitimate TITLE screen shown DURING loading,
+        // while IMAGE_TITLESCREEN is valid. After LoadingCompleted() the image is
+        // freed and nulled and the widget is supposed to be removed -- but if a
+        // lingering TitleScreen is still in the WidgetManager it MUST NOT paint,
+        // otherwise its full-screen purple fill + RGB test pattern covers the real
+        // game frame (the lawn drawn by GameSelector behind it). So: only paint when
+        // we actually have the title image; once it's gone, draw nothing (fully
+        // transparent) and let whatever is behind us show through.
+        if (!IMAGE_TITLESCREEN)
+            return;
+
+        // Fill background with dark purple, then the title art.
         g->SetColor(Color(38, 13, 51, 255));
         g->FillRect(0, 0, mWidth, mHeight);
-
-        // Draw TitleScreen image if loaded
-        if (IMAGE_TITLESCREEN)
-        {
-            g->DrawImage(IMAGE_TITLESCREEN, 0, 0);
-        }
-        else
-        {
-            // Draw a test pattern to verify rendering works
-            // White rectangle in center
-            g->SetColor(Color(255, 255, 255, 255));
-            g->FillRect(50, 50, mWidth - 100, mHeight - 100);
-            // Red/green/blue bars at bottom
-            g->SetColor(Color(255, 0, 0, 255));
-            g->FillRect(0, mHeight - 40, mWidth/3, 40);
-            g->SetColor(Color(0, 255, 0, 255));
-            g->FillRect(mWidth/3, mHeight - 40, mWidth/3, 40);
-            g->SetColor(Color(0, 0, 255, 255));
-            g->FillRect(2*mWidth/3, mHeight - 40, mWidth/3, 40);
-        }
+        g->DrawImage(IMAGE_TITLESCREEN, 0, 0);
     }
     virtual void Resize(int x, int y, int w, int h) { Widget::Resize(x, y, w, h); }
     LawnApp* mApp;
