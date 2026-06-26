@@ -109,6 +109,30 @@ Next: **M3** menu content + fonts/strings/sounds.
   guarded by `if (IMAGE_X)` will pass and deref freed memory -> KERN-EXEC 3.
   Null the global yourself after deleting.
 
+## Stub-header & image-decode gotchas (M3, hard-won)
+
+- **A stub in `Stubs.h` can SHADOW the real function and silently win.**
+  `LawnApp.cpp` includes only `engine/Stubs.h`, NOT `Resources.h`. A global
+  `inline bool ExtractResourcesByName(ResourceManager*, const char*) { return true; }`
+  in Stubs.h therefore bound to `LawnApp::LoadGroup`'s call and loaded NOTHING
+  (rmgr_log showed `StartLoadResources` per group but ZERO `LoadImageByResName`).
+  The real `Sexy::ExtractResourcesByName` in Resources.cpp was never reached.
+  *Fix: delete the stub, forward-declare the REAL one in `namespace Sexy` inside
+  Stubs.h (commit 92fdc7d).* **When resources mysteriously don't load, grep
+  `Stubs.h` for a same-named stub shadowing the real symbol.**
+- **N95 ICL cannot Convert PNG into a 32-bit `EColor16MA` bitmap** — it returns
+  `KErrNotSupported (-5)`. JPEG works (that's why titlescreen.jpg always
+  decoded), PNG does not (106/106 failed). The PNG header DOES parse (dimensions
+  log fine) — only the Convert step fails. *Fix: decode into a 24-bit
+  `EColor16M` color bitmap + (if `TFrameInfo` reports transparency) a separate
+  grayscale alpha mask (`EGray256`/`EGray2`) via the two-bitmap Convert overload,
+  then recombine to ARGB; FORCE alpha=0xFF for opaque pixels, overlay mask alpha
+  otherwise (commit ac38504).* Decode counters to watch in rmgr_log:
+  `convert done err 0x0` = OK, `err -5` = the unsupported-target bug.
+- **Counting decode outcomes**: split rmgr_log on `LoadImageByResName:` and tally
+  `convert done err 0x0` (OK) vs `err -5` (codec target unsupported) vs
+  `not found in PAK` (asset naming mismatch — a separate, still-open issue).
+
 ## The plan (milestones)
 
 **M1 — prove the pipeline end-to-end (ONE image). ✅ DONE.**
