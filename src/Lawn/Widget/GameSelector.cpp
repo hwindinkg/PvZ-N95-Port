@@ -1,23 +1,27 @@
 /*
  * GameSelector.cpp -- [M3] First REAL game frame.
  *
- * KEY FIX (2026-06-26): the previous build called
- *   mResourceManager->LoadImageByResName("IMAGE_BACKGROUND1")
- * inside Draw. That function does NOT cache -- it re-reads the PAK and
- * re-DECODES the image every call. The 1400x600 lawn JPEG was already decoded
- * once during the bulk resource load; decoding a SECOND copy here fails on the
- * N95's tight heap -> returned NULL -> magenta fallback (exactly what gs_log.txt
- * showed: "bg=NULL (LoadImageByResName failed)").
+ * WHY NOT THE LAWN (IMAGE_BACKGROUND1)? Two hard N95 limits, both proven by logs:
+ *   1) Decoding the 1400x600 lawn to 32-bit fails on the device heap -- gs_log
+ *      previously read "bg=NULL (LoadImageByResName failed)" and rmgr_log cut off
+ *      mid-convert with no "decoded OK".
+ *   2) Even decoded, its POT texture is 2048x1024, but PowerVR MBX Lite (N95) has
+ *      GL_MAX_TEXTURE_SIZE = 1024 -> glTexImage2D rejects it -> it renders as
+ *      nothing (you see only the purple clear colour).
  *
- * The engine already keeps the loaded lawn in the global Sexy::IMAGE_BACKGROUND1
- * (set via GetImageThrow during ExtractDelayLoad_Background1Resources) -- this is
- * the SAME pointer Board::DrawBackdrop uses. So we just draw that. No reload, no
- * second decode. Fallback to ResourceManager::GetImage (cache lookup, still no
- * reload) only if the global is somehow NULL.
+ * So for the FIRST real frame we draw IMAGE_TITLESCREEN: an 800x600 JPEG that
+ * decodes robustly (it's the very first asset the loader ever touched) and whose
+ * POT texture is 1024x1024 -- exactly at the MBX limit, so it uploads fine.
  *
- * Drawn with a PLAIN DrawImage(bg, 0, 0) (no transform): the canvas is 400x300,
- * so we see the top-left 400x300 of the 1400x600 lawn = house + start of rows =
- * an unmistakable real frame. gs_log.txt records the source + bits presence.
+ * It was DeleteImage'd after the loading screen, so GetImage re-decodes it on
+ * demand (and caches it). We draw it at native size at (0,0): the screen's
+ * logical canvas is ~400x300, so the top-left 400x300 of the 800x600 title art is
+ * visible -- unmistakable real pixels. No transform, no scale (keeps the GL path
+ * dead simple for this proof). Scaling to fit comes next once a frame is visible.
+ *
+ * Drawn via static_cast<MemoryImage*> + the direct DrawImage(MemoryImage*)
+ * overload, bypassing the dynamic_cast in DrawImageF (RTTI is unreliable under
+ * GCCE 3.4.3; the engine copy of that cast was also switched to static_cast).
  */
 #include "GameSelector.h"
 
@@ -26,6 +30,7 @@
 #include "../../engine/ResourceManager.h"
 #include "../../engine/Graphics.h"
 #include "../../engine/Image.h"
+#include "../../engine/MemoryImage.h"
 
 #include <e32std.h>
 #include <f32file.h>
@@ -52,51 +57,44 @@ void GameSelector::Draw(Graphics* g)
     if (g == NULL)
         return;
 
-    // Use the ALREADY-LOADED lawn -- never reload/redecode here.
-    static Image* sBg    = NULL;
-    static bool   sTried = false;
-    static int    sSrc   = 0;   // 0=none 1=global 2=cache
-    if (!sTried)
-    {
-        sTried = true;
-        if (IMAGE_BACKGROUND1 != NULL)             // engine global (canonical)
-        {
-            sBg = IMAGE_BACKGROUND1;
-            sSrc = 1;
-        }
-        else if (mApp != NULL && mApp->mResourceManager != NULL)
-        {
-            sBg = mApp->mResourceManager->GetImage("IMAGE_BACKGROUND1"); // cache, no reload
-            sSrc = sBg ? 2 : 0;
-        }
-    }
+    // Retry each frame until the image is available (GetImage caches on success,
+    // so this is cheap once loaded -- and we never permanently cache a NULL).
+    static Image* sImg = NULL;
+    if (sImg == NULL && mApp != NULL && mApp->mResourceManager != NULL)
+        sImg = mApp->mResourceManager->GetImage("IMAGE_TITLESCREEN");
 
     // One-time diagnostic dump.
     static bool sLogged = false;
-    if (!sLogged)
+    if (!sLogged && sImg != NULL)
     {
         sLogged = true;
-        TBuf8<256> b;
-        if (sBg != NULL)
-        {
-            b.Format(_L8("GS:Draw RAN src=%d bg=%08x w=%d h=%d\n"),
-                     sSrc, (TUint)sBg, sBg->GetWidth(), sBg->GetHeight());
-        }
-        else
-        {
-            b.Format(_L8("GS:Draw RAN bg=NULL src=%d (global+cache both empty)\n"), sSrc);
-        }
+        TBuf8<160> b;
+        b.Format(_L8("GS:Draw drawing IMAGE_TITLESCREEN %dx%d ptr=%08x\n"),
+                 sImg->GetWidth(), sImg->GetHeight(), (TUint)sImg);
         GSLog(b);
     }
-
-    if (sBg != NULL && sBg->GetWidth() > 0 && sBg->GetHeight() > 0)
+    else if (!sLogged && mApp != NULL && mApp->mResourceManager != NULL)
     {
-        // PLAIN draw, no transform -- top-left 400x300 of the 1400x600 lawn.
-        g->DrawImage(sBg, 0, 0);
+        // image still not ready this frame -- record the miss once-ish
+        static bool sMissLogged = false;
+        if (!sMissLogged)
+        {
+            sMissLogged = true;
+            GSLog(_L8("GS:Draw IMAGE_TITLESCREEN not ready yet (GetImage NULL)\n"));
+        }
+    }
+
+    if (sImg != NULL && sImg->GetWidth() > 0 && sImg->GetHeight() > 0)
+    {
+        // Native draw at top-left. static_cast is safe: ResourceManager only ever
+        // produces MemoryImage-backed images; the direct overload skips the
+        // RTTI-dependent dynamic_cast inside DrawImageF.
+        MemoryImage* mem = static_cast<MemoryImage*>(sImg);
+        g->DrawImage(mem, 0, 0);
     }
     else
     {
-        // Background unavailable -> obvious magenta so we can tell this branch ran.
+        // Nothing to draw yet -> obvious magenta so this branch is visible.
         g->SetColor(Color(255, 0, 255, 255));
         g->FillRect(0, 0, 400, 300);
     }

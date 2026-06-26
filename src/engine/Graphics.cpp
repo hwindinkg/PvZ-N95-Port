@@ -460,7 +460,7 @@ void Graphics::DrawImage(MemoryImage* img, int x, int y, const Rect& srcRect)
 void Graphics::DrawImageF(Image* img, float x, float y)
 {
     // Cast to MemoryImage* for texture operations.
-    MemoryImage* memImg = dynamic_cast<MemoryImage*>(img);
+    MemoryImage* memImg = static_cast<MemoryImage*>/*RTTI off under GCCE; RM only stores MemoryImage*/(img);
     if (memImg)
     {
         DrawImage(memImg, static_cast<int>(x), static_cast<int>(y));
@@ -505,7 +505,7 @@ void Graphics::DrawImageRotated(Image* img, float x, float y,
     mGL->PushTransform(mat);
 
     // Draw the image at the origin offset so centre aligns
-    MemoryImage* memImg = dynamic_cast<MemoryImage*>(img);
+    MemoryImage* memImg = static_cast<MemoryImage*>/*RTTI off under GCCE; RM only stores MemoryImage*/(img);
     if (memImg)
         DrawImage(memImg, static_cast<int>(-centerX),
                           static_cast<int>(-centerY), srcRect);

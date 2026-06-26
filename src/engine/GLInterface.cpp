@@ -471,6 +471,26 @@ GLuint GLInterface::CreateTexture(TInt width, TInt height,
         buf.Format(_L8("GLI::CreateTexture #%d %dx%d fmt=%d"), texCount, width, height, format);
         GLTrace((const char*)buf.PtrZ());
     }
+    // --- N95/MBX safety: GL_MAX_TEXTURE_SIZE is 1024 on PowerVR MBX Lite.
+    // A bigger texture makes glTexImage2D fail (GL_INVALID_VALUE) and renders
+    // as nothing -> caller sees only the clear colour. Query once, refuse
+    // oversized requests, and log loudly so we learn the real limit.
+    static GLint sMaxTex = 0;
+    if (sMaxTex == 0)
+    {
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &sMaxTex);
+        if (sMaxTex <= 0) sMaxTex = 1024;
+        TBuf8<64> mb; mb.Format(_L8("GLI::GL_MAX_TEXTURE_SIZE=%d"), (int)sMaxTex);
+        GLTrace((const char*)mb.PtrZ());
+    }
+    if (width > sMaxTex || height > sMaxTex)
+    {
+        TBuf8<96> ob;
+        ob.Format(_L8("GLI::CreateTexture REJECT %dx%d > max %d"),
+                  (int)width, (int)height, (int)sMaxTex);
+        GLTrace((const char*)ob.PtrZ());
+        return 0;
+    }
     GLuint texID = 0;
     glGenTextures(1, &texID);
 
