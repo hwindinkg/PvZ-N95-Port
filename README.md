@@ -7,36 +7,43 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > M1 (single image end-to-end) and M2 (real `Resources.cpp`) are done. We are in
 > **M3**: getting the FIRST real in-game frame on screen.
 >
-> **LATEST WORK (2026-06-26, commit `eba5a08`) — awaiting on-device test.**
-> Found and fixed THREE compounding bugs that kept *every* real image off screen
-> (we had only ever seen solid fills / test patterns, never a decoded asset):
-> 1. **RTTI-dependent draw.** `Graphics::DrawImageF`/`DrawString` used
->    `dynamic_cast<MemoryImage*>(img)`. GCCE 3.4.3 Symbian builds typically have
->    **RTTI OFF**, so the cast returned NULL → every image fell through to a
->    WHITE placeholder `FillRect`. Switched both to `static_cast` (the
->    ResourceManager only ever creates `MemoryImage`-backed images).
-> 2. **Oversized textures render invisibly.** `GLInterface::CreateTexture` made a
->    texture of the full POT size with no bound check. The lawn (1400x600) rounds
->    to a **2048x1024** POT, but **PowerVR MBX Lite (N95) has
->    `GL_MAX_TEXTURE_SIZE = 1024`** → `glTexImage2D` rejects it → draws nothing
->    (only the purple clear shows; that stale "2048x1024" in `gl_log` never hit
->    the screen). `CreateTexture` now queries the limit once (logs
->    `GLI::GL_MAX_TEXTURE_SIZE=N`) and REJECTS oversized requests (returns 0 →
->    visible white placeholder instead of silent nothing).
-> 3. **Wrong first-frame asset.** `GameSelector` drew `IMAGE_BACKGROUND1`, which
->    on N95 (a) fails to decode (1400x600 → OOM; `gs_log` read `bg=NULL`) and
->    (b) needs a 2048 texture (see #2). Switched the first frame to
->    `IMAGE_TITLESCREEN` (800x600 JPEG, robust decode, POT **1024x1024** = exactly
->    at the MBX limit). It was `DeleteImage`'d after loading, so `GetImage`
->    re-decodes+caches on demand; we retry each frame until ready, never cache a
->    NULL, and draw at native (0,0) via `static_cast` + the direct
->    `DrawImage(MemoryImage*)` overload.
+> **LATEST WORK (2026-06-27, commit pending) — titlescreen fully visible.**
+> The first real frame (`IMAGE_TITLESCREEN`) now renders **full-canvas with
+> correct colours** — no purple tint, no 1/4 crop, no overlay covering it.
+> Four bugs were found and fixed beyond commit `eba5a08`:
 >
-> **NEXT SESSION — verify first, then continue:** rebuild, run, read
-> `C:\Data\PvZ\gs_log.txt` (expect `GS:Draw drawing IMAGE_TITLESCREEN 800x600`)
-> and `gl_log` (expect a `GLI::GL_MAX_TEXTURE_SIZE=...` line — **this confirms the
-> device's real texture limit; the whole #2 fix rests on it being ~1024**). If the
-> top-left of the title art is visible → first real frame achieved 🎉.
+> **FIX 4 — `BringToBack` buried GameSelector under an overlay.**
+> `ShowGameSelector()` called `mWidgetManager->BringToBack(mGameSelector)`, which
+> moves the widget to **index 0** (drawn first, then covered by every subsequent
+> widget). The loader/transition overlay widget was therefore drawn ON TOP,
+> showing a solid-colour frame (the purple tint came from stale GL vertex colour
+> lingering from that overlay's draw). *Fix: changed to `BringToFront` so
+> GameSelector is drawn last / on top.*
+>
+> **FIX 5 — `CopyImageToTextureSub` + `glTexSubImage2DOES` on MBX produces
+> garbage.** N95 PowerVR MBX driver has `glTexSubImage2DOES` available (function
+> pointer non-null), but calling it with an NPOT sub-region results in garbage
+> pixels. `CopyImageToTextureSub` now always returns `EFalse`, forcing
+> `GetOrCreateTexture` to use the manual full-POT `glTexImage2D` fallback with
+> zero-padding and row-by-row copy.
+>
+> **FIX 6 — Missing `ArgbToRgba` in POT fallback swaps R↔B.**
+> MemoryImage stores pixels as `0xAARRGGBB` (little-endian word → memory bytes
+> B,G,R,A). `GL_RGBA` + `GL_UNSIGNED_BYTE` expects memory bytes R,G,B,A. The
+> fallback must call `GLInterface::ArgbToRgba()` to swap R and B; without it,
+> blue channels become red and vice versa (sky turns yellow, red turns blue).
+> *This was removed in a prior experiment (v6) and re-added once confirmed.*
+>
+> **FIX 7 — Purple tint = `GL_MODULATE` × stale vertex colour.**
+> `GLInterface::Init` sets `GL_TEXTURE_ENV_MODE` to `GL_MODULATE`, which
+> multiplies the texture by the current vertex colour. If `SetColor` was last
+> called with magenta (255,0,255) by an earlier widget or a failure-path FillRect,
+> the texture renders purple. *Fix: explicitly call `g->SetColor(255,255,255,255)`
+> right before every `DrawImage` call in `GameSelector::Draw`.*
+>
+> **RESULT on device (all verified):** titlescreen at full canvas scale (400x300),
+> correct colours (blue sky, green grass, red logo), no flicker, stable 30 FPS.
+> This is the first time real game art has rendered correctly on the N95.
 >
 > **⚠️ DO NOT RE-DEBUG THESE — already solved:**
 > - *"Purple/pink screen, lawn never shows"* → NOT an empty-texture/bits problem.
@@ -54,40 +61,45 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
 >   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
-## Current status (2026-06-26)
+## Current status (2026-06-27)
 
-App **boots, renders correct colours, stable render loop** (RF1..RF4000+,
-`eglSwapBuffers` = EGL_SUCCESS), locked to **landscape 320x240** (perfect 4:3).
-The three-bug fix above (commit `eba5a08`) is the latest change and is **awaiting
-on-device confirmation** — before it, the screen was flat purple/pink because no
-real image could reach the framebuffer.
+App **boots, renders real game art with correct colours**, stable render loop
+(RF1..RF6000+, `eglSwapBuffers` = EGL_SUCCESS), locked to **landscape 320x240**
+(perfect 4:3). `IMAGE_TITLESCREEN` renders **full-canvas scaled to 400x300**
+with correct colours (no purple tint, no R/B swap). The four fixes above
+(commits pending) are **confirmed on-device**.
 
 **Working:**
-- GCCE build pipeline (`group/build_gcce.cmd` AND `build_sisx.cmd` — TWO scripts,
-  keep them in sync) — compile, link, make SIS.
+- GCCE build pipeline (`group/build_gcce.cmd`) — compile, link, make SIS.
 - C++ runtime (EH / `User::Leave` / `TRAP`) via `STATICLIBRARY libgcc.lib`.
-- EGL/GLES 1.1 context + POT texture upload; landscape orientation.
+- EGL/GLES 1.1 context + POT texture upload (via manual full-POT fallback,
+  skipping malfunctioning `glTexSubImage2DOES` on MBX); landscape orientation.
 - `.pak` VFS; ICL-based PNG **and** JPEG decode (115 images decode OK at boot).
-- `WidgetManager` draws; heartbeat `CPeriodic` render loop stable.
-- **Image draw path is now RTTI-independent and texture-size-safe** (this commit).
+- `WidgetManager` draws; heartbeat `CPeriodic` render loop stable (30 FPS).
+- **Image draw path: RTTI-independent, texture-size-safe, R/B-correct, no tint.**
+- **`BringToFront`** ensures the target widget is drawn on top (the previous
+  `BringToBack` buried it under an overlay).
+- **`ArgbToRgba`** in POT fallback fixes red/blue channel ordering.
 
-**TODO / still open (M3, priority order):**
-1. **Confirm the first real frame** on device (read `gs_log.txt` + `gl_log`). Until
-   a frame is verified, everything else is downstream.
-2. **Scale the title to fill the screen.** Currently drawn at native size so only
-   the top-left 400x300 of 800x600 shows. `DrawImage(MemoryImage*)` does NOT apply
-   `mScaleX/mScaleY`; use `PushTransform` with a `SexyTransform2D().Scale(sx,sy)`
-   (same mechanism as the working `DrawImageRotated`) — sx=400/800, sy=300/600.
+**TODO / still open (M4, priority order):**
+1. **Full `GameSelector` implementation** — Adventure/Survival/minigames/options
+   menu. Requires porting `GameButton.cpp`, `StoreScreen.cpp`, `AlmanacDialog.cpp`,
+   `ToolTipWidget.cpp`, `Music.cpp`, `ProfileMgr.cpp`, `ZenGarden.cpp`,
+   `SaveGame.cpp` (only `.h` stubs exist currently). Upstream reference:
+   `src/Lawn/Widget/GameSelector.cpp` from `wszqkzqk/PvZ-Portable`.
+2. **Key/touch input** — N95 needs d-pad + centre-key mapped to
+   `WidgetManager::MouseDown/MouseUp` or `KeyDown`. Currently `PvZAppUi::HandleKeyEventL`
+   only forwards four arrow keys + Enter + Escape via `WidgetManager::KeyDown`;
+   the WidgetManager's `MouseDown/MouseUp/hit-test path is unreachable because
+   `PvZGameView` doesn't call it. Add a `HandlePointerEventL` or extend the
+   key handler to synthesise Mouse events.
 3. **Restore the lawn (`IMAGE_BACKGROUND1`) properly.** Needs BOTH: (a) decode it
    without OOM, and (b) a texture ≤1024 — i.e. **texture TILING** (split into
    ≤1024 tiles, the way the original Sexy framework does) or a pre-downscale.
    The MBX 1024 limit is the hard constraint; do not try a single 2048 texture.
-4. **Real `GameSelector` content** (Adventure / Survival buttons). NOTE: menu
-   buttons are `REANIM_*` assets that are **NOT in this PAK** (`NOPAK` in
-   rmgr_log) — can't be drawn from art until packed or the Reanimator is un-stubbed.
-5. Fonts (`GetFontThrow` stubbed), strings, sounds not really loaded.
-6. ~51 game-referenced `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL**.
-7. 149 `REANIM_*` images report `not in PAK` (asset naming / packing mismatch).
+4. Fonts (`GetFontThrow` stubbed), strings, sounds not really loaded.
+5. ~51 game-referenced `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL**.
+6. 149 `REANIM_*` images report `not in PAK` (asset naming / packing mismatch).
 
 **Key code facts for next session:**
 - `ResourceManager::GetImage(name)` looks up a name→`MemoryImage*` cache and
