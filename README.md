@@ -2,71 +2,105 @@
 
 Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian OS S60 3rd Edition FP1 (Nokia N95), built with **GCCE + libgcc**.
 
-> **READ THIS FIRST (handoff for the next session).** The build compiles &
-> links, the engine boots, EGL/WSERV display is correct, and the app is locked
-> to **landscape**. M1 (single image end-to-end) and M2 (real `Resources.cpp`)
-> are done. We are deep in **M3**: getting the FIRST real in-game frame on
-> screen. The old debug test-pattern (white rect + RGB bars) has been REMOVED.
+> **READ THIS FIRST (handoff for the next session).** Build compiles & links,
+> the engine boots, EGL/WSERV display is correct, app is locked to **landscape**.
+> M1 (single image end-to-end) and M2 (real `Resources.cpp`) are done. We are in
+> **M3**: getting the FIRST real in-game frame on screen.
 >
-> **CURRENT SYMPTOM (2026-06-26): plain PURPLE screen, nothing else.** The lawn
-> background (`IMAGE_BACKGROUND1`) is being drawn (a 2048x1024 texture is
-> created — see `gl_log`) but renders invisible. Leading hypothesis: the image's
-> pixel bits are gone by draw time so the texture is uploaded EMPTY. A diagnostic
-> build (`GameSelector.cpp` writes `C:\Data\PvZ\gs_log.txt` with bg ptr / dims /
-> bits-present, and draws the background WITHOUT any transform) is in place to
-> confirm. **Read `gs_log.txt` first next session.**
+> **LATEST WORK (2026-06-26, commit `eba5a08`) — awaiting on-device test.**
+> Found and fixed THREE compounding bugs that kept *every* real image off screen
+> (we had only ever seen solid fills / test patterns, never a decoded asset):
+> 1. **RTTI-dependent draw.** `Graphics::DrawImageF`/`DrawString` used
+>    `dynamic_cast<MemoryImage*>(img)`. GCCE 3.4.3 Symbian builds typically have
+>    **RTTI OFF**, so the cast returned NULL → every image fell through to a
+>    WHITE placeholder `FillRect`. Switched both to `static_cast` (the
+>    ResourceManager only ever creates `MemoryImage`-backed images).
+> 2. **Oversized textures render invisibly.** `GLInterface::CreateTexture` made a
+>    texture of the full POT size with no bound check. The lawn (1400x600) rounds
+>    to a **2048x1024** POT, but **PowerVR MBX Lite (N95) has
+>    `GL_MAX_TEXTURE_SIZE = 1024`** → `glTexImage2D` rejects it → draws nothing
+>    (only the purple clear shows; that stale "2048x1024" in `gl_log` never hit
+>    the screen). `CreateTexture` now queries the limit once (logs
+>    `GLI::GL_MAX_TEXTURE_SIZE=N`) and REJECTS oversized requests (returns 0 →
+>    visible white placeholder instead of silent nothing).
+> 3. **Wrong first-frame asset.** `GameSelector` drew `IMAGE_BACKGROUND1`, which
+>    on N95 (a) fails to decode (1400x600 → OOM; `gs_log` read `bg=NULL`) and
+>    (b) needs a 2048 texture (see #2). Switched the first frame to
+>    `IMAGE_TITLESCREEN` (800x600 JPEG, robust decode, POT **1024x1024** = exactly
+>    at the MBX limit). It was `DeleteImage`'d after loading, so `GetImage`
+>    re-decodes+caches on demand; we retry each frame until ready, never cache a
+>    NULL, and draw at native (0,0) via `static_cast` + the direct
+>    `DrawImage(MemoryImage*)` overload.
+>
+> **NEXT SESSION — verify first, then continue:** rebuild, run, read
+> `C:\Data\PvZ\gs_log.txt` (expect `GS:Draw drawing IMAGE_TITLESCREEN 800x600`)
+> and `gl_log` (expect a `GLI::GL_MAX_TEXTURE_SIZE=...` line — **this confirms the
+> device's real texture limit; the whole #2 fix rests on it being ~1024**). If the
+> top-left of the title art is visible → first real frame achieved 🎉.
 >
 > **⚠️ DO NOT RE-DEBUG THESE — already solved:**
+> - *"Purple/pink screen, lawn never shows"* → NOT an empty-texture/bits problem.
+>   It was the 2048-texture MBX limit (#2) + the 1400x600 decode OOM (#3). Do NOT
+>   chase `GetBits()`/bulk-load-frees-bits theories again.
+> - *"No image ever renders, only solid colours"* → the `dynamic_cast` RTTI bug
+>   (#1). If images still don't draw, re-check that NO `dynamic_cast` crept back
+>   into `Graphics.cpp`, and confirm RTTI status in the build.
 > - *"Green mesh / garbage until I open the Options menu"* → caused by
 >   `Window().SetRequiredDisplayMode(EColor64K)`. **Removed. NEVER re-add it.**
 > - *KERN-EXEC 3 on the first menu frame* → dangling `IMAGE_TITLESCREEN` after
 >   `DeleteImage()`. Fixed by nulling the global.
-> - *White rectangle + RGB bars on screen* → that was `TitleScreen::Draw`'s debug
->   test pattern. A lingering TitleScreen was painting it OVER the real frame.
->   Fixed: `TitleScreen::Draw` now returns early when `IMAGE_TITLESCREEN` is NULL.
+> - *White rectangle + RGB bars* → `TitleScreen::Draw`'s debug test pattern (now
+>   removed; a lingering TitleScreen was painting it over the real frame).
 > - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
 >   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
 ## Current status (2026-06-26)
 
-The app **boots, renders correct colours, runs a stable render loop**
-(RF1..RF4000+, `eglSwapBuffers` = EGL_SUCCESS), and is locked to **landscape
-320x240** (a perfect 4:3 fit). The screen is currently a **flat purple** — the
-glClear colour — because the first real game frame (the lawn) is drawn but not
-yet visible.
-
-**What the latest logs prove (this is the live M3 problem):**
-- `rmgr_log`: `IMAGE_BACKGROUND1` (1400x600) decodes OK.
-- `gl_log`: exactly ONE texture is created — `#1 2048x1024`. Texture creation is
-  LAZY (only `Graphics::DrawImage`/`DrawImageF` call `GetOrCreateTexture`), so
-  this PROVES `GameSelector::Draw` ran and issued the background draw.
-- `wgt_log`: `Widgets=2`. `draw_progress`: two full-screen widgets per frame —
-  `GameSelector` (sent `BringToBack`, drawn first/behind) and a **lingering
-  `TitleScreen`** in front (now neutered so it no longer paints).
-- Yet the screen is purple → the background texture is rendering as
-  empty/transparent. **Prime suspect:** `GetOrCreateTexture` only uploads pixels
-  `if (img->GetBits())`; if the decoded bits were freed after the bulk load, the
-  POT texture stays empty. The diagnostic `gs_log.txt` will confirm bits-present.
+App **boots, renders correct colours, stable render loop** (RF1..RF4000+,
+`eglSwapBuffers` = EGL_SUCCESS), locked to **landscape 320x240** (perfect 4:3).
+The three-bug fix above (commit `eba5a08`) is the latest change and is **awaiting
+on-device confirmation** — before it, the screen was flat purple/pink because no
+real image could reach the framebuffer.
 
 **Working:**
-- GCCE build pipeline (`group/build_gcce.cmd` and `build_sisx.cmd`) — compile,
-  link, make SIS. (TWO build scripts — keep them in sync.)
+- GCCE build pipeline (`group/build_gcce.cmd` AND `build_sisx.cmd` — TWO scripts,
+  keep them in sync) — compile, link, make SIS.
 - C++ runtime (EH / `User::Leave` / `TRAP`) via `STATICLIBRARY libgcc.lib`.
 - EGL/GLES 1.1 context + POT texture upload; landscape orientation.
-- `.pak` VFS; ICL-based PNG **and** JPEG decode (115 images decode OK).
+- `.pak` VFS; ICL-based PNG **and** JPEG decode (115 images decode OK at boot).
 - `WidgetManager` draws; heartbeat `CPeriodic` render loop stable.
+- **Image draw path is now RTTI-independent and texture-size-safe** (this commit).
 
-**Still stubbed / open (M3):**
-- **First real frame not yet visible** (the empty-texture issue above) — TOP
-  priority; everything else is downstream of seeing one frame.
-- `GameSelector` currently only draws the lawn background as a proof-of-frame; the
-  real menu content (Adventure / Survival buttons) is still a stub. NOTE: the
-  menu buttons are `REANIM_*` assets that are **NOT in this PAK** (`NOPAK` in
-  rmgr_log) — the menu cannot be drawn from art until those are packed or the
-  Reanimator is un-stubbed.
-- Fonts (`GetFontThrow` stubbed), strings, sounds not really loaded.
-- ~51 game-referenced `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL**.
-- 149 `REANIM_*` images report `not in PAK` (asset naming / packing mismatch).
+**TODO / still open (M3, priority order):**
+1. **Confirm the first real frame** on device (read `gs_log.txt` + `gl_log`). Until
+   a frame is verified, everything else is downstream.
+2. **Scale the title to fill the screen.** Currently drawn at native size so only
+   the top-left 400x300 of 800x600 shows. `DrawImage(MemoryImage*)` does NOT apply
+   `mScaleX/mScaleY`; use `PushTransform` with a `SexyTransform2D().Scale(sx,sy)`
+   (same mechanism as the working `DrawImageRotated`) — sx=400/800, sy=300/600.
+3. **Restore the lawn (`IMAGE_BACKGROUND1`) properly.** Needs BOTH: (a) decode it
+   without OOM, and (b) a texture ≤1024 — i.e. **texture TILING** (split into
+   ≤1024 tiles, the way the original Sexy framework does) or a pre-downscale.
+   The MBX 1024 limit is the hard constraint; do not try a single 2048 texture.
+4. **Real `GameSelector` content** (Adventure / Survival buttons). NOTE: menu
+   buttons are `REANIM_*` assets that are **NOT in this PAK** (`NOPAK` in
+   rmgr_log) — can't be drawn from art until packed or the Reanimator is un-stubbed.
+5. Fonts (`GetFontThrow` stubbed), strings, sounds not really loaded.
+6. ~51 game-referenced `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL**.
+7. 149 `REANIM_*` images report `not in PAK` (asset naming / packing mismatch).
+
+**Key code facts for next session:**
+- `ResourceManager::GetImage(name)` looks up a name→`MemoryImage*` cache and
+  **on a miss does an on-demand PAK decode** (it caches the result). It does NOT
+  set the `IMAGE_*` globals. `LoadImageByResName` does NOT cache and re-decodes
+  every call — **never call it per-frame** (that was an earlier bug).
+- The `IMAGE_*` globals are only assigned by the `Extract*Resources` functions in
+  `Resources.cpp`. `IMAGE_BACKGROUND1` is set in
+  `ExtractDelayLoad_Background1Resources` — a **delay-load** group that is **not**
+  loaded at boot, so that global stays NULL until something triggers the group.
+- Logs on device are in `C:\Data\PvZ\` (RFile + Flush per line). `gs_log.txt` is
+  REWRITTEN each run (reliable); `gl_log.txt` is APPEND (can show stale lines from
+  previous runs — check texCount #).
 
 ## S60 EGL/WSERV gotchas (hard-won — read before touching rendering)
 
