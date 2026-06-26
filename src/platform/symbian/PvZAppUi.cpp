@@ -65,6 +65,19 @@ void CPvZAppUi::ConstructL()
     User::LeaveIfError(bcErr);
     Log(_L("step: BaseConstructL OK"));
 
+    // [ORIENTATION] Lock to LANDSCAPE *before* the game view creates its window
+    // and EGL surface. PvZ's canvas is 4:3 (GL ortho 400x300); the N95 default is
+    // portrait 240x320, which squishes the frame vertically. 320x240 landscape is
+    // exactly 4:3 -> full screen, no letterbox. We call SetOrientationL here (in
+    // CAknAppUi, which already includes the AVKON chain) rather than in
+    // PvZGameView.cpp, whose minimal engine includes clash with <aknappui.h>.
+    // Same approach as the re3-symbian GTA3 reference (also a landscape game).
+    {
+        TRAPD(oErr, SetOrientationL(CAknAppUiBase::EAppUiOrientationLandscape));
+        if (oErr != KErrNone) { TBuf<48> b; b.Format(_L("step: SetOrientation err=%d"), oErr); Log(b); }
+        else Log(_L("step: SetOrientation Landscape OK"));
+    }
+
     Log(_L("step: CPvZVfs::NewL"));
     gPak = CPvZVfs::NewL();
     Log(_L("step: LoadPakL main.pak"));
