@@ -80,8 +80,14 @@ inline void TodStringListLoad(const char*) {}
 inline void LoadProperties(const char*, bool = false) { (void)0; }
 inline void LoadProperties(const char*, bool, bool) { (void)0; } // 3-arg overload
 class ResourceManager;
-inline bool ExtractResourcesByName(const char*, const char*) { return false; }
-inline bool ExtractResourcesByName(class ResourceManager*, const char*) { return true; }
+// [M3] The REAL resource dispatcher lives in Resources.cpp as
+//   Sexy::ExtractResourcesByName(::ResourceManager*, const char*)
+// It drives on-demand image loading (GetImageThrow -> GetImage -> LoadImageByResName).
+// Previously a global STUB here returned true and loaded NOTHING, so LawnApp::LoadGroup()
+// -- which includes only Stubs.h, not Resources.h -- bound to the stub and populated ZERO
+// IMAGE_* globals (rmgr_log showed StartLoadResources but no LoadImageByResName per group).
+// Forward-declare the real one in namespace Sexy so LawnApp resolves & links against it.
+namespace Sexy { bool ExtractResourcesByName(::ResourceManager*, const char*); }
 inline void TodFoleyInitialize(const int*, int, const int*, int, const int*, int) {}
 inline void TodFoleyInitialize(void**, int) {} // overload for void* arrays
 inline void TrailLoadDefinitions(const int*) {}
