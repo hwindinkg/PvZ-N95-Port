@@ -133,6 +133,27 @@ Next: **M3** menu content + fonts/strings/sounds.
   `convert done err 0x0` (OK) vs `err -5` (codec target unsupported) vs
   `not found in PAK` (asset naming mismatch — a separate, still-open issue).
 
+## Orientation / screen geometry (hard-won)
+
+- **The game is LANDSCAPE 4:3; the N95 default is PORTRAIT.** GL ortho is 400x300
+  (4:3). The N95 numeric-slide default window is 240x320 (3:4). If you render the
+  4:3 canvas into a portrait window (or hardcode a portrait viewport) the image is
+  squished vertically ("wallpaper shows vertically"). *Fix: lock the app to
+  landscape with `CAknAppUiBase::SetOrientationL(EAppUiOrientationLandscape)`
+  called right after `CreateWindowL()` and BEFORE `SetExtentToWholeScreen()`
+  (same as the re3-symbian GTA3 reference). 320x240 is EXACTLY 4:3 -> full screen,
+  no letterbox (commit f8a99f3).*
+- **Never hardcode the viewport size.** `PvZGameView::InitGLES` used to call
+  `SetViewport(0,0,240,320)`. Use the ACTUAL `Size()` and feed
+  `GLInterface::UpdateViewport(w,h)` (it 4:3-letterboxes into the surface). Watch
+  the `GL:viewport from Size %dx%d` log to confirm 320x240 on device.
+- `SetOrientationL` needs `avkon.lib` + `<aknappui.h>` (already linked in both
+  build scripts).
+- The N95 multimedia slider exposes the gaming/media keys in landscape -- so a
+  landscape lock is also the prerequisite for mapping those keys to game input
+  (a later input task; the media keys likely need RWindowGroup::CaptureKey or the
+  RemCon API to be received by the app).
+
 ## The plan (milestones)
 
 **M1 — prove the pipeline end-to-end (ONE image). ✅ DONE.**
