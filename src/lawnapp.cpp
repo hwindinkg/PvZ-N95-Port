@@ -532,7 +532,12 @@ void LawnApp::ShowGameSelector()
     mGameSelector = new GameSelector(this);
     mGameSelector->Resize(0, 0, mWidth, mHeight);
     mWidgetManager->AddWidget(mGameSelector);
-    mWidgetManager->BringToBack(mGameSelector);
+    // BringToFront puts the widget at the END of the draw array, so it is
+    // drawn LAST and appears ON TOP. The previous BringToBack call placed
+    // GameSelector at index 0 (drawn first), so the next widget in the
+    // array drew over it -- that overlay was the purple frame the user
+    // saw instead of the titlescreen.
+    mWidgetManager->BringToFront(mGameSelector);
     mWidgetManager->SetFocus(mGameSelector);
 
     //if (NeedRegister())
@@ -1809,15 +1814,20 @@ void LawnApp::LoadingCompleted()
     SafeDeleteWidget(mTitleScreen);
     mTitleScreen = NULL;
 
-    mResourceManager->DeleteImage("IMAGE_TITLESCREEN");
-    // [crash fix] DeleteImage frees the Image object but leaves this global
-    // pointer DANGLING (non-NULL, pointing at freed memory). TitleScreen::Draw
-    // guards with 'if (IMAGE_TITLESCREEN) g->DrawImage(IMAGE_TITLESCREEN,0,0)',
-    // which is useless against a freed-but-non-NULL pointer -> DrawImage then
-    // dereferences freed memory -> KERN-EXEC 3 on the first menu frame
-    // (draw_progress.txt: widget i=1 panics right after a single SetColor,
-    // exactly matching TitleScreen::Draw). Null it so the guard works.
-    IMAGE_TITLESCREEN = NULL;
+    // NOTE: Keep IMAGE_TITLESCREEN in the ResourceManager cache even though the
+    // loading screen is gone. GameSelector::Draw() calls
+    //   mResourceManager->GetImage("IMAGE_TITLESCREEN")
+    // EACH FRAME to obtain the title art. If we DeleteImage here, every frame
+    // triggers a full ICL re-decode (LoadImageByResName -> LoadImageFromPak ->
+    // CImageDecoder -> CActiveSchedulerWait). The SECOND ICL decode of the same
+    // JPEG hangs/fails on the N95 (rmgr_log showed endless "Convert via CActive"
+    // with no "convert done"), causing either a freeze or heap exhaustion and a
+    // silent exit shortly after the loader finishes.
+    //
+    // Old crash fix (nulling IMAGE_TITLESCREEN) was for the TitleScreen dangling-
+    // pointer KERN-EXEC 3 -- that is no longer relevant because TitleScreen is
+    // destroyed AND removed from the widget list above, so its Draw() never runs.
+    // The global pointer staying non-NULL is harmless.
 
     ShowGameSelector();
 }

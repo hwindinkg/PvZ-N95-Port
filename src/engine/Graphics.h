@@ -94,6 +94,7 @@ public:
 
     // -- Image drawing ---------------------------------------------------
     void DrawImage(MemoryImage* img, int x, int y);
+    void DrawImage(MemoryImage* img, int x, int y, int dstW, int dstH);
     void DrawImage(MemoryImage* img, int x, int y, const Rect& srcRect);
     void DrawImageF(Image* img, float x, float y);
     void DrawImageRotated(Image* img, float x, float y,

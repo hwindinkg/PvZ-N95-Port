@@ -283,7 +283,44 @@ GLuint Graphics::GetOrCreateTexture(MemoryImage* img)
         return 0;
 
     if (img->GetBits())
-        mGL->CopyImageToTextureSub(img, texID, 0, 0);
+    {
+        // Attempt sub-image upload (via glTexSubImage2DOES if available).
+        // If that fails (extension not present on the N95 MBX driver), fall
+        // back to a manual full-POT upload with zero-padding.  DO NOT let
+        // CopyImageToTextureSub reach its fallback (CopyImageToTexture),
+        // which calls glTexImage2D with the image's NPOT size -> PowerVR MBX
+        // doesn't support NPOT -> texture content never renders.
+        if (!mGL->CopyImageToTextureSub(img, texID, 0, 0))
+        {
+            // glTexSubImage2DOES not available — upload full POT buffer
+            // with the image placed top-left and unused pixels zero-filled.
+            //
+            // MemoryImage bits are stored as 0xAARRGGBB words (little-endian
+            // memory bytes: B, G, R, A). GL_UNSIGNED_BYTE + GL_RGBA expects
+            // memory bytes R, G, B, A. So we MUST swap R and B via
+            // ArgbToRgba -- without it, red and blue channels are flipped
+            // (sky becomes yellow, red becomes blue).
+            TInt potPixelCount = potW * potH;
+            TUint32* rgbaBuf = new TUint32[potPixelCount];
+            if (rgbaBuf)
+            {
+                memset(rgbaBuf, 0, potPixelCount * sizeof(TUint32));
+                TUint32* srcBits = reinterpret_cast<TUint32*>(img->GetBits());
+                for (TInt row = 0; row < h; ++row)
+                {
+                    GLInterface::ArgbToRgba(
+                        srcBits + row * w,
+                        rgbaBuf + row * potW,
+                        w);
+                }
+                glBindTexture(GL_TEXTURE_2D, texID);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                             potW, potH, 0, GL_RGBA,
+                             GL_UNSIGNED_BYTE, rgbaBuf);
+                delete[] rgbaBuf;
+            }
+        }
+    }
 
     float uMax = (float)w / (float)potW;
     float vMax = (float)h / (float)potH;
@@ -392,6 +429,47 @@ void Graphics::DrawImage(MemoryImage* img, int x, int y)
 
     // Normalise texture coordinates: assume source image fills the
     // POT-padded texture: sample only the used sub-region.
+    float uMax = 1.0f, vMax = 1.0f;
+    FindCachedTexCoords(img, uMax, vMax);
+    mGL->Begin(GL_TRIANGLE_STRIP);
+    mGL->AddVertex(fx,      fy,      0.0f, 0.0f);
+    mGL->AddVertex(fx + fw, fy,      uMax, 0.0f);
+    mGL->AddVertex(fx,      fy + fh, 0.0f, vMax);
+    mGL->AddVertex(fx + fw, fy + fh, uMax, vMax);
+    mGL->End();
+
+    DisableClipRect();
+}
+
+// ---------------------------------------------------------------------------
+// DrawImage  (MemoryImage*, int, int, int, int)  --  scaled to destination
+// ---------------------------------------------------------------------------
+
+void Graphics::DrawImage(MemoryImage* img, int dstX, int dstY, int dstW, int dstH)
+{
+    if (!mGL || !img || dstW <= 0 || dstH <= 0)
+        return;
+
+    GLuint texID = GetOrCreateTexture(img);
+    if (!texID)
+    {
+        Color old = mColor;
+        SetColor(Color(255, 255, 255));
+        FillRect(dstX, dstY, dstW, dstH);
+        SetColor(old);
+        return;
+    }
+
+    ApplyClipRect();
+
+    mGL->SetTexture(texID);
+    mGL->SetTextureEnabled(ETrue);
+
+    float fx = static_cast<float>(dstX);
+    float fy = static_cast<float>(dstY);
+    float fw = static_cast<float>(dstW);
+    float fh = static_cast<float>(dstH);
+
     float uMax = 1.0f, vMax = 1.0f;
     FindCachedTexCoords(img, uMax, vMax);
     mGL->Begin(GL_TRIANGLE_STRIP);

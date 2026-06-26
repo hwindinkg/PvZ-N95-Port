@@ -22,6 +22,13 @@
  * Drawn via static_cast<MemoryImage*> + the direct DrawImage(MemoryImage*)
  * overload, bypassing the dynamic_cast in DrawImageF (RTTI is unreliable under
  * GCCE 3.4.3; the engine copy of that cast was also switched to static_cast).
+ *
+ * [M4] Hand-off state: the titlescreen now renders at full canvas size with
+ * correct colours (BringToFront + white vertex + ArgbToRgba + 4-param
+ * DrawImage). This is a clean base for a follow-up chat to port the real
+ * GameSelector.cpp from upstream PvZ-Portable -- which needs GameButton,
+ * StoreScreen, AlmanacDialog, ToolTipWidget, Music, ProfileMgr, TypingCheck,
+ * ZenGarden, SaveGame implementations that are not in this port yet.
  */
 #include "GameSelector.h"
 
@@ -29,11 +36,13 @@
 #include "../../Resources.h"
 #include "../../engine/ResourceManager.h"
 #include "../../engine/Graphics.h"
+#include "../../engine/GLInterface.h"
 #include "../../engine/Image.h"
 #include "../../engine/MemoryImage.h"
 
 #include <e32std.h>
 #include <f32file.h>
+#include <string.h>
 
 namespace Sexy {
 
@@ -86,16 +95,16 @@ void GameSelector::Draw(Graphics* g)
 
     if (sImg != NULL && sImg->GetWidth() > 0 && sImg->GetHeight() > 0)
     {
-        // Native draw at top-left. static_cast is safe: ResourceManager only ever
-        // produces MemoryImage-backed images; the direct overload skips the
-        // RTTI-dependent dynamic_cast inside DrawImageF.
+        // Draw the titlescreen scaled to fit the 400x300 logical canvas.
+        // White vertex colour so GL_MODULATE does not tint the texture.
+        g->SetColor(Color(255, 255, 255, 255));
         MemoryImage* mem = static_cast<MemoryImage*>(sImg);
-        g->DrawImage(mem, 0, 0);
+        g->DrawImage(mem, 0, 0, 400, 300);
     }
     else
     {
-        // Nothing to draw yet -> obvious magenta so this branch is visible.
-        g->SetColor(Color(255, 0, 255, 255));
+        // Nothing to draw yet -> bright yellow so this branch is visible.
+        g->SetColor(Color(255, 255, 0, 255));
         g->FillRect(0, 0, 400, 300);
     }
 }

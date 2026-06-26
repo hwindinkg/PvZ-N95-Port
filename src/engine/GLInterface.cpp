@@ -638,6 +638,17 @@ TBool GLInterface::CopyImageToTextureSub(MemoryImage* img, GLuint texID,
         return EFalse;
     }
 
+    // EXPERIMENT v7: Force the caller down the full-POT glTexImage2D path.
+    // glTexSubImage2DOES on the N95 MBX driver appears to load the image but
+    // the texture never renders correctly (purple tint, 1/4 crop). Returning
+    // EFalse here makes Graphics::GetOrCreateTexture do a full POT upload
+    // with explicit zero-padding + manual byte layout, which is the only
+    // path we can actually verify on-device.
+    (void)bits;
+    (void)w;
+    (void)h;
+    return EFalse;
+
     glBindTexture(GL_TEXTURE_2D, texID);
 
     if (glTexSubImage2DOES != NULL)
@@ -667,9 +678,11 @@ TBool GLInterface::CopyImageToTextureSub(MemoryImage* img, GLuint texID,
         return ETrue;
     }
 
-    // Extension not available -- fall back to full re-upload
-    // (treat x,y as 0 and re-upload whole image).
-    return CopyImageToTexture(img, texID);
+    // Extension not available -- can't sub-upload. Returning EFalse tells the
+    // caller (Graphics::GetOrCreateTexture) to do a manual full-POT upload with
+    // zero-padding. CopyImageToTexture would create an NPOT texture here, which
+    // PowerVR MBX cannot render (renders as nothing -> purple screen).
+    return EFalse;
 }
 
 // ---------------------------------------------------------------------------

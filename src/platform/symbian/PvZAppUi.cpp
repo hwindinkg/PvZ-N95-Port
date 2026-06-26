@@ -37,6 +37,7 @@ CPvZAppUi::~CPvZAppUi()
 void CPvZAppUi::ConstructL()
 {
     Log(_L("AppUi::ConstructL ENTER"));
+    Log(_L("BUILD MARKER v12-handoff: minimal GameSelector w/ titlescreen, ArgbToRgba, BringToFront"));
 
     // === DECISIVE EH/Leave self-test ===
     // On EKA2, User::Leave == 'throw XLeaveException' and TRAP == try/catch.
