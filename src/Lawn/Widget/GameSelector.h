@@ -13,7 +13,7 @@ public:
     GameSelector(LawnApp* theApp) : Widget(), mApp(theApp) {}
     virtual ~GameSelector() {}
     virtual void Update() {}
-    virtual void Draw(Graphics* g) { (void)g; }
+    virtual void Draw(Graphics* g);   // [M3] real frame: draws the lawn background
     virtual void Resize(int x, int y, int w, int h) { Widget::Resize(x, y, w, h); }
     void SyncProfile(bool) {}
     LawnApp* mApp;

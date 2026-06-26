@@ -242,6 +242,9 @@ if errorlevel 1 (echo   [ERROR] compile FAILED: GridItem.cpp & exit /b 1)
 echo   [CC] Challenge.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\Challenge.o" "%SD_LWN%\Challenge.cpp"
 if errorlevel 1 (echo   [ERROR] compile FAILED: Challenge.cpp & exit /b 1)
+echo   [CC] GameSelector.cpp
+"%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\GameSelector.o" "%SD_LWN%\Widget\GameSelector.cpp"
+if errorlevel 1 (echo   [ERROR] compile FAILED: GameSelector.cpp & exit /b 1)
 echo   [CC] LawnApp.cpp
 "%CC%" %D% %F% -include "%G%" %I% -o "%OBJ%\LawnApp.o" "%SD_SRC%\LawnApp.cpp"
 if errorlevel 1 (echo   [ERROR] compile FAILED: LawnApp.cpp & exit /b 1)
@@ -258,7 +261,7 @@ echo [OK] All sources compiled.
 echo.
 
 echo === Linking ELF executable ===
-set OBJS="%OBJ%\main_symbian.o" "%OBJ%\PvZApplication.o" "%OBJ%\PvZDocument.o" "%OBJ%\PvZAppUi.o" "%OBJ%\PvZGameView.o" "%OBJ%\SymbianFixes.o" "%OBJ%\PvZVfs.o" "%OBJ%\PakInterface.o" "%OBJ%\GLInterface.o" "%OBJ%\Image.o" "%OBJ%\NativeDisplay.o" "%OBJ%\MemoryImage.o" "%OBJ%\GLImage.o" "%OBJ%\Color.o" "%OBJ%\SexyMatrix.o" "%OBJ%\Buffer.o" "%OBJ%\Graphics.o" "%OBJ%\TodStringFile.o" "%OBJ%\SexyAppBase.o" "%OBJ%\Widget.o" "%OBJ%\WidgetContainer.o" "%OBJ%\WidgetManager.o" "%OBJ%\Font.o" "%OBJ%\Stubs.o" "%OBJ%\TodCommon.o" "%OBJ%\TodDebug.o" "%OBJ%\Resources.o" "%OBJ%\GameObject.o" "%OBJ%\Board.o" "%OBJ%\Plant.o" "%OBJ%\Zombie.o" "%OBJ%\Projectile.o" "%OBJ%\Coin.o" "%OBJ%\LawnMower.o" "%OBJ%\GridItem.o" "%OBJ%\Challenge.o" "%OBJ%\LawnApp.o" "%OBJ%\ResourceManager.o" "%OBJ%\stb_image.o" "%OBJ%\newop.o"
+set OBJS="%OBJ%\main_symbian.o" "%OBJ%\PvZApplication.o" "%OBJ%\PvZDocument.o" "%OBJ%\PvZAppUi.o" "%OBJ%\PvZGameView.o" "%OBJ%\SymbianFixes.o" "%OBJ%\PvZVfs.o" "%OBJ%\PakInterface.o" "%OBJ%\GLInterface.o" "%OBJ%\Image.o" "%OBJ%\NativeDisplay.o" "%OBJ%\MemoryImage.o" "%OBJ%\GLImage.o" "%OBJ%\Color.o" "%OBJ%\SexyMatrix.o" "%OBJ%\Buffer.o" "%OBJ%\Graphics.o" "%OBJ%\TodStringFile.o" "%OBJ%\SexyAppBase.o" "%OBJ%\Widget.o" "%OBJ%\WidgetContainer.o" "%OBJ%\WidgetManager.o" "%OBJ%\Font.o" "%OBJ%\Stubs.o" "%OBJ%\TodCommon.o" "%OBJ%\TodDebug.o" "%OBJ%\Resources.o" "%OBJ%\GameObject.o" "%OBJ%\Board.o" "%OBJ%\Plant.o" "%OBJ%\Zombie.o" "%OBJ%\Projectile.o" "%OBJ%\Coin.o" "%OBJ%\LawnMower.o" "%OBJ%\GridItem.o" "%OBJ%\Challenge.o" "%OBJ%\GameSelector.o" "%OBJ%\LawnApp.o" "%OBJ%\ResourceManager.o" "%OBJ%\stb_image.o" "%OBJ%\newop.o"
 "%CC%" -nostdlib -shared -Wl,--target1-abs,--allow-multiple-definition,--soname,"PvZ_N95{000a0000}[e1234567].exe",--entry,_E32Startup,-u,_E32Startup %OBJS% "%EEXE%" "%USRT%" "%LSUPC%" "%LGCC%" "%L%\euser.dso" "%L%\cone.dso" "%L%\eikcore.dso" "%L%\avkon.dso" "%L%\apparc.dso" "%L%\ws32.dso" "%L%\gdi.dso" "%L%\bitgdi.dso" "%L%\fbscli.dso" "%L%\efsrv.dso" "%L%\bafl.dso" "%L%\mediaclientaudio.dso" "%L%\libgles_cm.dso" "%L%\imageconversion.dso" -o "%OUT%\PvZ_N95_elf.exe" -Wl,-Map,"%OUT%\PvZ_N95_elf.map"
 if ERRORLEVEL 1 ( echo [ERROR] link failed & pause & exit /b 1 )
 echo [OK] Linked.

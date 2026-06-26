@@ -81,6 +81,7 @@ SOURCE          Coin.cpp
 SOURCE          LawnMower.cpp
 SOURCE          GridItem.cpp
 SOURCE          Challenge.cpp
+SOURCE          Widget\GameSelector.cpp   // [M3] first real game frame (lawn background)
 
 // === LawnApp ===
 SOURCEPATH      ..\src
