@@ -282,7 +282,11 @@ void CPvZGameView::RenderFrame(LawnApp* theApp)
     if (fc <= 3) Log(_L("RF:UpdateFrames done"));
 
     if (fc <= 3) Log(_L("RF:swap"));
-    eglSwapBuffers(iEglDisplay, iEglSurface);
+    EGLBoolean swapOk = eglSwapBuffers(iEglDisplay, iEglSurface);
+    if (fc <= 5) {
+        EGLint eglErr = eglGetError();
+        TBuf<80> sb; sb.Format(_L("RF%d swap=%d eglErr=0x%x"), fc, (TInt)swapOk, eglErr); Log(sb);
+    }
     // CRITICAL: push the queued composite to the window server NOW. Our render
     // is a hand-rolled loop (unlike RenderWare's RwCameraShowRaster in the GTA3
     // re3-symbian reference, which flushes internally). Without this, the swap
@@ -300,8 +304,14 @@ void CPvZGameView::RenderFrame(LawnApp* theApp)
     // services a redraw (Draw() is empty, so it just validates the region) and
     // WSERV composites the EGL surface -- programmatically replicating what
     // opening the menu does.
+    // [composite kick v2] DrawDeferred (redraw OUR control) did NOT fix the
+    // garbage, but ANY other window appearing (Options menu / a key press) DOES
+    // -> the trigger is a WSERV screen-level recomposite / z-order re-evaluation,
+    // not a redraw of our own window. Re-assert our window's ordinal position so
+    // WSERV recomputes visible regions and re-blits the EGL surface -- the same
+    // effect a newly appearing window has.
     if (fc <= 10) {
-        DrawDeferred();   // CCoeControl: schedule a framework redraw (RDrawableWindow has no Invalidate)
+        DrawableWindow()->SetOrdinalPosition(0);
     }
     if (fc <= 3 || fc % 100 == 0) {
         TBuf<64> b; b.Format(_L("RF%d:done"), fc); Log(b);
