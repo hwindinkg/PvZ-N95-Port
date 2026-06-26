@@ -285,8 +285,10 @@ static void LogSize(const char* aLabel, TInt aW, TInt aH)
 class CDecodeWaiter : public CActive
     {
 public:
-    CDecodeWaiter(CImageDecoder& aDecoder, CFbsBitmap& aBmp)
-        : CActive(EPriorityStandard), iDecoder(aDecoder), iBmp(aBmp),
+    // aMask may be NULL (opaque image, single-bitmap Convert) or point to an
+    // alpha/transparency mask bitmap (two-bitmap Convert overload).
+    CDecodeWaiter(CImageDecoder& aDecoder, CFbsBitmap& aBmp, CFbsBitmap* aMask)
+        : CActive(EPriorityStandard), iDecoder(aDecoder), iBmp(aBmp), iMask(aMask),
           iErr(KErrNone), iGuard(0)
         { CActiveScheduler::Add(this); }
     ~CDecodeWaiter() { Cancel(); }
@@ -295,7 +297,10 @@ public:
     // via a nested scheduler until done. Returns the final error code.
     TInt RunDecode()
         {
-        iDecoder.Convert(&iStatus, iBmp);
+        if (iMask)
+            iDecoder.Convert(&iStatus, iBmp, *iMask);   // color + alpha mask
+        else
+            iDecoder.Convert(&iStatus, iBmp);           // opaque
         SetActive();
         iWait.Start();
         return iErr;
@@ -323,12 +328,24 @@ private:
 private:
     CImageDecoder& iDecoder;
     CFbsBitmap&    iBmp;
+    CFbsBitmap*    iMask;
     CActiveSchedulerWait iWait;
     TInt iErr;
     TInt iGuard;
     };
 
-void DecodeToBitmapL(RFs& aFs, const TUint8* aData, TInt aLen, CFbsBitmap& aBmp)
+// Decode into a COLOR bitmap (+ optional alpha MASK).
+//
+// [N95 PNG fix] The N95's ICL PNG codec returns KErrNotSupported(-5) when asked
+// to Convert directly into a 32-bit EColor16MA destination (JPEG works, PNG does
+// not -- 106/106 PNGs failed with -5 while JPGs decoded fine). The portable
+// pattern is to decode into a 24-bit EColor16M color bitmap (broadly supported)
+// plus, when the frame has transparency, a separate grayscale alpha mask, then
+// recombine into ARGB in DecodeImageToArgb().
+//
+// Sets aHasMask = ETrue iff a mask bitmap was created & filled. Leaves on error.
+void DecodeToBitmapL(RFs& aFs, const TUint8* aData, TInt aLen,
+                     CFbsBitmap& aBmp, CFbsBitmap& aMask, TBool& aHasMask)
     {
     Log("  [dec] DataNewL");
     TPtrC8 dataPtr(aData, aLen);
@@ -339,10 +356,28 @@ void DecodeToBitmapL(RFs& aFs, const TUint8* aData, TInt aLen, CFbsBitmap& aBmp)
     TSize sz = frameInfo.iOverallSizeInPixels;
     LogSize("  [dec] frame", sz.iWidth, sz.iHeight);
 
-    User::LeaveIfError(aBmp.Create(sz, EColor16MA));
-    Log("  [dec] bitmap created; Convert via CActive+nested scheduler");
+    const TBool transparency =
+        (frameInfo.iFlags & TFrameInfo::ETransparencyPossible) ? ETrue : EFalse;
+    const TBool fullAlpha =
+        (frameInfo.iFlags & TFrameInfo::EAlphaChannel) ? ETrue : EFalse;
 
-    CDecodeWaiter* waiter = new (ELeave) CDecodeWaiter(*decoder, aBmp);
+    // 24-bit color bitmap -- the codec CAN convert into this (unlike EColor16MA).
+    User::LeaveIfError(aBmp.Create(sz, EColor16M));
+
+    aHasMask = EFalse;
+    if (transparency)
+        {
+        // 8-bit alpha mask for a real alpha channel; 1-bit for color-key/palette
+        // transparency. GetScanLine(EGray256) later normalizes both to 0..255.
+        TDisplayMode maskMode = fullAlpha ? EGray256 : EGray2;
+        User::LeaveIfError(aMask.Create(sz, maskMode));
+        aHasMask = ETrue;
+        }
+    Log(aHasMask ? "  [dec] EColor16M + alpha mask; Convert via CActive"
+                 : "  [dec] EColor16M opaque; Convert via CActive");
+
+    CDecodeWaiter* waiter =
+        new (ELeave) CDecodeWaiter(*decoder, aBmp, aHasMask ? &aMask : NULL);
     CleanupStack::PushL(waiter);
     TInt err = waiter->RunDecode();
     CleanupStack::PopAndDestroy(waiter);
@@ -366,17 +401,22 @@ unsigned char* DecodeImageToArgb(const TUint8* aData, TInt aLen, TInt& aW, TInt&
     if (fs.Connect() != KErrNone)
         return NULL;
 
-    CFbsBitmap* bmp = new CFbsBitmap();
-    if (!bmp)
+    CFbsBitmap* bmp  = new CFbsBitmap();
+    CFbsBitmap* mask = new CFbsBitmap();
+    if (!bmp || !mask)
         {
+        delete bmp;
+        delete mask;
         fs.Close();
         return NULL;
         }
 
-    TRAPD(err, DecodeToBitmapL(fs, aData, aLen, *bmp));
+    TBool hasMask = EFalse;
+    TRAPD(err, DecodeToBitmapL(fs, aData, aLen, *bmp, *mask, hasMask));
     if (err != KErrNone)
         {
         delete bmp;
+        delete mask;
         fs.Close();
         return NULL;
         }
@@ -391,20 +431,46 @@ unsigned char* DecodeImageToArgb(const TUint8* aData, TInt aLen, TInt& aW, TInt&
         out = new unsigned char[w * h * 4];
         if (out)
             {
-            TInt y;
+            TInt x, y;
+            // 1) Read RGB from the 24-bit color bitmap, requesting EColor16MA so
+            //    GetScanLine packs 0xAARRGGBB. The source has no alpha, so we
+            //    FORCE every alpha byte to 0xFF (opaque) -- never trust the
+            //    converter to fill it.  In a little-endian 0xAARRGGBB word the
+            //    alpha byte is offset +3.
             for (y = 0; y < h; y++)
                 {
-                // EColor16MA scanline == 0xAARRGGBB per pixel, written
-                // straight into the output row.
                 TPtr8 row((TUint8*)(out + y * w * 4), 0, w * 4);
                 bmp->GetScanLine(row, TPoint(0, y), w, EColor16MA);
+                for (x = 0; x < w; x++)
+                    out[(y * w + x) * 4 + 3] = 0xFF;
                 }
+
+            // 2) If we decoded a mask, overlay its 0..255 alpha per pixel.
+            if (hasMask)
+                {
+                unsigned char* mrow = new unsigned char[w];
+                if (mrow)
+                    {
+                    for (y = 0; y < h; y++)
+                        {
+                        TPtr8 m((TUint8*)mrow, 0, w);
+                        // EGray256 read => 1 byte/pixel, 0=transparent..255=opaque.
+                        // (A 1-bit EGray2 mask is up-converted to 0/255 here too.)
+                        mask->GetScanLine(m, TPoint(0, y), w, EGray256);
+                        for (x = 0; x < w; x++)
+                            out[(y * w + x) * 4 + 3] = mrow[x];
+                        }
+                    delete[] mrow;
+                    }
+                }
+
             aW = w;
             aH = h;
             }
         }
 
     delete bmp;
+    delete mask;
     fs.Close();
     return out;
     }
