@@ -1,22 +1,19 @@
 /*
- * GameSelector.cpp -- [M3] First REAL game frame.
+ * GameSelector.cpp -- [M3] First REAL game frame (diagnostic build).
  *
- * The original GameSelector is the main-menu widget. Its full content (Adventure/
- * Survival buttons, zen garden, etc.) is still being ported, so for now this draws
- * the actual in-game lawn background (IMAGE_BACKGROUND1, the day level) full-screen.
- * This is the first frame produced from REAL decoded game art going through the REAL
- * widget -> Graphics -> GL pipeline (not a stub test pattern).
+ * Draws the actual in-game lawn background (IMAGE_BACKGROUND1) so we get a real
+ * frame from decoded game art through the real widget -> Graphics -> GL pipeline.
  *
- * Key facts that shape this code:
- *  - The logical canvas is 400x300 (GL ortho, see GLInterface::SetProjection).
- *  - IMAGE_BACKGROUND1 is 1400x600 (left ~800x600 = the lawn playfield), and lives
- *    in the "DelayLoad_Background1" group
- *    which is NOT loaded at menu time, so we lazy-load just that one image on first
- *    Draw via ResourceManager::LoadImageByResName (the same per-image loader the
- *    resource log shows working 264x). If it isn't in the PAK we simply skip.
- *  - Graphics::DrawImage/DrawImageF draw at the image's NATIVE size and IGNORE
- *    Graphics' mScaleX/Y, so we push a UNIFORM 0.5 scale via PushTransform()/
- *    PopTransform() -> canvas shows the left 800x600 playfield at correct aspect.
+ * DIAGNOSTIC: the previous attempt used PushTransform(scale) and the screen stayed
+ * purple (clear color) even though a 2048x1024 texture was created (i.e. DrawImage
+ * ran). The title screen earlier displayed fine using a PLAIN DrawImage WITHOUT any
+ * transform. So this version:
+ *   1) draws the background with a PLAIN DrawImage(sBg, 0, 0) -- no transform stack
+ *      (native size; the canvas is 400x300 so we see the top-left 400x300 of the
+ *      1400x600 lawn = the house + start of the rows = unmistakably a real frame),
+ *   2) writes a one-time diagnostic to C:\Data\PvZ\gs_log.txt recording whether
+ *      Draw ran, the image pointer, its dimensions, and whether its pixel bits are
+ *      present (an empty/NULL-bits image -> empty texture -> purple screen).
  */
 #include "GameSelector.h"
 
@@ -24,9 +21,27 @@
 #include "../../engine/ResourceManager.h"
 #include "../../engine/Graphics.h"
 #include "../../engine/Image.h"
-#include "../../engine/SexyMatrix.h"
+#include "../../engine/MemoryImage.h"
+
+#include <e32std.h>
+#include <f32file.h>
 
 namespace Sexy {
+
+static void GSLog(const TDesC8& aMsg)
+{
+    RFs fs; RFile f;
+    if (fs.Connect() == KErrNone)
+    {
+        fs.MkDirAll(_L("C:\\Data\\PvZ"));
+        if (f.Replace(fs, _L("C:\\Data\\PvZ\\gs_log.txt"), EFileWrite) == KErrNone)
+        {
+            f.Write(aMsg);
+            f.Close();
+        }
+        fs.Close();
+    }
+}
 
 void GameSelector::Draw(Graphics* g)
 {
@@ -42,27 +57,36 @@ void GameSelector::Draw(Graphics* g)
         sBg = mApp->mResourceManager->LoadImageByResName("IMAGE_BACKGROUND1");
     }
 
+    // One-time diagnostic dump.
+    static bool sLogged = false;
+    if (!sLogged)
+    {
+        sLogged = true;
+        TBuf8<256> b;
+        if (sBg != NULL)
+        {
+            MemoryImage* mi = dynamic_cast<MemoryImage*>(sBg);
+            const unsigned char* bits = mi ? mi->GetBits() : NULL;
+            b.Format(_L8("GS:Draw RAN bg=%08x w=%d h=%d mem=%d bits=%d\n"),
+                     (TUint)sBg, sBg->GetWidth(), sBg->GetHeight(),
+                     (TInt)(mi != NULL), (TInt)(bits != NULL));
+        }
+        else
+        {
+            b.Copy(_L8("GS:Draw RAN bg=NULL (LoadImageByResName failed)\n"));
+        }
+        GSLog(b);
+    }
+
     if (sBg != NULL && sBg->GetWidth() > 0 && sBg->GetHeight() > 0)
     {
-        // background1.jpg is 1400x600: the LEFT ~800x600 region is the actual
-        // lawn playfield (house + 5 rows + the near grass), the rest is off-screen
-        // scroll area. The logical canvas is 400x300, so a UNIFORM 0.5 scale maps
-        // that left 800x600 onto the full 400x300 screen with the CORRECT aspect
-        // ratio (no horizontal squish). DrawImage draws at native size from (0,0),
-        // and DrawImageF/DrawImage IGNORE Graphics' mScale, so we apply the scale
-        // via the transform stack (which ApplyTransform feeds to GL each Flush).
-        const float kScale = 300.0f / static_cast<float>(sBg->GetHeight()); // 0.5
-        SexyTransform2D t(true);   // identity
-        t.Scale(kScale, kScale);
-        g->PushTransform(t);
-        g->DrawImageF(sBg, 0.0f, 0.0f);
-        g->PopTransform();
+        // PLAIN draw, no transform -- shows top-left 400x300 of the 1400x600 lawn.
+        g->DrawImage(sBg, 0, 0);
     }
     else
     {
-        // Background not available yet -> clear to the lawn-sky purple so the frame
-        // is obviously "ours" (not a stub test pattern) while we debug PAK contents.
-        g->SetColor(Color(38, 13, 51));
+        // Background unavailable -> obvious magenta so we can tell this branch ran.
+        g->SetColor(Color(255, 0, 255, 255));
         g->FillRect(0, 0, 400, 300);
     }
 }

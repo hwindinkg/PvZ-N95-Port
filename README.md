@@ -2,89 +2,71 @@
 
 Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian OS S60 3rd Edition FP1 (Nokia N95), built with **GCCE + libgcc**.
 
-> **READ THIS FIRST (handoff for the next session).** The build works, the
-> engine boots, and **on-screen rendering is now correct from the first frame**
-> (M1 + M2 done — real `Resources.cpp` compiled & linked, EGL/WSERV display bug
-> fixed). The current task is **M3**: restore the real `GameSelector` menu
-> content (Adventure/Survival) and verify fonts / strings / sounds load. Many
-> `IMAGE_*` are still NULL pending real per-group resource loading.
+> **READ THIS FIRST (handoff for the next session).** The build compiles &
+> links, the engine boots, EGL/WSERV display is correct, and the app is locked
+> to **landscape**. M1 (single image end-to-end) and M2 (real `Resources.cpp`)
+> are done. We are deep in **M3**: getting the FIRST real in-game frame on
+> screen. The old debug test-pattern (white rect + RGB bars) has been REMOVED.
 >
-> **⚠️ DO NOT RE-DEBUG THESE — already solved (see "S60 EGL/WSERV gotchas"):**
+> **CURRENT SYMPTOM (2026-06-26): plain PURPLE screen, nothing else.** The lawn
+> background (`IMAGE_BACKGROUND1`) is being drawn (a 2048x1024 texture is
+> created — see `gl_log`) but renders invisible. Leading hypothesis: the image's
+> pixel bits are gone by draw time so the texture is uploaded EMPTY. A diagnostic
+> build (`GameSelector.cpp` writes `C:\Data\PvZ\gs_log.txt` with bg ptr / dims /
+> bits-present, and draws the background WITHOUT any transform) is in place to
+> confirm. **Read `gs_log.txt` first next session.**
+>
+> **⚠️ DO NOT RE-DEBUG THESE — already solved:**
 > - *"Green mesh / garbage until I open the Options menu"* → caused by
 >   `Window().SetRequiredDisplayMode(EColor64K)`. **Removed. NEVER re-add it.**
 > - *KERN-EXEC 3 on the first menu frame* → dangling `IMAGE_TITLESCREEN` after
 >   `DeleteImage()`. Fixed by nulling the global.
+> - *White rectangle + RGB bars on screen* → that was `TitleScreen::Draw`'s debug
+>   test pattern. A lingering TitleScreen was painting it OVER the real frame.
+>   Fixed: `TitleScreen::Draw` now returns early when `IMAGE_TITLESCREEN` is NULL.
+> - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
+>   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
 ## Current status (2026-06-26)
 
-The crash chain has been fully peeled back. The app **boots, renders correct
-colours from frame 1 (no menu kick needed), and runs a stable render loop**
-(RF1..RF400+, `eglSwapBuffers` returns EGL_SUCCESS / 0x3000). Confirmed
-on-device: purple background + white rectangle + RGB strip at the bottom.
-Next: **M3** menu content + fonts/strings/sounds.
+The app **boots, renders correct colours, runs a stable render loop**
+(RF1..RF4000+, `eglSwapBuffers` = EGL_SUCCESS), and is locked to **landscape
+320x240** (a perfect 4:3 fit). The screen is currently a **flat purple** — the
+glClear colour — because the first real game frame (the lawn) is drawn but not
+yet visible.
+
+**What the latest logs prove (this is the live M3 problem):**
+- `rmgr_log`: `IMAGE_BACKGROUND1` (1400x600) decodes OK.
+- `gl_log`: exactly ONE texture is created — `#1 2048x1024`. Texture creation is
+  LAZY (only `Graphics::DrawImage`/`DrawImageF` call `GetOrCreateTexture`), so
+  this PROVES `GameSelector::Draw` ran and issued the background draw.
+- `wgt_log`: `Widgets=2`. `draw_progress`: two full-screen widgets per frame —
+  `GameSelector` (sent `BringToBack`, drawn first/behind) and a **lingering
+  `TitleScreen`** in front (now neutered so it no longer paints).
+- Yet the screen is purple → the background texture is rendering as
+  empty/transparent. **Prime suspect:** `GetOrCreateTexture` only uploads pixels
+  `if (img->GetBits())`; if the decoded bits were freed after the bulk load, the
+  POT texture stays empty. The diagnostic `gs_log.txt` will confirm bits-present.
 
 **Working:**
-- GCCE build pipeline (`group/build_gcce.cmd`) — compiles, links, makes SIS.
-- C++ runtime: EH / `User::Leave` / `TRAP` work (via `STATICLIBRARY libgcc.lib`). No more startup KERN-EXEC 3.
-- EGL/OpenGL ES context init; GL texture upload primitives.
-- `.pak` virtual filesystem; ICL-based PNG **and JPEG** decode.
-- `WidgetManager` draws; `ConstructL` completes fully (heartbeat `CPeriodic` running, `Widgets=2` GameSelector menu).
-- **M1 in progress — single-image asset path proven up to decode.** `PvZAppUi::ConstructL` explicitly loads `IMAGE_TITLESCREEN` to exercise the path GetImage -> resources lookup -> PAK -> ICL decode -> MemoryImage -> lazy GL texture.
+- GCCE build pipeline (`group/build_gcce.cmd` and `build_sisx.cmd`) — compile,
+  link, make SIS. (TWO build scripts — keep them in sync.)
+- C++ runtime (EH / `User::Leave` / `TRAP`) via `STATICLIBRARY libgcc.lib`.
+- EGL/GLES 1.1 context + POT texture upload; landscape orientation.
+- `.pak` VFS; ICL-based PNG **and** JPEG decode (115 images decode OK).
+- `WidgetManager` draws; heartbeat `CPeriodic` render loop stable.
 
-**Recently fixed (this session):**
-- **ICL decode deadlock (whole-phone freeze).** `DecodeToBitmapL` waited on the
-  async `CImageDecoder::Convert` with `User::WaitForRequest` on the UI thread —
-  the codec's own active objects could never run, hanging the UI thread *and* the
-  window server (battery-pull required). Replaced with a proper `CActive` +
-  nested `CActiveSchedulerWait` driver, plus a `KErrUnderflow` (progressive
-  JPEG) guard and per-step `[dec]` logging. Result: `M1: TITLESCREEN OK 800x600`,
-  `decoded OK`.
-- **First-frame KERN-EXEC 3 from a stale GL texture-state cache.** Even after the
-  NPOT fix the app still crashed on the first real draw (`gl_log` ends at
-  `SetColor called`, purple `glClear` shows, then KERN-EXEC 3 — and crucially NO
-  `GLI::CreateTexture` line, proving the crash is *before* any texture upload, in
-  the first `FillRect`). Root cause: `GLInterface` constructor sets
-  `mTextureEnabled = EFalse`, but `SetupGLState()` did `glEnable(GL_TEXTURE_2D)`.
-  The first `FillRect` -> `SetTextureEnabled(EFalse)` early-returned on the stale
-  cache, so `GL_TEXTURE_2D` stayed ON with NO texture bound. On PowerVR MBX,
-  `glDrawArrays` then samples a null texture -> access violation. Fix
-  (`src/engine/GLInterface.cpp`): `SetupGLState` now starts with texturing
-  DISABLED (matching the cache) and the `GL_TEXTURE_COORD_ARRAY` client state
-  disabled; `SetTextureEnabled` toggles `GL_TEXTURE_2D` AND the texcoord array in
-  lockstep, so we never draw textured-without-a-texture and never leave the
-  texcoord array live while texturing is off. *(Needs an on-device build to
-  confirm the title screen renders.)*
-- **NPOT-texture KERN-EXEC 3 on the first textured draw.** After a clean decode
-  the app crashed on the very first frame (`gl_log` ends at `SetColor called`,
-  then KERN-EXEC 3). Root cause: the N95 GPU is a **PowerVR MBX (GL ES 1.1) that
-  supports power-of-two textures only**. The title art is 800x600 (NPOT); uploading
-  it via `glTexImage2D` and sampling 0..1 read out of bounds -> access violation.
-  Fix (`src/engine/Graphics.cpp`): `GetOrCreateTexture` now rounds W/H up with
-  `NextPow2`, allocates an **empty POT texture**, sub-uploads the image top-left
-  via `CopyImageToTextureSub`, and caches the padding ratio (uMax = w/potW,
-  vMax = h/potH). Both `DrawImage` overloads (full-image and src-rect) now scale
-  their texcoords by the cached uMax/vMax instead of assuming 0..1. *(Needs an
-  on-device build to confirm the title art renders.)*
-
-**M2 DONE — real `Resources.cpp` is compiled & linked:**
-- `group/PvZ_N95.mmp` **and** `build_sisx.cmd` now compile the real
-  **`Resources.cpp`** (NOT `Resources_stub.cpp`). Both build scripts were
-  updated — there are TWO of them, keep them in sync.
-- `Resources.h` was **regenerated mechanically** from the actual definitions
-  (774 globals: 585 `IMAGE_*`, 21 `FONT_*`, 168 `SOUND_*`; plus the
-  `enum ResourceId` matched 1:1 to the `gResources[RESOURCE_ID_MAX]` array so
-  `RESOURCE_ID_MAX` == array size). If you edit the resource list, regenerate the
-  header the same way — do not hand-maintain it.
-- See "GCCE / C++98 gotchas" and "Resources.cpp restoration scars" below for the
-  type/namespace fixes that were needed.
-
-**Still stubbed (this is M3):**
-- `GameSelector` content is an empty stub (that's why you see only the test
-  rectangle, not Adventure/Survival buttons).
-- Many group loaders still need un-stubbing so `rmgr_log` walks ALL groups, not
-  just LoaderBar; fonts/strings/sounds need real loading. ~51 game-referenced
-  `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL** until per-group loading
-  runs (added only so the real `Resources.cpp` links).
+**Still stubbed / open (M3):**
+- **First real frame not yet visible** (the empty-texture issue above) — TOP
+  priority; everything else is downstream of seeing one frame.
+- `GameSelector` currently only draws the lawn background as a proof-of-frame; the
+  real menu content (Adventure / Survival buttons) is still a stub. NOTE: the
+  menu buttons are `REANIM_*` assets that are **NOT in this PAK** (`NOPAK` in
+  rmgr_log) — the menu cannot be drawn from art until those are packed or the
+  Reanimator is un-stubbed.
+- Fonts (`GetFontThrow` stubbed), strings, sounds not really loaded.
+- ~51 game-referenced `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL**.
+- 149 `REANIM_*` images report `not in PAK` (asset naming / packing mismatch).
 
 ## S60 EGL/WSERV gotchas (hard-won — read before touching rendering)
 
@@ -164,7 +146,8 @@ Next: **M3** menu content + fonts/strings/sounds.
 **M2 — restore the resource table. ✅ DONE.**
 - Real `Resources.cpp` + mechanically-generated `Resources.h` now compile and
   link (instead of `Resources_stub.cpp`). `resources.xml` parsing path is wired.
-- On-device rendering verified correct (purple bg + white rect + RGB strip).
+- On-device rendering verified correct (correct colours from frame 1; the old
+  debug test pattern has since been removed).
 
 **M3 — un-stub the loader groups & fonts/strings + real menu. ⬅ CURRENT.**
 - Restore real `GameSelector` content (Adventure / Survival buttons).
