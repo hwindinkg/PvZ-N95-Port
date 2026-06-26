@@ -1,27 +1,31 @@
 /*
- * GameSelector.cpp -- [M3] First REAL game frame (diagnostic build).
+ * GameSelector.cpp -- [M3] First REAL game frame.
  *
- * Draws the actual in-game lawn background (IMAGE_BACKGROUND1) so we get a real
- * frame from decoded game art through the real widget -> Graphics -> GL pipeline.
+ * KEY FIX (2026-06-26): the previous build called
+ *   mResourceManager->LoadImageByResName("IMAGE_BACKGROUND1")
+ * inside Draw. That function does NOT cache -- it re-reads the PAK and
+ * re-DECODES the image every call. The 1400x600 lawn JPEG was already decoded
+ * once during the bulk resource load; decoding a SECOND copy here fails on the
+ * N95's tight heap -> returned NULL -> magenta fallback (exactly what gs_log.txt
+ * showed: "bg=NULL (LoadImageByResName failed)").
  *
- * DIAGNOSTIC: the previous attempt used PushTransform(scale) and the screen stayed
- * purple (clear color) even though a 2048x1024 texture was created (i.e. DrawImage
- * ran). The title screen earlier displayed fine using a PLAIN DrawImage WITHOUT any
- * transform. So this version:
- *   1) draws the background with a PLAIN DrawImage(sBg, 0, 0) -- no transform stack
- *      (native size; the canvas is 400x300 so we see the top-left 400x300 of the
- *      1400x600 lawn = the house + start of the rows = unmistakably a real frame),
- *   2) writes a one-time diagnostic to C:\Data\PvZ\gs_log.txt recording whether
- *      Draw ran, the image pointer, its dimensions, and whether its pixel bits are
- *      present (an empty/NULL-bits image -> empty texture -> purple screen).
+ * The engine already keeps the loaded lawn in the global Sexy::IMAGE_BACKGROUND1
+ * (set via GetImageThrow during ExtractDelayLoad_Background1Resources) -- this is
+ * the SAME pointer Board::DrawBackdrop uses. So we just draw that. No reload, no
+ * second decode. Fallback to ResourceManager::GetImage (cache lookup, still no
+ * reload) only if the global is somehow NULL.
+ *
+ * Drawn with a PLAIN DrawImage(bg, 0, 0) (no transform): the canvas is 400x300,
+ * so we see the top-left 400x300 of the 1400x600 lawn = house + start of rows =
+ * an unmistakable real frame. gs_log.txt records the source + bits presence.
  */
 #include "GameSelector.h"
 
 #include "../../LawnApp.h"
+#include "../../Resources.h"
 #include "../../engine/ResourceManager.h"
 #include "../../engine/Graphics.h"
 #include "../../engine/Image.h"
-#include "../../engine/MemoryImage.h"
 
 #include <e32std.h>
 #include <f32file.h>
@@ -48,13 +52,23 @@ void GameSelector::Draw(Graphics* g)
     if (g == NULL)
         return;
 
-    // Lazy-load the lawn background exactly once (cached for subsequent frames).
-    static Image* sBg = NULL;
+    // Use the ALREADY-LOADED lawn -- never reload/redecode here.
+    static Image* sBg    = NULL;
     static bool   sTried = false;
-    if (!sTried && sBg == NULL && mApp != NULL && mApp->mResourceManager != NULL)
+    static int    sSrc   = 0;   // 0=none 1=global 2=cache
+    if (!sTried)
     {
         sTried = true;
-        sBg = mApp->mResourceManager->LoadImageByResName("IMAGE_BACKGROUND1");
+        if (IMAGE_BACKGROUND1 != NULL)             // engine global (canonical)
+        {
+            sBg = IMAGE_BACKGROUND1;
+            sSrc = 1;
+        }
+        else if (mApp != NULL && mApp->mResourceManager != NULL)
+        {
+            sBg = mApp->mResourceManager->GetImage("IMAGE_BACKGROUND1"); // cache, no reload
+            sSrc = sBg ? 2 : 0;
+        }
     }
 
     // One-time diagnostic dump.
@@ -65,22 +79,19 @@ void GameSelector::Draw(Graphics* g)
         TBuf8<256> b;
         if (sBg != NULL)
         {
-            MemoryImage* mi = dynamic_cast<MemoryImage*>(sBg);
-            const unsigned char* bits = mi ? mi->GetBits() : NULL;
-            b.Format(_L8("GS:Draw RAN bg=%08x w=%d h=%d mem=%d bits=%d\n"),
-                     (TUint)sBg, sBg->GetWidth(), sBg->GetHeight(),
-                     (TInt)(mi != NULL), (TInt)(bits != NULL));
+            b.Format(_L8("GS:Draw RAN src=%d bg=%08x w=%d h=%d\n"),
+                     sSrc, (TUint)sBg, sBg->GetWidth(), sBg->GetHeight());
         }
         else
         {
-            b.Copy(_L8("GS:Draw RAN bg=NULL (LoadImageByResName failed)\n"));
+            b.Format(_L8("GS:Draw RAN bg=NULL src=%d (global+cache both empty)\n"), sSrc);
         }
         GSLog(b);
     }
 
     if (sBg != NULL && sBg->GetWidth() > 0 && sBg->GetHeight() > 0)
     {
-        // PLAIN draw, no transform -- shows top-left 400x300 of the 1400x600 lawn.
+        // PLAIN draw, no transform -- top-left 400x300 of the 1400x600 lawn.
         g->DrawImage(sBg, 0, 0);
     }
     else
