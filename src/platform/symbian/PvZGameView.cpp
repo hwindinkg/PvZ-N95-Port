@@ -301,7 +301,7 @@ void CPvZGameView::RenderFrame(LawnApp* theApp)
     // WSERV composites the EGL surface -- programmatically replicating what
     // opening the menu does.
     if (fc <= 10) {
-        DrawableWindow()->Invalidate();
+        DrawDeferred();   // CCoeControl: schedule a framework redraw (RDrawableWindow has no Invalidate)
     }
     if (fc <= 3 || fc % 100 == 0) {
         TBuf<64> b; b.Format(_L("RF%d:done"), fc); Log(b);
