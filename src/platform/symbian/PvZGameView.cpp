@@ -45,7 +45,15 @@ void CPvZGameView::ConstructL()
     // references. A hardcoded SetRect can leave the window not marked as
     // fully covering the display, so WSERV shows stale video memory underneath.
     SetExtentToWholeScreen();
-    Window().SetRequiredDisplayMode(EColor64K);
+    // [DISPLAY-MODE FIX] Do NOT force EColor64K (RGB565). The working re3-symbian
+    // reference never calls SetRequiredDisplayMode -- it leaves the window in the
+    // device's NATIVE mode. On the N95 the only EGL configs are 888/24-bit
+    // (GL:diag cfgN=4, all 888 a8). Forcing the WINDOW to 16-bit while the EGL
+    // surface is 24-bit makes WSERV need a format conversion that it only performs
+    // on a full recomposite (opening the Options menu) -- the exact "garbage until
+    // I open the menu" symptom, despite eglSwapBuffers returning success
+    // (RF1 swap=1 eglErr=0x3000). Leaving the native mode makes window and surface
+    // formats match so WSERV blits the EGL surface directly every frame.
     // [green-mess fix] Until WSERV composites our EGL surface, it paints the
     // window's own background. With no background set, that is uninitialised
     // video memory -> the "green mess" seen before the first full recomposite
