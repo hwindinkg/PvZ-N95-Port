@@ -2,15 +2,26 @@
 
 Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian OS S60 3rd Edition FP1 (Nokia N95), built with **GCCE + libgcc**.
 
-> **READ THIS FIRST (handoff for the next session).** The build works and the
-> engine boots, but the game shows only a static frame because the **asset/
-> resource pipeline is stubbed out**. This is the #1 thing to fix. Details below.
+> **READ THIS FIRST (handoff for the next session).** The build works, the
+> engine boots, and **on-screen rendering is now correct from the first frame**
+> (M1 + M2 done — real `Resources.cpp` compiled & linked, EGL/WSERV display bug
+> fixed). The current task is **M3**: restore the real `GameSelector` menu
+> content (Adventure/Survival) and verify fonts / strings / sounds load. Many
+> `IMAGE_*` are still NULL pending real per-group resource loading.
+>
+> **⚠️ DO NOT RE-DEBUG THESE — already solved (see "S60 EGL/WSERV gotchas"):**
+> - *"Green mesh / garbage until I open the Options menu"* → caused by
+>   `Window().SetRequiredDisplayMode(EColor64K)`. **Removed. NEVER re-add it.**
+> - *KERN-EXEC 3 on the first menu frame* → dangling `IMAGE_TITLESCREEN` after
+>   `DeleteImage()`. Fixed by nulling the global.
 
-## Current status (2026-06-25)
+## Current status (2026-06-26)
 
-The crash chain has been peeled back one layer at a time. We are now well past
-the engine-boot stage and into **real asset rendering** — the screen no longer
-freezes the whole phone.
+The crash chain has been fully peeled back. The app **boots, renders correct
+colours from frame 1 (no menu kick needed), and runs a stable render loop**
+(RF1..RF400+, `eglSwapBuffers` returns EGL_SUCCESS / 0x3000). Confirmed
+on-device: purple background + white rectangle + RGB strip at the bottom.
+Next: **M3** menu content + fonts/strings/sounds.
 
 **Working:**
 - GCCE build pipeline (`group/build_gcce.cmd`) — compiles, links, makes SIS.
@@ -55,32 +66,65 @@ freezes the whole phone.
   their texcoords by the cached uMax/vMax instead of assuming 0..1. *(Needs an
   on-device build to confirm the title art renders.)*
 
-**Still the bigger blocker — bulk asset pipeline is stubbed:**
-- `group/PvZ_N95.mmp` compiles **`Resources_stub.cpp`**, NOT `Resources.cpp`.
-  => ALL `IMAGE_*` and `FONT_*` globals are **NULL** except the one M1 image.
-- `src/engine/Stubs.h` no-ops the loaders (`TodLoadResources` returns true and
-  loads nothing, `TodLoadNextResource` returns false, string/property/reanimator/
-  particle loaders empty).
-- `src/engine/SexyAppBase.cpp` is a **3.5 KB stub** (original ~99 KB);
-  `ResourceManager.cpp` is trimmed vs upstream.
+**M2 DONE — real `Resources.cpp` is compiled & linked:**
+- `group/PvZ_N95.mmp` **and** `build_sisx.cmd` now compile the real
+  **`Resources.cpp`** (NOT `Resources_stub.cpp`). Both build scripts were
+  updated — there are TWO of them, keep them in sync.
+- `Resources.h` was **regenerated mechanically** from the actual definitions
+  (774 globals: 585 `IMAGE_*`, 21 `FONT_*`, 168 `SOUND_*`; plus the
+  `enum ResourceId` matched 1:1 to the `gResources[RESOURCE_ID_MAX]` array so
+  `RESOURCE_ID_MAX` == array size). If you edit the resource list, regenerate the
+  header the same way — do not hand-maintain it.
+- See "GCCE / C++98 gotchas" and "Resources.cpp restoration scars" below for the
+  type/namespace fixes that were needed.
 
-Net: the engine runs game logic, the single M1 image proves the decode+GL path,
-but the bulk `IMAGE_*/FONT_*` table is still NULL — M2 (restore `Resources.cpp`)
-is the next big step.
+**Still stubbed (this is M3):**
+- `GameSelector` content is an empty stub (that's why you see only the test
+  rectangle, not Adventure/Survival buttons).
+- Many group loaders still need un-stubbing so `rmgr_log` walks ALL groups, not
+  just LoaderBar; fonts/strings/sounds need real loading. ~51 game-referenced
+  `IMAGE_/FONT_/SOUND_` symbols are defined but **NULL** until per-group loading
+  runs (added only so the real `Resources.cpp` links).
+
+## S60 EGL/WSERV gotchas (hard-won — read before touching rendering)
+
+- **NEVER call `Window().SetRequiredDisplayMode(...)` for an EGL window.** Leave
+  the window in the device's native mode. On the N95 the only EGL configs are
+  **888 / 24-bit** — forcing the window to 16-bit (`EColor64K`) makes WSERV
+  composite garbage until an external event triggers a full recomposite. The
+  working re3-symbian reference does `CreateWindowL -> SetExtentToWholeScreen ->
+  SetFocus -> ActivateL` and never sets the display mode. Match that.
+- **`eglSwapBuffers` succeeding ≠ pixels on screen.** If swap returns EGL_TRUE /
+  EGL_SUCCESS but the screen is wrong, suspect a **window/surface FORMAT
+  mismatch** or a composite issue, NOT your GL code.
+- **`EGL_BUFFER_SIZE` is a MINIMUM, not an exact request** — asking for 16 on the
+  N95 returns a 32-bit (888 a8) config. Derive `wantR/G/B` from
+  `Window().DisplayMode()` and don't assume RGB565 exists.
+- Things that DON'T fix a "garbage until external event" composite bug (already
+  tried, wasted time): `DrawDeferred()`, `Invalidate()+DrawDeferred()`,
+  `SetOrdinalPosition(0)`, `SetBackgroundColor`. The real fix was the display
+  mode (above).
+- **Dangling globals after `DeleteImage`**: the engine's `DeleteImage(name)` frees
+  the object but does NOT null the corresponding `IMAGE_*` global. Any `Draw()`
+  guarded by `if (IMAGE_X)` will pass and deref freed memory -> KERN-EXEC 3.
+  Null the global yourself after deleting.
 
 ## The plan (milestones)
 
-**M1 — prove the pipeline end-to-end (ONE image).**
+**M1 — prove the pipeline end-to-end (ONE image). ✅ DONE.**
 - Un-stub `TodLoadResources`/`TodLoadNextResource` for a single group.
 - Make `IMAGE_TITLESCREEN` a real `Image*` loaded from `.pak` via the real `ResourceManager` -> GL texture.
 - Draw it on the title screen. Success = real PvZ title art on the phone.
 
-**M2 — restore the resource table.**
-- Bring back the real `Resources.cpp` + `Resources.h` (full `IMAGE_*`/`FONT_*` + `ExtractResourcesByName`) from upstream, adapt declarations, compile it INSTEAD of `Resources_stub.cpp`.
-- Wire `resources.xml` parsing (`ResourceManager::ParseResourcesFile`) to populate the globals.
+**M2 — restore the resource table. ✅ DONE.**
+- Real `Resources.cpp` + mechanically-generated `Resources.h` now compile and
+  link (instead of `Resources_stub.cpp`). `resources.xml` parsing path is wired.
+- On-device rendering verified correct (purple bg + white rect + RGB strip).
 
-**M3 — un-stub the loader groups & fonts/strings.**
-- Real `TodStringListLoad`, `LoadProperties`, fonts. Verify `rmgr_log` walks ALL groups, not just LoaderBar.
+**M3 — un-stub the loader groups & fonts/strings + real menu. ⬅ CURRENT.**
+- Restore real `GameSelector` content (Adventure / Survival buttons).
+- Real `TodStringListLoad`, `LoadProperties`, fonts. Verify `rmgr_log` walks ALL
+  groups, not just LoaderBar; confirm `IMAGE_*` for the menu actually load.
 
 **M4 — main menu interactive**, then **M5 — gameplay board, reanimations, particles, sound**.
 
@@ -100,6 +144,26 @@ Logs are written to `C:\Data\PvZ\` on the device (RFile + Flush each line, no co
 ## Diagnostic history — the KERN-EXEC 3 crash chain (newest first)
 
 Each fix peeled back one layer. Kept here so the next session doesn't re-walk it.
+
+**RENDER DISPLAY CHAIN (newest — these came AFTER the engine booted):**
+
+A. **"Green mesh until I open the menu"** (`PvZGameView.cpp`) — the colours were
+   correct in the EGL surface (`eglSwapBuffers` returned EGL_TRUE / EGL_SUCCESS
+   = 0x3000 every frame) but the screen showed garbage until an external WSERV
+   event (opening Options / a keypress) forced a full recomposite. Root cause:
+   we called `Window().SetRequiredDisplayMode(EColor64K)` forcing the WINDOW to
+   16-bit RGB565, while the N95's only EGL configs are **888 / 24-bit**
+   (`GL:diag cfgN=4`, all "888 a8"). The window↔surface format mismatch made
+   WSERV defer the conversion until a recomposite. *Fixed: removed
+   `SetRequiredDisplayMode` entirely so the window keeps the device's native
+   24-bit mode, matching the 888 surface (commit 8bbc6cb). `DrawDeferred()`,
+   `SetOrdinalPosition(0)`, and an EGL_BUFFER_SIZE tweak were tried first and
+   did NOT help — don't repeat them.* Confirmed fixed on-device.
+B. **KERN-EXEC 3 on first menu frame** (`LawnApp.cpp` / `TitleScreen::Draw`) —
+   `LoadingCompleted()` called `DeleteImage("IMAGE_TITLESCREEN")` which freed the
+   image but left the global `IMAGE_TITLESCREEN` pointer dangling (non-NULL ->
+   passed the `if(IMAGE_TITLESCREEN)` guard -> `DrawImage` deref'd freed memory).
+   *Fixed: null the global right after `DeleteImage` (commit 5b17aca).*
 
 1. **GL texture-state cache desync** (`GLInterface.cpp`) — `SetupGLState` enabled
    `GL_TEXTURE_2D` while the cache said disabled; first `FillRect` drew textured
