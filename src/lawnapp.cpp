@@ -15,6 +15,8 @@
  */
 
 #include <time.h>
+#include <e32std.h>
+#include <f32file.h>
 #include "engine/Stubs.h"
 #include "LawnApp.h"
 #include "Sexy.TodLib/Reanimator.h"
@@ -532,13 +534,53 @@ void LawnApp::ShowGameSelector()
     mGameSelector = new GameSelector(this);
     mGameSelector->Resize(0, 0, mWidth, mHeight);
     mWidgetManager->AddWidget(mGameSelector);
-    // BringToFront puts the widget at the END of the draw array, so it is
-    // drawn LAST and appears ON TOP. The previous BringToBack call placed
-    // GameSelector at index 0 (drawn first), so the next widget in the
-    // array drew over it -- that overlay was the purple frame the user
-    // saw instead of the titlescreen.
-    mWidgetManager->BringToFront(mGameSelector);
+    // [M4 #1 fix] GameSelector::Draw paints IMAGE_TITLESCREEN as the background.
+    // The 10 GameButton children are top-level widgets in the manager (NOT
+    // children of GameSelector -- port's WidgetContainer::AddWidget doesn't
+    // call AddedToManager, so we add them directly). For the buttons to be
+    // visible ON TOP of the background, GameSelector must be drawn FIRST
+    // (index 0 = bottom layer). The previous BringToFront placed it LAST
+    // (top layer), so its titlescreen background covered all the buttons --
+    // the user saw "just the loading screen" because that's literally what
+    // GameSelector was drawing over the buttons.
+    //
+    // In M3 BringToFront was needed because a stale loader/TitleScreen overlay
+    // was still in the widget list and had to be covered. That overlay is now
+    // properly removed in LoadingCompleted(), so BringToBack is safe.
+    mWidgetManager->BringToBack(mGameSelector);
     mWidgetManager->SetFocus(mGameSelector);
+
+    // [M4 #1 diag] Dump the widget list so we can see what's in the manager
+    // after ShowGameSelector. Each line: index, ptr, x, y, w, h, vis.
+    // Written to C:\Data\PvZ\wgt_log.txt (appended -- overwrites the M3
+    // "Widgets=N" one-shot line).
+    {
+        RFs fs; RFile f;
+        if (fs.Connect() == KErrNone)
+        {
+            fs.MkDirAll(_L("C:\\Data\\PvZ"));
+            if (f.Replace(fs, _L("C:\\Data\\PvZ\\wgt_log.txt"), EFileWrite) == KErrNone)
+            {
+                TBuf8<32> hdr; hdr.Format(_L8("ShowGameSelector: %d widgets\n"),
+                                          mWidgetManager->GetWidgetCount());
+                f.Write(hdr);
+                for (int i = 0; i < mWidgetManager->GetWidgetCount(); i++)
+                {
+                    Sexy::Widget* w = mWidgetManager->GetWidgetAt(i);
+                    if (w)
+                    {
+                        TBuf8<128> line;
+                        line.Format(_L8("  [%d] ptr=%08x x=%d y=%d w=%d h=%d vis=%d\n"),
+                                    i, (TUint)w, (TInt)w->mX, (TInt)w->mY,
+                                    (TInt)w->mWidth, (TInt)w->mHeight, (TInt)w->mVisible);
+                        f.Write(line);
+                    }
+                }
+                f.Close();
+            }
+            fs.Close();
+        }
+    }
 
     //if (NeedRegister())
     //{
