@@ -19,6 +19,7 @@
 #include <f32file.h>
 #include "engine/Stubs.h"
 #include "LawnApp.h"
+#include "Resources.h"   // for FONT_BRIANNETOD16 / FONT_PICO129 (were #define macros in Stubs.h, now extern in Resources.h)
 #include "Sexy.TodLib/Reanimator.h"
 #include "Lawn/Board.h"
 #include "Lawn/Plant.h"
