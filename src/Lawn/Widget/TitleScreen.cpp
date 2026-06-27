@@ -180,9 +180,28 @@ void TitleScreen::Draw(Graphics* g)
         }
     }
 
-    // -- "Loading..." text (best-effort; FONT_DWARVEN may be NULL) ----------
-    // (Fonts are stubbed in this port -- M4 #4. Text won't render until
-    //  GetFontThrow is properly implemented.)
+    // -- "Click to Start" indicator (when bar is full) --------------------
+    // Since fonts are not yet ported (M4 #4), draw a blinking rectangle
+    // below the bar to indicate "click to continue". This matches the
+    // upstream behaviour where TitleScreen shows a "Click to Start"
+    // hyperlink after the loading bar fills.
+    if (mCurBarWidth >= mTotalBarWidth - 1.0f)
+    {
+        // Blink: alternate visibility every ~30 frames (~1s at 30fps).
+        int blink = ((int)(mCurBarWidth * 10) % 60) < 30;  // pseudo-blink
+        if (blink)
+        {
+            int blinkY = barY + barH + 10;
+            int blinkW = 120;
+            int blinkH = 16;
+            int blinkX = (mWidth - blinkW) / 2;
+            // Yellow box = "click here" indicator.
+            g->SetColor(Color(255, 255, 0, 255));
+            g->FillRect(blinkX, blinkY, blinkW, blinkH);
+            g->SetColor(Color(0, 0, 0, 255));
+            g->DrawRect(blinkX, blinkY, blinkW, blinkH);
+        }
+    }
 }
 
 } // namespace Sexy

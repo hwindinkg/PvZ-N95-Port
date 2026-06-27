@@ -51,12 +51,14 @@ private:
 
     // Loading screen state machine. LoadingThreadProc is synchronous, but we
     // want the TitleScreen (with progress bar) to be VISIBLE for ~2 seconds
-    // before LoadingCompleted removes it and shows the menu. So:
-    //   - iLoadingState = 0: LoadingThreadProc not yet run (shouldn't happen
-    //     at RenderTick time -- ConstructL runs it before starting the timer).
-    //   - iLoadingState = 1: LoadingThreadProc done, TitleScreen animating.
-    //     Count down iLoadingFrames; when it hits 0, call LoadingCompleted.
-    //   - iLoadingState = 2: LoadingCompleted done, menu is active.
+    // before LoadingCompleted removes it and shows the menu. Then, like the
+    // original PvZ, the user must CLICK to advance from loading to menu.
+    //   - iLoadingState = 0: LoadingThreadProc not yet run.
+    //   - iLoadingState = 1: LoadingThreadProc done, TitleScreen animating
+    //     progress bar. Count down iLoadingFrames; when 0, go to state 2.
+    //   - iLoadingState = 2: Progress bar full, "Click to Start" visible.
+    //     Wait for centre-key/Enter/click -> call LoadingCompleted -> state 3.
+    //   - iLoadingState = 3: LoadingCompleted done, menu is active.
     int             iLoadingState;
     int             iLoadingFrames;   // frames remaining in loading animation
 

@@ -140,8 +140,12 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
     // {prefix} x {extension} and load the first one that exists in the PAK.
     // (ICL's CImageDecoder auto-detects JPEG/PNG/GIF from the data, so the
     // extension only needs to match what is actually stored in the PAK.)
+    // [M4 fix] Try .png BEFORE .jpg. PNG supports alpha transparency (needed
+    // for logos like IMAGE_PVZ_LOGO which have transparent backgrounds).
+    // JPEG has no alpha channel -- loading pvz_logo.jpg instead of pvz_logo.png
+    // gives the logo a black background. If the PAK has both, .png wins.
     static const char* kPrefixes[] = { "images/", "", "IMAGES/", "data/images/" };
-    static const char* kExts[]     = { ".jpg", ".png", ".gif", "._", ".jpeg", "" };
+    static const char* kExts[]     = { ".png", ".jpg", ".jpeg", ".gif", "._", "" };
     const int nPre = (int)(sizeof(kPrefixes)/sizeof(kPrefixes[0]));
     const int nExt = (int)(sizeof(kExts)/sizeof(kExts[0]));
 

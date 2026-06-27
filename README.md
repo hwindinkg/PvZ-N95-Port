@@ -61,7 +61,116 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
 >   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
-## Current status (2026-06-27)
+## Current status (2026-06-28)
+
+### Approach correction: 1:1 port, not approximation
+
+Previous sessions created **simplified approximations** of GameSelector,
+GameButton, TitleScreen, ToolTipWidget instead of porting upstream code 1:1.
+This is the wrong approach. The goal is a **1:1 port** of the upstream
+PvZ-Portable engine. Future work must port upstream files verbatim, adapting
+only platform-specific calls (SDL→Symbian, filesystem, etc.).
+
+### What works (on-device verified)
+
+- **Build**: GCCE 3.4.3 compiles & links, SIS produced.
+- **Boot**: EGL/GLES 1.1 context, landscape 320x240, 30 FPS stable.
+- **PAK VFS**: main.pak loaded, 118 images decode OK (PNG+JPEG via ICL).
+- **Loading screen**: IMAGE_TITLESCREEN background + IMAGE_PVZ_LOGO +
+  IMAGE_LOADBAR_DIRT/GRASS animated progress bar (~2s visible).
+  LoaderBar group loads via `ExtractResourcesByName("LoaderBar")`.
+- **Main menu**: 10 buttons (Adventure/Survival/Minigame/Puzzle/Store/
+  Almanac/ZenGarden/Options/Help/Quit) on titlescreen background.
+- **Input**: d-pad arrows move virtual cursor (32px/press, visible yellow
+  crosshair), centre key/Enter = click, Escape = quit. Touch via
+  `HandlePointerEventL` (320x240→400x300 coord mapping).
+- **Widget count**: 12 widgets in manager (1 GameSelector + 10 buttons +
+  1 tooltip) — verified via wgt_log.txt.
+- **Click routing**: `WidgetManager::FindWidget` skips `mMouseVisible=false`
+  widgets (GameSelector), so clicks reach buttons. `GameButton::MouseUp` →
+  `ButtonDepressed` → `GameSelector::ButtonDepress` dispatch.
+
+### What does NOT work yet (blocking issues)
+
+1. **FONTS (M4 #4) — CRITICAL BLOCKER**:
+   `GetFontThrow` is a no-op stub returning NULL. All `FONT_*` globals
+   are NULL. No text renders — button labels, "Click to Start", tooltip
+   text, title text all invisible. The port has two incompatible font types:
+   - `_Font*` (opaque, forward-declared in Stubs.h) — type of FONT_* globals
+   - `Sexy::Font*` (real class in engine/Font.h with StringWidth/DrawString)
+   To fix: port upstream `ImageFont.cpp` (1748 lines) + `FontData`/`DescParser`
+   (parses `.dat` font description files from PAK for char maps + metrics).
+   OR: typedef `_Font = Sexy::Font` and implement `GetFontThrow` to load
+   font image + create simplified ImageFont with hardcoded ASCII char map.
+
+2. **LOGO BLACK BACKGROUND**:
+   `IMAGE_PVZ_LOGO` loaded as `images/pvz_logo.jpg` (JPEG, no alpha channel).
+   The PAK may also have `pvz_logo.png` (with alpha). `LoadImageByResName`
+   tries `.jpg` BEFORE `.png` — picks the JPEG. Fix: reorder kExts to try
+   `.png` first.
+
+3. **"CLICK TO CONTINUE" MISSING**:
+   Loading screen auto-advances to menu after 60 frames. Original PvZ shows
+   "Click to Start" hyperlink after bar fills; user must click to advance.
+   Need to port upstream `TitleScreen` state machine (TITLESTATE_SCREEN with
+   HyperlinkWidget).
+
+4. **MENU NOT 1:1**:
+   Current menu is 10 beige rect buttons on titlescreen background. Original
+   PvZ menu has: lawn background (IMAGE_BACKGROUND1), tombstone/wooden sign
+   with buttons rendered ON it, Reanimation clouds/flowers, particle effects.
+   Need: port upstream `GameSelector.cpp` (1509 lines) verbatim + port
+   `IMAGE_BACKGROUND1` tiling (M4 #3, 1400x600 → ≤1024 tiles).
+
+5. **BUTTON CLICKS SILENT ON DISABLED BUTTONS**:
+   Survival/Minigame/Puzzle/Store/Almanac/ZenGarden buttons are `mDisabled=true`
+   because `HasFinishedAdventure()` returns false (default PlayerInfo).
+   `GameButton::MouseUp` skips `ButtonDepressed` when disabled. This is
+   correct behaviour (matches upstream) but confusing without labels.
+
+6. **51 NULL IMAGE_/FONT_/SOUND_ symbols (M4 #5)**:
+   150 of 268 resources not found in PAK. `IMAGE_BUTTON_LEFT/MIDDLE/RIGHT`
+   (9-slice button texture) are NULL → buttons fall back to beige rects.
+   `IMAGE_OPTIONS_MENUBACK` is NULL → DoNewOptions crashes on NULL->mWidth
+   (guarded now but dialog won't render).
+
+7. **149 REANIM_* not in PAK (M4 #6)**:
+   Asset naming/packing mismatch. Reanimation images not found.
+
+### Build/test history (this session)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| `5e01aeb` | M4 #1: GameSelector + GameButton + ToolTipWidget + d-pad input | Build failed: `MouseHitTest` missing |
+| `d276e59` | Fix: restore `MouseHitTest` compat stubs | Build OK, but stuck on loading screen |
+| `5092643` | Fix: use `Sexy::FONT_DWARVEN` instead of `_Font*` globals | Build OK, stale widget covering buttons |
+| `a467804` | Fix: `BringToBack` instead of `BringToFront` | Buttons visible but purple tint + 1/4 crop |
+| `461ddff` | Fix: nuke stale widgets (while-loop) | CRASHED: write to freed memory |
+| `7f0d9b1` | Fix: revert while-loop, add diagnostic dump | App runs, stale widget still present |
+| `5e0be58` | Fix: hard-reset `mWidgetCount=0` + visible cursor | Stale widget gone, but clicks crash |
+| `83126fc` | Fix: PreNewGame NULL guard + hard-reset | Background correct, clicks crash deep |
+| `de0759b` | Fix: disable crashy button handlers + default PlayerInfo | All buttons safe, no crashes |
+| `b96108b` | Feat: loading screen with progress bar | Build failed: Image not declared |
+| `26e265e` | Fix: include Resources.h for IMAGE_* | Build failed: Stubs.h macro conflict |
+| `fa1d616` | Fix: avoid Stubs.h macro conflict | Build failed: ResourceManager undefined |
+| `e36871e` | Fix: include ResourceManager.h | Build OK, loading screen visible |
+| `7480c93` | Fix: `mMouseVisible=false` for GameSelector | Clicks still not reaching buttons |
+| `670ff94` | Feat: visible loading + cursor on Adventure + 32px d-pad | Loading visible, clicks work on Adventure |
+
+### Next priorities (1:1 port roadmap)
+
+1. **Fix .png before .jpg** in `LoadImageByResName` — fixes logo transparency
+2. **Port fonts** — typedef `_Font = Sexy::Font`, implement `GetFontThrow` with
+   ImageFont (load font image from PAK, hardcoded ASCII char map)
+3. **Port upstream TitleScreen.cpp** — state machine with "Click to Start"
+4. **Port upstream GameSelector.cpp 1:1** — tombstone background, proper layout
+5. **Port IMAGE_BACKGROUND1 tiling** (M4 #3) — lawn background for menu
+6. **Port upstream GameButton.cpp 1:1** — with NewLawnButton, DialogButton
+7. **Port StoreScreen/AlmanacDialog/ZenGarden** — sub-screens for button clicks
+
+---
+
+## Previous status (2026-06-27)
 
 App **boots, renders real game art with correct colours**, stable render loop
 (RF1..RF6000+, `eglSwapBuffers` = EGL_SUCCESS), locked to **landscape 320x240**

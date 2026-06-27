@@ -202,17 +202,18 @@ void CPvZAppUi::RenderTick()
         return;
     }
 
-    // [M4 #1] Loading screen state machine. TitleScreen is in the widget
-    // manager and animates its progress bar via Update()/Draw(). After
-    // iLoadingFrames countdown, call LoadingCompleted to transition to menu.
+    // [M4 #1] Loading screen state machine.
+    // State 1: progress bar animating. When iLoadingFrames hits 0, go to
+    //   state 2 (wait for click) -- do NOT auto-advance to menu.
+    // State 2: "Click to Start" -- wait for user input (handled in
+    //   HandleKeyEventL / HandlePointerEventL).
+    // State 3: menu active (LoadingCompleted already called).
     if (iLoadingState == 1)
     {
         iLoadingFrames--;
         if (iLoadingFrames <= 0)
         {
-            Log(_L("step: loading animation done -> LoadingCompleted"));
-            iLawnApp->LoadingCompleted();
-            Log(_L("step: LoadingCompleted returned OK"));
+            Log(_L("step: loading bar full -> waiting for click to start"));
             iLoadingState = 2;
         }
     }
@@ -240,6 +241,16 @@ void CPvZAppUi::HandleForegroundEventL(TBool aForeground)
 TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode aType)
 {
     if (!iLawnApp || !iLawnApp->mWidgetManager) return EKeyWasNotConsumed;
+
+    // [M4 #1] "Click to Start" -- in loading state 2, any key advances to menu.
+    if (iLoadingState == 2 && aType == EEventKeyDown)
+    {
+        Log(_L("step: click to start -> LoadingCompleted"));
+        iLawnApp->LoadingCompleted();
+        Log(_L("step: LoadingCompleted returned OK"));
+        iLoadingState = 3;
+        return EKeyWasConsumed;
+    }
 
     // M4 #2 -- d-pad arrow keys MOVE a virtual cursor on the 400x300 logical
     // canvas. The N95 has no touch on the original hardware, but the d-pad is
