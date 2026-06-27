@@ -18,6 +18,17 @@
 #include "Font.h"
 #include "MemoryImage.h"
 
+// [M4 #4 fix] _Font is typedef'd to Sexy::Font here (and in Stubs.h).
+// This header is included by ResourceManager.cpp which needs the typedef
+// to convert SystemFont* -> _Font* in GetFontThrow's return. Stubs.h also
+// has this typedef; the #ifndef guard prevents double-definition.
+// Previously _Font was an opaque forward-declared class in ResourceManager.h,
+// making it incompatible with Sexy::Font* used by Graphics::SetFont.
+#ifndef _FONT_TYPEDEF_DEFINED
+#define _FONT_TYPEDEF_DEFINED
+typedef Sexy::Font _Font;
+#endif
+
 namespace Sexy {
 
 class SystemFont : public Font

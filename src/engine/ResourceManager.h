@@ -11,8 +11,19 @@
 #define intptr_t TInt32
 #endif
 
-namespace Sexy { class Image; class MemoryImage; }
-class _Font;  // opaque pointer (no definition needed)
+namespace Sexy { class Image; class MemoryImage; class Font; }
+
+// [M4 #4 fix] _Font is now a typedef for Sexy::Font (see engine/Stubs.h).
+// Previously it was an opaque forward-declared class, which made FONT_*
+// globals incompatible with Graphics::SetFont(Sexy::Font*). The typedef
+// in Stubs.h unifies the types. Forward-declaring `class _Font` here would
+// CONFLICT with the typedef (can't have both a class and a typedef with
+// the same name in the same scope). Including Font.h gives us the full
+// Sexy::Font definition, and Stubs.h's typedef makes _Font = Sexy::Font.
+// We do NOT redeclare _Font here.
+#ifndef _FONT_TYPEDEF_DEFINED
+#define _FONT_TYPEDEF_DEFINED
+#endif
 
 // Exception for resource loading (used by Resources.cpp try/catch blocks)
 struct ResourceManagerException

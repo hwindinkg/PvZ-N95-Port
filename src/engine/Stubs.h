@@ -23,7 +23,12 @@ namespace Sexy { class Graphics; class Image; class Color; class Font; }
 // in Resources.h while Graphics::SetFont expected `Sexy::Font*`. This made
 // all FONT_* globals unusable (type mismatch). Now _Font IS Sexy::Font, so
 // GetFontThrow can return a real Font* that Graphics can use.
+// The #ifndef guard allows SystemFont.h to also define the typedef without
+// conflict (whichever is included first wins).
+#ifndef _FONT_TYPEDEF_DEFINED
+#define _FONT_TYPEDEF_DEFINED
 typedef Sexy::Font _Font;
+#endif
 
 // ============================================================
 // Stub constants
