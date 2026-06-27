@@ -73,4 +73,36 @@ int rand(void)
     return (int)(Math::Random() & 0x7fff);
 }
 
+// --- malloc / free / realloc stubs (for miniz C library) ---
+// miniz uses C standard malloc/free/realloc. The port uses Symbian's
+// User::Alloc/User::Free via custom new/delete, but has no libc.
+// Provide C-callable wrappers.
+extern "C" {
+
+void* malloc(size_t aSize)
+{
+    if (aSize == 0) return NULL;
+    return User::Alloc(aSize);
+}
+
+void free(void* aPtr)
+{
+    if (aPtr) User::Free(aPtr);
+}
+
+void* realloc(void* aPtr, size_t aNewSize)
+{
+    if (aPtr == NULL) return malloc(aNewSize);
+    if (aNewSize == 0) { free(aPtr); return NULL; }
+    return User::ReAlloc(aPtr, aNewSize);
+}
+
+void* calloc(size_t aCount, size_t aSize)
+{
+    size_t total = aCount * aSize;
+    void* p = malloc(total);
+    if (p) memset(p, 0, total);
+    return p;
+}
+
 } // extern "C"
