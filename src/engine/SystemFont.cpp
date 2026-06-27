@@ -10,6 +10,7 @@
 #include "SystemFont.h"
 #include "Graphics.h"
 #include "Color.h"
+#include <f32file.h>   // for RFs/RFile diagnostic log
 
 namespace Sexy {
 
@@ -302,6 +303,32 @@ void SystemFont::DrawString(Graphics* g, int x, int y,
     if (theColor)
         g->SetColor(*theColor);
 
+    // [M4 #4 diag] Log first DrawString call to verify it's reached.
+    static bool sLoggedOnce = false;
+    if (!sLoggedOnce)
+    {
+        sLoggedOnce = true;
+        // Write to gfx_log.txt (append).
+        RFs fs; RFile f;
+        if (fs.Connect() == KErrNone)
+        {
+            fs.MkDirAll(_L("C:\\Data\\PvZ"));
+            if (f.Open(fs, _L("C:\\Data\\PvZ\\gfx_log.txt"),
+                       EFileWrite | EFileShareAny) == KErrNone)
+            {
+                TInt pos = 0; f.Seek(ESeekEnd, pos);
+                TBuf8<128> msg;
+                msg.Format(_L8("SystemFont::DrawString first call: '%s' at %d,%d sheet=%08x bits=%08x\n"),
+                           (const TUint8*)text, x, y, (TUint)sFontSheet,
+                           (TUint)sFontSheet->GetBits());
+                f.Write(msg);
+                f.Flush();
+                f.Close();
+            }
+            fs.Close();
+        }
+    }
+
     int curX = x;
     while (*text)
     {
@@ -309,13 +336,21 @@ void SystemFont::DrawString(Graphics* g, int x, int y,
         if (c >= 32 && c < 128)
         {
             int gIdx = c - 32;
-            int col = gIdx % 16;
-            int row = gIdx / 16;
-            Rect srcRect(col * 8, row * 8, 8, 8);
-            // Draw the glyph sub-rect. Graphics::DrawImage(MemoryImage*,x,y,srcRect)
-            // modulates texture by current color (GL_MODULATE) -- white pixels
-            // in the sheet take the current color, transparent stays transparent.
-            g->DrawImage(sFontSheet, curX, y - 8, srcRect);
+            const unsigned char* glyph = kGlyphs8x8[gIdx];
+            // Render glyph as filled rects (1px each) -- avoids texture
+            // upload issues with the font sheet. Slower but guaranteed visible.
+            // Use the current color (set by caller via SetColor).
+            for (int gy = 0; gy < 8; gy++)
+            {
+                unsigned char rowBits = glyph[gy];
+                for (int gx = 0; gx < 8; gx++)
+                {
+                    if (rowBits & (0x80 >> gx))
+                    {
+                        g->FillRect(curX + gx, y - 8 + gy, 1, 1);
+                    }
+                }
+            }
         }
         curX += 8;
         text++;

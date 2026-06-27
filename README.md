@@ -61,7 +61,81 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
 >   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
-## Current status (2026-06-28)
+## Current status (2026-06-28, session 2)
+
+### Progress this session
+
+- **Colorkey for JPEG logos**: `MemoryImage::ApplyColorKey` makes black pixels
+  transparent. Applied to any resource with "LOGO" in name. Fixes IMAGE_PVZ_LOGO
+  black background — logo now renders with transparent background. ✓ verified
+- **SystemFont fallback**: 8x8 bitmap font with hardcoded ASCII 32-127 glyphs.
+  `GetFontThrow` returns SystemFont instead of NULL. All FONT_* globals now
+  point to a real Font*. Text rendering pipeline works end-to-end. ✓ initialized
+- **_Font type unified**: `typedef Sexy::Font _Font` across all headers.
+  Removed all `class _Font` forward-decls and `#define IMAGE_*/FONT_*` macros
+  from Stubs.h that conflicted with Resources.h extern declarations.
+- **Click-to-Continue**: loading state machine waits for user input after bar
+  fills. "Click to Start" text rendered via SystemFont (blinking). ✓ works
+
+### Current blockers (blocking 1:1 menu)
+
+1. **SYSTEMFONT RENDERS GREY RECTS, NOT TEXT**:
+   `gl_log.txt` shows only 3 textures (titlescreen + 2 loadbar). The font sheet
+   (128x48) texture is NOT created. `Graphics::DrawImage(MemoryImage*, x, y, srcRect)`
+   calls `GetOrCreateTexture` which should create a 128x64 POT texture, but it
+   doesn't appear in gl_log. Either:
+   - (a) `SystemFont::DrawString` is never called (check gfx_log — only "SetColor"
+     logged, no DrawImage trace), OR
+   - (b) `GetOrCreateTexture` returns 0 for the font sheet (mGL NULL? bits NULL?),
+     and `DrawImage` falls back to FillRect (grey rect).
+   Need to add logging to SystemFont::DrawString and GetOrCreateTexture to diagnose.
+
+2. **MENU NOT 1:1**:
+   Current menu = titlescreen background + 10 beige rect buttons with (broken)
+   text labels. Original PvZ menu has:
+   - Lawn background (IMAGE_BACKGROUND1, 1400x600 tiled)
+   - Tombstone/wooden sign with button sprites (IMAGE_REANIM_SELECTORSCREEN_*)
+   - Reanimation clouds/flowers/leaf animation
+   - Proper button layout matching upstream GameSelector.cpp (1509 lines)
+
+3. **149 REANIM_SELECTORSCREEN_* ASSETS NOT IN PAK** (M4 #6):
+   Even if we port upstream GameSelector.cpp 1:1, the button sprite images
+   are missing. Would need fallback rect buttons or asset pipeline fix.
+
+### 1:1 port roadmap (next priorities)
+
+1. **Fix SystemFont rendering** — add logging, find why texture not created.
+   This is the critical blocker for ALL text (button labels, tooltips, title).
+2. **Port IMAGE_BACKGROUND1 tiling** (M4 #3) — lawn background for menu.
+   1400x600 → split into ≤1024 tiles (PowerVR MBX limit, though gl_log shows
+   GL_MAX_TEXTURE_SIZE=2048 — may be able to use single 2048x1024 texture).
+3. **Port upstream GameSelector.cpp 1:1** — tombstone background, proper layout.
+   Replace simplified 10-button grid with upstream's Reanimation-based buttons.
+   Fallback to rect buttons if REANIM_SELECTORSCREEN_* unavailable.
+4. **Port upstream TitleScreen.cpp** — state machine with PopCap logo fade,
+   partner logo, "Click to Start" hyperlink (not just text).
+5. **Port HyperlinkWidget** — for "Click to Start" and menu buttons.
+6. **Port Reanimation system** (M5) — for SODROLLCAP, clouds, flowers.
+   Large effort (Reanimator.cpp + TodParticle + 149 REANIM_* assets).
+
+### Build/test history (session 2)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| `bed8c6e` | Colorkey for JPEG logos | Logo transparency ✓ |
+| `6ca99f2` | SystemFont + _Font typedef + GetFontThrow | Build failed: namespace |
+| `a906dff` | Fix: Sexy::SystemFont::Get() | Build failed: typedef conflict |
+| `dc6ba25` | Fix: _Font typedef guard | Build failed: _Font undeclared |
+| `0bf8cf9` | Fix: ResourceManager.h includes Font.h + typedef | Build failed: TodCommon.h class _Font |
+| `4cc7fc3` | Fix: replace _Font forward-decls in all headers | Build failed: class _Font in TodDrawString |
+| `6536862` | Fix: remove 'class' prefix from _Font* | Build failed: GameButton SystemFont |
+| `eca0f16` | Fix: Sexy::SystemFont in GameButton | Build failed: FONT_BRIANNETOD16 undeclared |
+| `fa9e338` | Fix: include Resources.h in lawnapp.cpp | Build failed: Stubs.h macro conflict |
+| `9720777` | Fix: remove ALL IMAGE_* #define macros | Build OK, fonts render as grey rects |
+
+---
+
+## Previous status (2026-06-28, session 1)
 
 ### Approach correction: 1:1 port, not approximation
 
