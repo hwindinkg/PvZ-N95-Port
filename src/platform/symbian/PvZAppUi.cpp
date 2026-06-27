@@ -24,7 +24,8 @@ static void Log(const TDesC& aMsg)
     fs.Close();
 }
 
-CPvZAppUi::CPvZAppUi() : iGameView(NULL), iLawnApp(NULL) {}
+CPvZAppUi::CPvZAppUi() : iGameView(NULL), iLawnApp(NULL), iTimer(NULL),
+    iCursorX(200), iCursorY(150), iCursorVisible(false), iCentreKeyDown(false) {}
 CPvZAppUi::~CPvZAppUi()
 {
     if (iTimer) { iTimer->Cancel(); delete iTimer; iTimer = NULL; }
@@ -37,7 +38,8 @@ CPvZAppUi::~CPvZAppUi()
 void CPvZAppUi::ConstructL()
 {
     Log(_L("AppUi::ConstructL ENTER"));
-    Log(_L("BUILD MARKER v12-handoff: minimal GameSelector w/ titlescreen, ArgbToRgba, BringToFront"));
+    Log(_L("BUILD MARKER v13-m4-gameselector: clickable menu, dpad->mouse, ToolTipWidget"));
+    InitVirtualCursor();
 
     // === DECISIVE EH/Leave self-test ===
     // On EKA2, User::Leave == 'throw XLeaveException' and TRAP == try/catch.
@@ -212,25 +214,127 @@ void CPvZAppUi::HandleForegroundEventL(TBool aForeground)
 TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode aType)
 {
     if (!iLawnApp || !iLawnApp->mWidgetManager) return EKeyWasNotConsumed;
-    if (aType == EEventKeyDown) {
+
+    // M4 #2 -- d-pad arrow keys MOVE a virtual cursor on the 400x300 logical
+    // canvas. The N95 has no touch on the original hardware, but the d-pad is
+    // the natural navigation input. We synthesise MouseMove events so the
+    // WidgetManager's hover/click path is exercised.
+    //
+    // Centre key (EStdKeyDevice3 / Enter) synthesises MouseDown+MouseUp at
+    // the current cursor position -- this is the "click".
+    //
+    // Escape goes to the focused widget via KeyDown (for back / quit).
+    if (aType == EEventKeyDown)
+    {
         Sexy::KeyCode aKey = Sexy::KEYCODE_UNKNOWN;
-        switch (aKeyEvent.iScanCode) {
+        int dx = 0, dy = 0;
+        bool isCentre = false;
+        switch (aKeyEvent.iScanCode)
+        {
             case EStdKeyUpArrow:
-            case EStdKeyDevice8:  aKey = Sexy::KEYCODE_UP; break;
+            case EStdKeyDevice8:  aKey = Sexy::KEYCODE_UP;    dy = -16; break;
             case EStdKeyDownArrow:
-            case EStdKeyDevice9:  aKey = Sexy::KEYCODE_DOWN; break;
+            case EStdKeyDevice9:  aKey = Sexy::KEYCODE_DOWN;  dy =  16; break;
             case EStdKeyLeftArrow:
-            case EStdKeyDevice10: aKey = Sexy::KEYCODE_LEFT; break;
+            case EStdKeyDevice10: aKey = Sexy::KEYCODE_LEFT;  dx = -16; break;
             case EStdKeyRightArrow:
-            case EStdKeyDevice11: aKey = Sexy::KEYCODE_RIGHT; break;
-            case EStdKeyDevice3:  aKey = Sexy::KEYCODE_RETURN; break;
+            case EStdKeyDevice11: aKey = Sexy::KEYCODE_RIGHT; dx =  16; break;
+            case EStdKeyDevice3:
+            case EStdKeyEnter:    isCentre = true; aKey = Sexy::KEYCODE_RETURN; break;
             case EStdKeyDevice1:  aKey = Sexy::KEYCODE_ESCAPE; break;
             default: break;
         }
-        if (aKey != Sexy::KEYCODE_UNKNOWN) {
+
+        if (dx != 0 || dy != 0)
+        {
+            // Move the virtual cursor, clamp to the 400x300 canvas.
+            iCursorX += dx; if (iCursorX < 0) iCursorX = 0; if (iCursorX > 399) iCursorX = 399;
+            iCursorY += dy; if (iCursorY < 0) iCursorY = 0; if (iCursorY > 299) iCursorY = 299;
+            iCursorVisible = true;
+            SynthesizeMouseMove();
+            return EKeyWasConsumed;
+        }
+        if (isCentre && !iCentreKeyDown)
+        {
+            iCentreKeyDown = true;
+            SynthesizeMouseClick();
+            return EKeyWasConsumed;
+        }
+        if (aKey != Sexy::KEYCODE_UNKNOWN)
+        {
             iLawnApp->mWidgetManager->KeyDown(aKey);
             return EKeyWasConsumed;
         }
     }
+    else if (aType == EEventKeyUp)
+    {
+        // Reset centre-key debounce on release so the next press clicks again.
+        if (aKeyEvent.iScanCode == EStdKeyDevice3 || aKeyEvent.iScanCode == EStdKeyEnter)
+            iCentreKeyDown = false;
+    }
     return EKeyWasNotConsumed;
+}
+
+// M4 #2 -- Forward raw touch/pointer events to the WidgetManager. The N95
+// original has no touch, but the S60 3rd FP1 platform was used on touch
+// devices (5800, N95 8GB later firmware) and the framework still routes
+// TPointerEvent through HandlePointerEventL. We map physical window
+// coords (e.g. 320x240 landscape) to the logical 400x300 canvas.
+void CPvZAppUi::HandlePointerEventL(const TPointerEvent& aPointerEvent)
+{
+    if (!iLawnApp || !iLawnApp->mWidgetManager || !iGameView) return;
+
+    // Map window coords -> logical 400x300 canvas.
+    TSize wsz = iGameView->Size();
+    if (wsz.iWidth <= 0 || wsz.iHeight <= 0) return;
+    int lx = (aPointerEvent.iPosition.iX * 400) / wsz.iWidth;
+    int ly = (aPointerEvent.iPosition.iY * 300) / wsz.iHeight;
+
+    switch (aPointerEvent.iType)
+    {
+        case TPointerEvent::EButton1Down:
+            iLawnApp->mWidgetManager->MouseDown(lx, ly, 0);
+            iCursorX = lx; iCursorY = ly; iCursorVisible = true;
+            break;
+        case TPointerEvent::EButton1Up:
+            iLawnApp->mWidgetManager->MouseUp(lx, ly, 0);
+            break;
+        case TPointerEvent::EDrag:
+            iLawnApp->mWidgetManager->MouseDrag(lx, ly);
+            iCursorX = lx; iCursorY = ly;
+            break;
+        case TPointerEvent::EMove:
+            iLawnApp->mWidgetManager->MouseMove(lx, ly);
+            iCursorX = lx; iCursorY = ly;
+            break;
+        default:
+            break;
+    }
+}
+
+void CPvZAppUi::InitVirtualCursor()
+{
+    // Centre the cursor on the 400x300 canvas.
+    iCursorX = 200;
+    iCursorY = 150;
+    iCursorVisible = false;
+    iCentreKeyDown = false;
+}
+
+void CPvZAppUi::SynthesizeMouseMove()
+{
+    if (!iLawnApp || !iLawnApp->mWidgetManager) return;
+    iLawnApp->mWidgetManager->MouseMove(iCursorX, iCursorY);
+}
+
+void CPvZAppUi::SynthesizeMouseClick()
+{
+    if (!iLawnApp || !iLawnApp->mWidgetManager) return;
+    // Move to the cursor position first so the correct widget is hit.
+    iLawnApp->mWidgetManager->MouseMove(iCursorX, iCursorY);
+    // MouseDown then MouseUp -- this triggers WidgetManager::FindWidget ->
+    // w->MouseDown -> SetFocus; then w->MouseUp which GameButton uses to
+    // fire ButtonDepress(id).
+    iLawnApp->mWidgetManager->MouseDown(iCursorX, iCursorY, 0);
+    iLawnApp->mWidgetManager->MouseUp(iCursorX, iCursorY, 0);
 }

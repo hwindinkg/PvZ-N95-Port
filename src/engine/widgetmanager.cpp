@@ -10,9 +10,13 @@ WidgetManager::WidgetManager()
     , mLastDownWidget(NULL)
     , mKeyDownTarget(NULL)
     , mMouseX(0), mMouseY(0)
+    , mLastMouseX(0), mLastMouseY(0)
+    , mWidgetsEnabled(true)
+    , mDownButtons(0)
     , mBaseModalWidget(NULL)
     , mPreModalCount(0)
 {
+    for (int i = 0; i < 256; i++) mKeyDown[i] = false;
 }
 
 WidgetManager::~WidgetManager()
@@ -98,6 +102,10 @@ void WidgetManager::MouseDown(int x, int y, int btn)
 {
     mMouseX = x;
     mMouseY = y;
+    mLastMouseX = x;
+    mLastMouseY = y;
+    if (btn >= 0 && btn < 8)
+        mDownButtons |= (1 << btn);
 
     // Check modal widget limit
     if (mBaseModalWidget)
@@ -124,6 +132,10 @@ void WidgetManager::MouseUp(int x, int y, int btn)
 {
     mMouseX = x;
     mMouseY = y;
+    mLastMouseX = x;
+    mLastMouseY = y;
+    if (btn >= 0 && btn < 8)
+        mDownButtons &= ~(1 << btn);
 
     if (mLastDownWidget)
     {
@@ -138,6 +150,8 @@ void WidgetManager::MouseMove(int x, int y)
 {
     mMouseX = x;
     mMouseY = y;
+    mLastMouseX = x;
+    mLastMouseY = y;
 
     Widget* w = FindWidget(x, y);
 
