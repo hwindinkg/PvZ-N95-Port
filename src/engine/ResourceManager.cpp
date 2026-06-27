@@ -145,7 +145,14 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
     // for logos like IMAGE_PVZ_LOGO which have transparent backgrounds).
     // JPEG has no alpha channel -- loading pvz_logo.jpg instead of pvz_logo.png
     // gives the logo a black background. If the PAK has both, .png wins.
-    static const char* kPrefixes[] = { "images/", "", "IMAGES/", "data/images/" };
+    // [M4 reanim fix] IMAGE_REANIM_SELECTORSCREEN_* assets are in the PAK
+    // under 'reanim/' prefix (not 'images/'). Also try 'reanim/' and
+    // 'images/reloaded/mainmenu/' prefixes. PAK stores CamelCase names
+    // (e.g. 'reanim\SelectorScreen_BG.jpg') but GetEntryIndex is
+    // case-insensitive + normalises path separators, so lowercase stem works.
+    static const char* kPrefixes[] = {
+        "images/", "reanim/", "images/reloaded/mainmenu/", "", "IMAGES/", "data/images/"
+    };
     static const char* kExts[]     = { ".png", ".jpg", ".jpeg", ".gif", "._", "" };
     const int nPre = (int)(sizeof(kPrefixes)/sizeof(kPrefixes[0]));
     const int nExt = (int)(sizeof(kExts)/sizeof(kExts[0]));
