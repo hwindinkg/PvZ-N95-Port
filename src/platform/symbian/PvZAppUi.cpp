@@ -26,7 +26,8 @@ static void Log(const TDesC& aMsg)
 }
 
 CPvZAppUi::CPvZAppUi() : iGameView(NULL), iLawnApp(NULL), iTimer(NULL),
-    iCursorX(200), iCursorY(150), iCursorVisible(false), iCentreKeyDown(false) {}
+    iCursorX(200), iCursorY(86), iCursorVisible(true), iCentreKeyDown(false),
+    iLoadingState(0), iLoadingFrames(0) {}
 CPvZAppUi::~CPvZAppUi()
 {
     if (iTimer) { iTimer->Cancel(); delete iTimer; iTimer = NULL; }
@@ -160,10 +161,16 @@ void CPvZAppUi::ConstructL()
         Log(_L("step: LoadingThreadProc (sync) START"));
         iLawnApp->LoadingThreadProc();
         Log(_L("step: LoadingThreadProc DONE"));
-        Log(_L("step: about to call LoadingCompleted"));
-        iLawnApp->LoadingCompleted();   // remove title screen -> ShowGameSelector()
-        Log(_L("step: LoadingCompleted returned OK"));
-        Log(_L("step: LoadingCompleted -> menu"));
+        // [M4 #1 fix] DEFER LoadingCompleted so the loading screen is visible.
+        // LoadingThreadProc is synchronous -- by the time it returns, all
+        // resources are loaded. If we call LoadingCompleted here, TitleScreen
+        // is removed before the heartbeat timer renders a single frame, so
+        // the user never sees the progress bar animation.
+        // Instead: set iLoadingState=1 and iLoadingFrames=60 (~2s at 30fps).
+        // RenderTick will call LoadingCompleted after the countdown finishes.
+        iLoadingState = 1;
+        iLoadingFrames = 60;
+        Log(_L("step: loading animation deferred to RenderTick (60 frames)"));
     }
 
     // Put the GL container on the control stack so it receives
@@ -194,6 +201,22 @@ void CPvZAppUi::RenderTick()
         Exit();
         return;
     }
+
+    // [M4 #1] Loading screen state machine. TitleScreen is in the widget
+    // manager and animates its progress bar via Update()/Draw(). After
+    // iLoadingFrames countdown, call LoadingCompleted to transition to menu.
+    if (iLoadingState == 1)
+    {
+        iLoadingFrames--;
+        if (iLoadingFrames <= 0)
+        {
+            Log(_L("step: loading animation done -> LoadingCompleted"));
+            iLawnApp->LoadingCompleted();
+            Log(_L("step: LoadingCompleted returned OK"));
+            iLoadingState = 2;
+        }
+    }
+
     iGameView->RenderFrame(iLawnApp);
 }
 
@@ -235,13 +258,13 @@ TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode a
         switch (aKeyEvent.iScanCode)
         {
             case EStdKeyUpArrow:
-            case EStdKeyDevice8:  aKey = Sexy::KEYCODE_UP;    dy = -16; break;
+            case EStdKeyDevice8:  aKey = Sexy::KEYCODE_UP;    dy = -32; break;
             case EStdKeyDownArrow:
-            case EStdKeyDevice9:  aKey = Sexy::KEYCODE_DOWN;  dy =  16; break;
+            case EStdKeyDevice9:  aKey = Sexy::KEYCODE_DOWN;  dy =  32; break;
             case EStdKeyLeftArrow:
-            case EStdKeyDevice10: aKey = Sexy::KEYCODE_LEFT;  dx = -16; break;
+            case EStdKeyDevice10: aKey = Sexy::KEYCODE_LEFT;  dx = -32; break;
             case EStdKeyRightArrow:
-            case EStdKeyDevice11: aKey = Sexy::KEYCODE_RIGHT; dx =  16; break;
+            case EStdKeyDevice11: aKey = Sexy::KEYCODE_RIGHT; dx =  32; break;
             case EStdKeyDevice3:
             case EStdKeyEnter:    isCentre = true; aKey = Sexy::KEYCODE_RETURN; break;
             case EStdKeyDevice1:  aKey = Sexy::KEYCODE_ESCAPE; break;
@@ -318,10 +341,12 @@ void CPvZAppUi::HandlePointerEventL(const TPointerEvent& aPointerEvent)
 
 void CPvZAppUi::InitVirtualCursor()
 {
-    // Centre the cursor on the 400x300 canvas.
+    // Start the cursor on the Adventure button (60..340, 70..102).
+    // Centre of Adventure is (200, 86). This way the first OK press clicks
+    // Adventure without needing to move the d-pad first.
     iCursorX = 200;
-    iCursorY = 150;
-    iCursorVisible = false;
+    iCursorY = 86;
+    iCursorVisible = true;   // visible from the start
     iCentreKeyDown = false;
 }
 

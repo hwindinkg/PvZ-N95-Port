@@ -49,6 +49,17 @@ private:
     bool            iCursorVisible;
     bool            iCentreKeyDown;  // debounce for centre-key clicks
 
+    // Loading screen state machine. LoadingThreadProc is synchronous, but we
+    // want the TitleScreen (with progress bar) to be VISIBLE for ~2 seconds
+    // before LoadingCompleted removes it and shows the menu. So:
+    //   - iLoadingState = 0: LoadingThreadProc not yet run (shouldn't happen
+    //     at RenderTick time -- ConstructL runs it before starting the timer).
+    //   - iLoadingState = 1: LoadingThreadProc done, TitleScreen animating.
+    //     Count down iLoadingFrames; when it hits 0, call LoadingCompleted.
+    //   - iLoadingState = 2: LoadingCompleted done, menu is active.
+    int             iLoadingState;
+    int             iLoadingFrames;   // frames remaining in loading animation
+
 public:
     // Accessors for PvZGameView to draw the cursor overlay.
     int  CursorX() const { return iCursorX; }
