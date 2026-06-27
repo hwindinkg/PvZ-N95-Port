@@ -43,6 +43,7 @@
 #include "../../engine/SexyAppBase.h"
 #include "../../engine/Color.h"
 #include "../../engine/Rect.h"
+#include "../../engine/Font.h"   // for Font::StringWidth/GetAscent (forward decl in Graphics.h is not enough)
 #include "ToolTipWidget.h"
 
 #include <e32std.h>
@@ -291,7 +292,11 @@ void GameSelector::Draw(Graphics* g)
     }
 
     // Title text (best-effort; font may be NULL until M4 #4 fonts done).
-    Font* titleFont = FONT_DWARVENTODCRAFT18BRIGHTGREENINSET;
+    //
+    // NOTE: in this port, FONT_DWARVENTODCRAFT18BRIGHTGREENINSET etc. are
+    // _Font* (opaque), NOT Sexy::Font*. The only Sexy::Font* globals are
+    // FONT_DWARVEN and FONT_COUNTER (declared in engine/Font.h).
+    Font* titleFont = Sexy::FONT_DWARVEN;
     if (titleFont)
     {
         g->SetFont(titleFont);

@@ -42,10 +42,15 @@ void ToolTipWidget::Draw(Sexy::Graphics* g)
     g->SetColor(Sexy::Color(200, 200, 200, 200));
     g->DrawRect(mX, mY, mWidth, mHeight);
 
-    // Text -- best-effort; if FONT_PICO129 is NULL (fonts stubbed), the
+    // Text -- best-effort; if FONT_DWARVEN is NULL (fonts stubbed), the
     // tooltip just shows the rectangle. Once fonts are wired the label
     // appears.
-    Sexy::Font* font = Sexy::FONT_PICO129;
+    //
+    // NOTE: in this port, FONT_DWARVENTODCRAFT18GREENINSET etc. are
+    // _Font* (opaque), NOT Sexy::Font*. The only Sexy::Font* globals
+    // available are FONT_DWARVEN and FONT_COUNTER (declared in
+    // engine/Font.h). Use FONT_DWARVEN here.
+    Sexy::Font* font = Sexy::FONT_DWARVEN;
     if (font)
     {
         g->SetFont(font);

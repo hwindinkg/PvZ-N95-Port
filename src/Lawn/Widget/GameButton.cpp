@@ -97,11 +97,15 @@ void DrawStoneButton(Sexy::Graphics* g, int x, int y, int theWidth, int theHeigh
         g->DrawRect(x, y, theWidth, theHeight);
     }
 
-    // Label -- best-effort; if FONT_DWARVENTODCRAFT18GREENINSET is NULL
+    // Label -- best-effort; if FONT_DWARVEN is NULL
     // (GetFontThrow stubbed, M4 #4), we skip the text but the button
     // rectangle is still visible. Once fonts are wired the label appears.
-    Font* aFont = Sexy::FONT_DWARVENTODCRAFT18GREENINSET;
-    Font* aFontHi = Sexy::FONT_DWARVENTODCRAFT18BRIGHTGREENINSET;
+    //
+    // NOTE: in this port, FONT_DWARVENTODCRAFT18GREENINSET etc. are _Font*
+    // (opaque), NOT Sexy::Font*. The only Sexy::Font* globals available
+    // are FONT_DWARVEN and FONT_COUNTER (declared in engine/Font.h).
+    Font* aFont   = Sexy::FONT_DWARVEN;
+    Font* aFontHi = Sexy::FONT_DWARVEN;
     if (aFont && aFontHi)
     {
         g->SetFont(isHighLighted ? aFontHi : aFont);
@@ -330,12 +334,16 @@ void GameButton::Draw(Sexy::Graphics* g)
     g->mTransY += mY;
 
     // Lazy default font if a label is set but no font was assigned.
-    // (GetFontThrow is stubbed -- if FONT_PICO129 is NULL this stays NULL
+    // (GetFontThrow is stubbed -- if FONT_DWARVEN is NULL this stays NULL
     //  and the label just won't render. The button image still draws.)
+    //
+    // NOTE: in this port, FONT_PICO129 etc. are _Font* (opaque), NOT
+    // Sexy::Font*. The only Sexy::Font* globals are FONT_DWARVEN and
+    // FONT_COUNTER. Use FONT_DWARVEN as the default button font.
     if (!mFont && !mLabel.empty())
     {
-        if (Sexy::FONT_PICO129)
-            mFont = Sexy::FONT_PICO129;
+        if (Sexy::FONT_DWARVEN)
+            mFont = Sexy::FONT_DWARVEN;
     }
 
     int aFontX = mTextOffsetX;
