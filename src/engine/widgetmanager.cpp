@@ -114,7 +114,13 @@ Widget* WidgetManager::FindWidget(int x, int y, bool /*checkTransparencies*/)
     for (i = mWidgetCount - 1; i >= 0; i--)
     {
         Widget* w = mWidgets[i];
-        if (w->mVisible && !w->mDisabled && w->Contains(x, y))
+        // [M4 #1 fix] Skip widgets with mMouseVisible == false. GameSelector
+        // sets this to false so it doesn't intercept clicks meant for its
+        // child buttons (which are top-level widgets in the manager, drawn
+        // on top of GameSelector's full-screen background). Without this
+        // check, FindWidget returns GameSelector for any point inside its
+        // 400x300 rect, blocking all button clicks.
+        if (w->mVisible && !w->mDisabled && w->mMouseVisible && w->Contains(x, y))
             return w;
     }
     return NULL;

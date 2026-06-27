@@ -105,7 +105,9 @@ GameSelector::GameSelector(LawnApp* theApp)
     , mDestX(0),  mDestY(0)
 {
     mVisible = true;
-    mMouseVisible = true;
+    mMouseVisible = false;   // [M4 #1 fix] don't intercept clicks -- let them
+                             // reach our child buttons (top-level in WidgetManager).
+                             // FindWidget now skips widgets with mMouseVisible=false.
     mHasTransparencies = true;
     mDoFinger = false;
     mWantsFocus = true;
