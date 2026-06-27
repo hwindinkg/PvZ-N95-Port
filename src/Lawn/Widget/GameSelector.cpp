@@ -278,14 +278,25 @@ void GameSelector::Draw(Graphics* g)
 {
     if (g == NULL) return;
 
-    Image* bg = IMAGE_TITLESCREEN;
+    // -- Background: IMAGE_BACKGROUND1 (lawn) if loaded, else IMAGE_TITLESCREEN.
+    // Upstream uses Reanimation(SelectorScreen) as background, but that requires
+    // the Reanimation system (M5). IMAGE_BACKGROUND1 is the lawn image -- the
+    // menu in the original PvZ is drawn ON TOP of the lawn. This is closer to
+    // 1:1 than using the titlescreen as background.
+    Image* bg = IMAGE_BACKGROUND1;
+    if (bg == NULL)
+        bg = IMAGE_TITLESCREEN;
     if (bg == NULL && mApp && mApp->mResourceManager)
-        bg = mApp->mResourceManager->GetImage("IMAGE_TITLESCREEN");
+    {
+        bg = mApp->mResourceManager->GetImage("IMAGE_BACKGROUND1");
+        if (!bg) bg = mApp->mResourceManager->GetImage("IMAGE_TITLESCREEN");
+    }
 
     g->SetColor(Color(255, 255, 255, 255));
     if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
     {
         MemoryImage* mem = static_cast<MemoryImage*>(bg);
+        // IMAGE_BACKGROUND1 is 1400x600 upstream. Scale to fit 400x300 canvas.
         g->DrawImage(mem, 0, 0, mWidth, mHeight);
     }
     else

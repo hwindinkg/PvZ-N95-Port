@@ -1796,6 +1796,10 @@ void LawnApp::LoadingThreadProc()
 
     LoadGroup("LoadingImages", 9);
     LoadGroup("LoadingFonts", 54);
+    // [M4 #3] Load IMAGE_BACKGROUND1 (lawn background) for the main menu.
+    // This is a delay-load group (not loaded at boot in upstream), but the
+    // menu needs it as background. PAK has images/background1.jpg (171KB).
+    ExtractResourcesByName(mResourceManager, "DelayLoad_Background1");
     if (mLoadingFailed || mShutdown || mCloseRequest)
         return;
 
