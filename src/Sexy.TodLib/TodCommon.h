@@ -159,7 +159,7 @@ bool             TodIsPointInPolygon(const class Sexy::SexyVector2* thePolygonPo
 // Drawing helpers
 // ---------------------------------------------------------------------------
 
-void             TodDrawString(class Sexy::Graphics* g, const std::string& theText, int thePosX, int thePosY, class _Font* theFont, const class Sexy::Color& theColor, int theJustification);
+void             TodDrawString(class Sexy::Graphics* g, const std::string& theText, int thePosX, int thePosY, _Font* theFont, const class Sexy::Color& theColor, int theJustification);
 void             TodDrawImageScaledF(class Sexy::Graphics* g, class Sexy::Image* theImage, float thePosX, float thePosY, float theScaleX, float theScaleY);
 void             TodDrawImageCenterScaledF(class Sexy::Graphics* g, class Sexy::Image* theImage, float thePosX, float thePosY, float theScaleX, float theScaleY);
 void             TodDrawImageCelF(class Sexy::Graphics* g, class Sexy::Image* theImageStrip, float thePosX, float thePosY, int theCelCol, int theCelRow);
