@@ -100,7 +100,7 @@ void DrawStoneButton(Sexy::Graphics* g, int x, int y, int theWidth, int theHeigh
 
     // Label -- use SystemFont (8x8 bitmap fallback) since PvZ font assets
     // are not in the PAK (M4 #4).
-    SystemFont* aFont = SystemFont::Get();
+    Sexy::SystemFont* aFont = Sexy::SystemFont::Get();
     if (aFont)
     {
         g->SetFont(aFont);
@@ -332,7 +332,7 @@ void GameButton::Draw(Sexy::Graphics* g)
     // PvZ font assets are not in the PAK (M4 #4), so FONT_DWARVEN is NULL.
     if (!mFont && !mLabel.empty())
     {
-        mFont = SystemFont::Get();
+        mFont = Sexy::SystemFont::Get();
     }
 
     int aFontX = mTextOffsetX;
