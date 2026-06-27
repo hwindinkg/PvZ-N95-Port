@@ -234,13 +234,17 @@ TInt CPvZVfs::GetEntryIndex(const char* aFileName) const
 
     for (TInt i = 0; i < iEntryCount; ++i)
     {
-        // Case-insensitive comparison
+        // Case-insensitive comparison, with path separator normalisation
+        // (PAK stores 'images\Foo.png', callers pass 'images/foo.png').
         const char* s1 = iEntries[i].iName;
         const char* s2 = aFileName;
         while (*s1 && *s2)
         {
             char c1 = *s1;
             char c2 = *s2;
+            // Normalise path separators: treat '\' and '/' as equal.
+            if (c1 == '\\') c1 = '/';
+            if (c2 == '\\') c2 = '/';
             if (c1 >= 'A' && c1 <= 'Z') c1 += ('a' - 'A');
             if (c2 >= 'A' && c2 <= 'Z') c2 += ('a' - 'A');
             if (c1 != c2)
