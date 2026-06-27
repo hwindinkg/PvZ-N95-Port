@@ -40,6 +40,7 @@
 #include "../../engine/Color.h"
 #include "../../engine/Rect.h"
 #include "../../engine/SexyAppBase.h"
+#include "../../engine/ResourceManager.h"   // for ResourceManager (LawnApp.h only forward-declares it)
 
 namespace Sexy {
 
