@@ -10,7 +10,13 @@
 #include "../engine/Image.h"
 #include "../engine/MemoryImage.h"
 #include "../engine/ResourceManager.h"
+
+// miniz.h includes stdio.h (for FILE*) which conflicts with Common.h's
+// C++ linkage declarations of sprintf/vsprintf. Wrap in extern "C" to
+// force C linkage on all miniz declarations.
+extern "C" {
 #include "miniz.h"
+}
 
 #include <string.h>
 #include <stdlib.h>

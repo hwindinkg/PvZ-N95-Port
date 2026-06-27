@@ -1,10 +1,13 @@
 /* stdint.h -- shim for Symbian GCCE 3.4.3 (no stdint.h in SDK).
- * Provides standard integer types using Symbian/native typedefs. */
+ * Provides standard integer types using native C types.
+ * Must NOT use Symbian TInt32 etc. to avoid conflicts with e32def.h. */
 #ifndef _STDINT_H
 #define _STDINT_H
 
-/* Symbian GCCE has <e32def.h> with TInt8/TUint8/etc, but miniz needs
- * the C99 standard names. Map them to native types directly. */
+/* Direct native type mappings. On ARM 32-bit GCCE:
+ *   char = 1 byte, short = 2 bytes, int = 4 bytes, long long = 8 bytes.
+ * Do NOT use Symbian TInt32/TUint32 — they're typedef'd as 'long int' in
+ * e32def.h, which conflicts with our 'int' typedefs when both are visible. */
 typedef signed char         int8_t;
 typedef unsigned char       uint8_t;
 typedef signed short        int16_t;
@@ -22,7 +25,7 @@ typedef unsigned int        uintptr_t;
 typedef int64_t             intmax_t;
 typedef uint64_t            uintmax_t;
 
-/* Fast/least types (minimally correct) */
+/* Fast/least types */
 typedef int8_t              int_least8_t;
 typedef uint8_t             uint_least8_t;
 typedef int16_t             int_least16_t;
@@ -35,7 +38,7 @@ typedef uint64_t            uint_least64_t;
 typedef int8_t              int_fast8_t;
 typedef uint8_t             uint_fast8_t;
 typedef int16_t             int_fast16_t;
-typedef uint16_t             uint_fast16_t;
+typedef uint16_t            uint_fast16_t;
 typedef int32_t             int_fast32_t;
 typedef uint32_t            uint_fast32_t;
 typedef int64_t             int_fast64_t;
@@ -55,7 +58,7 @@ typedef uint64_t            uint_fast64_t;
 #define INT64_MAX    9223372036854775807LL
 #define UINT64_MAX   18446744073709551615ULL
 
-/* Format macros (not used by miniz, but defined for completeness) */
+/* Format macros */
 #define PRId64 "lld"
 #define PRIu64 "llu"
 #define PRIx64 "llx"
