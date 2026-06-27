@@ -16,8 +16,14 @@ namespace Sexy { class LawnApp; }
 class Reanimation;
 class TodParticleSystem;
 
-namespace Sexy { class Graphics; class Image; class Color; }
-class _Font;
+namespace Sexy { class Graphics; class Image; class Color; class Font; }
+
+// [M4 #4 fix] Unify _Font with Sexy::Font. Previously _Font was an opaque
+// forward-declared class, and FONT_* globals were declared as `extern _Font*`
+// in Resources.h while Graphics::SetFont expected `Sexy::Font*`. This made
+// all FONT_* globals unusable (type mismatch). Now _Font IS Sexy::Font, so
+// GetFontThrow can return a real Font* that Graphics can use.
+typedef Sexy::Font _Font;
 
 // ============================================================
 // Stub constants
@@ -32,8 +38,11 @@ const int IMG_DOWNSCALE = 1;
 #define IMAGE_REANIM_CRAZYDAVE_MOUTH6 ((Sexy::Image*)0)
 #define IMAGE_STORE_SPEECHBUBBLE     ((Sexy::Image*)0)
 #define IMAGE_STORE_SPEECHBUBBLE2    ((Sexy::Image*)0)
-#define FONT_BRIANNETOD16            ((_Font*)0)
-#define FONT_PICO129                 ((_Font*)0)
+// [M4 #4 fix] Removed FONT_BRIANNETOD16 / FONT_PICO129 #define macros.
+// They were `((_Font*)0)` which conflicted with the `extern _Font*`
+// declarations in Resources.h (the macro turned the extern into a syntax
+// error). Now that _Font = Sexy::Font, Resources.h's extern declarations
+// are valid and Resources.cpp assigns real Font* pointers to them.
 
 // These are #define macros (not real variables) to prevent duplicate definitions
 // Real definitions are in Resources_stub.cpp

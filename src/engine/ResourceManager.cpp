@@ -1,5 +1,6 @@
 #include "ResourceManager.h"
 #include "MemoryImage.h"
+#include "SystemFont.h"   // for GetFontThrow fallback
 #include "PvZVfs.h"
 #include "PakInterface.h"
 #include "GLInterface.h"
@@ -200,9 +201,20 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
 
 _Font* ResourceManager::GetFontThrow(const char* name)
 {
-    Log("GetFontThrow (stub) ");
+    Log("GetFontThrow -> SystemFont fallback: ");
     Log(name);
-    return NULL;
+    // [M4 #4 fix] Return the shared SystemFont instance (8x8 bitmap font with
+    // hardcoded ASCII glyphs). This is NOT a 1:1 port of upstream ImageFont
+    // (which loads .dat font description files from PAK for per-char metrics +
+    // kerning + multi-layer rendering). The PAK does not contain font .dat
+    // files (rmgr_log shows FONT_IMAGE_HOUSEOFTERROR28 "not found"). SystemFont
+    // provides visible text as a functional fallback.
+    //
+    // All FONT_* globals (FONT_DWARVENTODCRAFT18GREENINSET, FONT_BRIANNETOD16,
+    // FONT_PICO129, etc.) will point to the same SystemFont instance. They
+    // differ visually only in the upstream's per-font image + metrics; here
+    // they all render as the same 8x8 monospace.
+    return SystemFont::Get();
 }
 
 intptr_t ResourceManager::GetSoundThrow(const char* name)

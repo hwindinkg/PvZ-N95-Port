@@ -44,6 +44,7 @@
 #include "../../engine/Color.h"
 #include "../../engine/Rect.h"
 #include "../../engine/Font.h"   // for Font::StringWidth/GetAscent (forward decl in Graphics.h is not enough)
+#include "../../engine/SystemFont.h"  // for title + button label text
 #include "ToolTipWidget.h"
 
 #include <e32std.h>
@@ -293,19 +294,16 @@ void GameSelector::Draw(Graphics* g)
         g->FillRect(0, 0, mWidth, mHeight);
     }
 
-    // Title text (best-effort; font may be NULL until M4 #4 fonts done).
-    //
-    // NOTE: in this port, FONT_DWARVENTODCRAFT18BRIGHTGREENINSET etc. are
-    // _Font* (opaque), NOT Sexy::Font*. The only Sexy::Font* globals are
-    // FONT_DWARVEN and FONT_COUNTER (declared in engine/Font.h).
-    Font* titleFont = Sexy::FONT_DWARVEN;
+    // Title text -- use SystemFont (8x8 bitmap fallback) since PvZ font assets
+    // are not in the PAK (M4 #4). FONT_DWARVEN is NULL in this port.
+    SystemFont* titleFont = SystemFont::Get();
     if (titleFont)
     {
         g->SetFont(titleFont);
         g->SetColor(Color(255, 240, 200, 255));
         const char* title = "Plants vs. Zombies";
         int sw = titleFont->StringWidth(title);
-        g->DrawString(title, (mWidth - sw) / 2, 40);
+        g->DrawString(title, (mWidth - sw) / 2, 30);
     }
 }
 

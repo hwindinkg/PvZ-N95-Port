@@ -60,6 +60,7 @@ SOURCE          Font.cpp
 SOURCE          Stubs.cpp
 SOURCE          clib_stubs.cpp        // minimal C runtime: str*, fmod, rand (no estlib linked)
 SOURCE          ResourceManager.cpp      // Resource manager with image loading from PAK
+SOURCE          SystemFont.cpp          // [M4 #4] 8x8 bitmap font fallback (no font assets in PAK)
 
 // === TodLib ===
 SOURCEPATH      ..\src\Sexy.TodLib

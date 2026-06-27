@@ -5,6 +5,7 @@
 #include "../engine/Graphics.h"
 #include "../engine/Color.h"
 #include "../engine/Font.h"
+#include "../engine/SystemFont.h"  // for tooltip text
 #include "../Resources.h"
 #include <string.h>
 
@@ -42,22 +43,16 @@ void ToolTipWidget::Draw(Sexy::Graphics* g)
     g->SetColor(Sexy::Color(200, 200, 200, 200));
     g->DrawRect(mX, mY, mWidth, mHeight);
 
-    // Text -- best-effort; if FONT_DWARVEN is NULL (fonts stubbed), the
-    // tooltip just shows the rectangle. Once fonts are wired the label
-    // appears.
-    //
-    // NOTE: in this port, FONT_DWARVENTODCRAFT18GREENINSET etc. are
-    // _Font* (opaque), NOT Sexy::Font*. The only Sexy::Font* globals
-    // available are FONT_DWARVEN and FONT_COUNTER (declared in
-    // engine/Font.h). Use FONT_DWARVEN here.
-    Sexy::Font* font = Sexy::FONT_DWARVEN;
+    // Text -- use SystemFont (8x8 bitmap fallback) since PvZ font assets
+    // are not in the PAK (M4 #4).
+    Sexy::SystemFont* font = Sexy::SystemFont::Get();
     if (font)
     {
         g->SetFont(font);
         g->SetColor(Sexy::Color(255, 255, 255, 255));
         int tw = font->StringWidth(mText.c_str());
         int tx = mX + (mWidth - tw) / 2;
-        int ty = mY + (mHeight + font->GetAscent()) / 2 - 2;
+        int ty = mY + (mHeight + 8) / 2 - 2;
         g->DrawString(mText.c_str(), tx, ty);
     }
 }

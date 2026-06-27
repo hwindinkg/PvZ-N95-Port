@@ -27,13 +27,6 @@
 #include "TitleScreen.h"
 
 #include "../../LawnApp.h"
-// NOTE: do NOT #include ../../Resources.h here. LawnApp.h includes engine/Stubs.h
-// which #defines IMAGE_MONEYBAG, IMAGE_REANIM_CRAZYDAVE_MOUTH1, etc. as macros.
-// Those macros would corrupt the extern declarations in Resources.h (turning
-// `extern Image* IMAGE_MONEYBAG;` into `extern Image* ((Sexy::Image*)0);` which
-// is a syntax error). TitleScreen.h already forward-declares the 4 IMAGE_*
-// globals we need (IMAGE_TITLESCREEN, IMAGE_LOADBAR_DIRT, IMAGE_LOADBAR_GRASS,
-// IMAGE_PVZ_LOGO), so we don't need Resources.h.
 #include "../../engine/Graphics.h"
 #include "../../engine/Image.h"
 #include "../../engine/MemoryImage.h"
@@ -41,6 +34,7 @@
 #include "../../engine/Rect.h"
 #include "../../engine/SexyAppBase.h"
 #include "../../engine/ResourceManager.h"   // for ResourceManager (LawnApp.h only forward-declares it)
+#include "../../engine/SystemFont.h"        // for "Click to Start" text
 
 namespace Sexy {
 
@@ -180,26 +174,28 @@ void TitleScreen::Draw(Graphics* g)
         }
     }
 
-    // -- "Click to Start" indicator (when bar is full) --------------------
-    // Since fonts are not yet ported (M4 #4), draw a blinking rectangle
-    // below the bar to indicate "click to continue". This matches the
-    // upstream behaviour where TitleScreen shows a "Click to Start"
-    // hyperlink after the loading bar fills.
+    // -- "Click to Start" text (when bar is full) -------------------------
+    // Upstream shows a HyperlinkWidget "Click to Start" after the bar fills.
+    // We use SystemFont (8x8 bitmap fallback) since PvZ font assets are not
+    // in the PAK. Blink every ~1s to draw attention.
     if (mCurBarWidth >= mTotalBarWidth - 1.0f)
     {
-        // Blink: alternate visibility every ~30 frames (~1s at 30fps).
-        int blink = ((int)(mCurBarWidth * 10) % 60) < 30;  // pseudo-blink
+        // Blink using mAppCounter (increments each Update).
+        int blink = (mApp->mAppCounter / 15) % 2;  // ~0.5s on, 0.5s off at 30fps
         if (blink)
         {
-            int blinkY = barY + barH + 10;
-            int blinkW = 120;
-            int blinkH = 16;
-            int blinkX = (mWidth - blinkW) / 2;
-            // Yellow box = "click here" indicator.
-            g->SetColor(Color(255, 255, 0, 255));
-            g->FillRect(blinkX, blinkY, blinkW, blinkH);
-            g->SetColor(Color(0, 0, 0, 255));
-            g->DrawRect(blinkX, blinkY, blinkW, blinkH);
+            SystemFont* font = SystemFont::Get();
+            if (font)
+            {
+                const char* msg = "Click to Start";
+                int textW = font->StringWidth(msg);
+                int textX = (mWidth - textW) / 2;
+                int textY = barY + barH + 20;
+                // Yellow text.
+                g->SetFont(font);
+                g->SetColor(Color(255, 255, 0, 255));
+                g->DrawString(msg, textX, textY);
+            }
         }
     }
 }

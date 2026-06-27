@@ -5,6 +5,7 @@
 #include "PvZVfs.h"
 #include "engine/ResourceManager.h"
 #include "engine/WidgetManager.h"
+#include "engine/SystemFont.h"   // for SystemFont::Initialize
 #include "Resources.h"
 #include <f32file.h>
 
@@ -99,6 +100,12 @@ void CPvZAppUi::ConstructL()
     if (!iLawnApp->mGraphics) iLawnApp->mGraphics = new Sexy::Graphics();
     if (!iLawnApp->mResourceManager) iLawnApp->mResourceManager = new ResourceManager();
     gResourceManager = iLawnApp->mResourceManager;
+    // [M4 #4] Initialize the fallback bitmap font. PvZ font assets (.dat +
+    // .png) are not in the PAK, so GetFontThrow returns a SystemFont instance
+    // (8x8 hardcoded ASCII glyphs). Initialize must be called before any
+    // GetFontThrow call (which happens during LoadingThreadProc).
+    Sexy::SystemFont::Initialize();
+    Log(_L("step: SystemFont initialized"));
     Log(_L("step: subsystems allocated"));
 
     Log(_L("step: LawnApp::Init"));

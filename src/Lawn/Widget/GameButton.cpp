@@ -26,6 +26,7 @@
 #include "../../engine/Image.h"
 #include "../../engine/MemoryImage.h"
 #include "../../engine/Font.h"
+#include "../../engine/SystemFont.h"  // for button label text
 #include "../../engine/WidgetManager.h"
 #include "../../engine/SexyAppBase.h"
 
@@ -97,21 +98,15 @@ void DrawStoneButton(Sexy::Graphics* g, int x, int y, int theWidth, int theHeigh
         g->DrawRect(x, y, theWidth, theHeight);
     }
 
-    // Label -- best-effort; if FONT_DWARVEN is NULL
-    // (GetFontThrow stubbed, M4 #4), we skip the text but the button
-    // rectangle is still visible. Once fonts are wired the label appears.
-    //
-    // NOTE: in this port, FONT_DWARVENTODCRAFT18GREENINSET etc. are _Font*
-    // (opaque), NOT Sexy::Font*. The only Sexy::Font* globals available
-    // are FONT_DWARVEN and FONT_COUNTER (declared in engine/Font.h).
-    Font* aFont   = Sexy::FONT_DWARVEN;
-    Font* aFontHi = Sexy::FONT_DWARVEN;
-    if (aFont && aFontHi)
+    // Label -- use SystemFont (8x8 bitmap fallback) since PvZ font assets
+    // are not in the PAK (M4 #4).
+    SystemFont* aFont = SystemFont::Get();
+    if (aFont)
     {
-        g->SetFont(isHighLighted ? aFontHi : aFont);
+        g->SetFont(aFont);
         int sw = aFont->StringWidth(theLabel.c_str());
         aFontX += (theWidth - sw) / 2 + 1;
-        aFontY += (theHeight - aFont->GetAscent() / 6 - 1 + aFont->GetAscent()) / 2 - 4;
+        aFontY += (theHeight - 8) / 2 + 8;
         g->SetColor(Color::White);
         g->DrawString(theLabel.c_str(), aFontX, aFontY);
     }
@@ -333,17 +328,11 @@ void GameButton::Draw(Sexy::Graphics* g)
     g->mTransX += mX;
     g->mTransY += mY;
 
-    // Lazy default font if a label is set but no font was assigned.
-    // (GetFontThrow is stubbed -- if FONT_DWARVEN is NULL this stays NULL
-    //  and the label just won't render. The button image still draws.)
-    //
-    // NOTE: in this port, FONT_PICO129 etc. are _Font* (opaque), NOT
-    // Sexy::Font*. The only Sexy::Font* globals are FONT_DWARVEN and
-    // FONT_COUNTER. Use FONT_DWARVEN as the default button font.
+    // Lazy default font: use SystemFont if no explicit font was assigned.
+    // PvZ font assets are not in the PAK (M4 #4), so FONT_DWARVEN is NULL.
     if (!mFont && !mLabel.empty())
     {
-        if (Sexy::FONT_DWARVEN)
-            mFont = Sexy::FONT_DWARVEN;
+        mFont = SystemFont::Get();
     }
 
     int aFontX = mTextOffsetX;
