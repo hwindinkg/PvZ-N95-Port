@@ -159,7 +159,9 @@ void CPvZAppUi::ConstructL()
         Log(_L("step: LoadingThreadProc (sync) START"));
         iLawnApp->LoadingThreadProc();
         Log(_L("step: LoadingThreadProc DONE"));
+        Log(_L("step: about to call LoadingCompleted"));
         iLawnApp->LoadingCompleted();   // remove title screen -> ShowGameSelector()
+        Log(_L("step: LoadingCompleted returned OK"));
         Log(_L("step: LoadingCompleted -> menu"));
     }
 

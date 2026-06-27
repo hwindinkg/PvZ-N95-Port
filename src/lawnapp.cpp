@@ -550,37 +550,8 @@ void LawnApp::ShowGameSelector()
     mWidgetManager->BringToBack(mGameSelector);
     mWidgetManager->SetFocus(mGameSelector);
 
-    // [M4 #1 diag] Dump the widget list so we can see what's in the manager
-    // after ShowGameSelector. Each line: index, ptr, x, y, w, h, vis.
-    // Written to C:\Data\PvZ\wgt_dump.txt (separate file -- wgt_log.txt gets
-    // overwritten by WidgetContainer::DrawAll's one-shot log on first frame).
-    {
-        RFs fs; RFile f;
-        if (fs.Connect() == KErrNone)
-        {
-            fs.MkDirAll(_L("C:\\Data\\PvZ"));
-            if (f.Replace(fs, _L("C:\\Data\\PvZ\\wgt_dump.txt"), EFileWrite) == KErrNone)
-            {
-                TBuf8<32> hdr; hdr.Format(_L8("ShowGameSelector: %d widgets\n"),
-                                          mWidgetManager->GetWidgetCount());
-                f.Write(hdr);
-                for (int i = 0; i < mWidgetManager->GetWidgetCount(); i++)
-                {
-                    Sexy::Widget* w = mWidgetManager->GetWidgetAt(i);
-                    if (w)
-                    {
-                        TBuf8<128> line;
-                        line.Format(_L8("  [%d] ptr=%08x x=%d y=%d w=%d h=%d vis=%d\n"),
-                                    i, (TUint)w, (TInt)w->mX, (TInt)w->mY,
-                                    (TInt)w->mWidth, (TInt)w->mHeight, (TInt)w->mVisible);
-                        f.Write(line);
-                    }
-                }
-                f.Close();
-            }
-            fs.Close();
-        }
-    }
+    // (widget-list diagnostic dump is in LoadingCompleted, writing to
+    // wgt_dump.txt -- shows the state BEFORE ShowGameSelector adds new widgets.)
 
     //if (NeedRegister())
     //{
@@ -1856,31 +1827,48 @@ void LawnApp::LoadingCompleted()
     SafeDeleteWidget(mTitleScreen);
     mTitleScreen = NULL;
 
-    // [M4 #1 fix] DEFENSIVE CLEANUP: draw_progress.txt on-device showed 13
-    // widgets after ShowGameSelector (expected 12: 1 GameSelector + 10 buttons
-    // + 1 tooltip). The mystery 13th widget at index 1, (0,0,400,300),
-    // ptr=0x0072a2a0, was a STALE TitleScreen that RemoveWidget above did NOT
-    // remove from the array (reason unclear -- possibly RemoveWidget was
-    // called when mTitleScreen had already been swapped out, or the widget
-    // was added under a different pointer identity). The stale TitleScreen
-    // drew a purple FillRect + unscaled titlescreen (1/4 visible, top-left
-    // corner) ON TOP of GameSelector -- the user saw "loading screen with
-    // purple tint, no buttons" even though GameSelector + 10 buttons were
-    // all correctly in the list and drawing.
+    // [M4 #1 fix] Diagnostic: dump widget list to wgt_dump.txt BEFORE
+    // ShowGameSelector adds GameSelector + buttons. This is a separate file
+    // from wgt_log.txt (which gets overwritten by DrawAll's one-shot log).
+    // On previous run, draw_progress.txt showed 13 widgets (expected 12) with
+    // a mystery (0,0,400,300) widget on top of GameSelector -- suspected stale
+    // TitleScreen. This dump will confirm.
     //
-    // Fix: NUKE the entire widget list before ShowGameSelector adds the new
-    // GameSelector + buttons. This guarantees a clean slate. We don't delete
-    // the widget objects (they may be owned elsewhere); we only remove them
-    // from the manager's draw/hit-test array.
-    //
-    // NOTE: this is safe because LoadingCompleted is the transition from
-    // loading to menu -- there should be NO widgets alive at this point
-    // except the (now-deleted) TitleScreen.
-    while (mWidgetManager->GetWidgetCount() > 0)
+    // Using Replace (matching PvZAppUi.cpp's Log helper pattern) -- opens or
+    // creates the file, truncates to 0, writes from start. Simpler than
+    // Open+SetSize and avoids any GCCE quirks with SetSize.
     {
-        Sexy::Widget* w = mWidgetManager->GetWidgetAt(0);
-        if (w) mWidgetManager->RemoveWidget(w);
-        else break;
+        RFs fs; RFile f;
+        if (fs.Connect() == KErrNone)
+        {
+            fs.MkDirAll(_L("C:\\Data\\PvZ"));
+            if (f.Replace(fs, _L("C:\\Data\\PvZ\\wgt_dump.txt"),
+                          EFileWrite | EFileShareAny) == KErrNone)
+            {
+                TBuf8<64> hdr;
+                hdr.Format(_L8("LoadingCompleted: %d widgets\n"),
+                           mWidgetManager->GetWidgetCount());
+                f.Write(hdr);
+                for (int i = 0; i < mWidgetManager->GetWidgetCount(); i++)
+                {
+                    Sexy::Widget* w = mWidgetManager->GetWidgetAt(i);
+                    if (w)
+                    {
+                        TBuf8<128> line;
+                        line.Format(_L8("  [%d] ptr=%08x x=%d y=%d w=%d h=%d vis=%d\n"),
+                                    i, (TUint)w,
+                                    (TInt)w->mX, (TInt)w->mY,
+                                    (TInt)w->mWidth, (TInt)w->mHeight,
+                                    (TInt)w->mVisible);
+                        f.Write(line);
+                    }
+                }
+                f.Write(_L8("--- end ---\n"));
+                f.Flush();
+                f.Close();
+            }
+            fs.Close();
+        }
     }
 
     // NOTE: Keep IMAGE_TITLESCREEN in the ResourceManager cache even though the
