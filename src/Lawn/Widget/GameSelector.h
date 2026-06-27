@@ -29,6 +29,7 @@
 #include "../../engine/Widget.h"
 #include "../../engine/ButtonListener.h"
 #include "../../ConstEnums.h"
+#include "../../Sexy.TodLib/ReanimLoader.h"
 
 namespace Sexy { class LawnApp; }
 class ToolTipWidget;
@@ -72,6 +73,8 @@ public:
     GameButton*     mZenGardenButton;
     GameButton*     mChangeUserButton;
     ToolTipWidget*  mToolTip;
+    ReanimDefinition mReanimDef;   // parsed SelectorScreen.reanim.compiled
+    bool            mReanimLoaded;
 
     // -- State -----------------------------------------------------------
     LawnApp*        mApp;

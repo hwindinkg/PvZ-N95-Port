@@ -112,6 +112,7 @@ GameSelector::GameSelector(LawnApp* theApp)
     mHasTransparencies = true;
     mDoFinger = false;
     mWantsFocus = true;
+    mReanimLoaded = false;
 
     WidgetManager* wm = mApp ? mApp->mWidgetManager : NULL;
     if (!wm)
@@ -148,6 +149,22 @@ GameSelector::GameSelector(LawnApp* theApp)
     wm->AddWidget(mToolTip);
 
     GSLog(_L8("GS:ctor buttons created and added to WidgetManager\n"));
+
+    // [M4 reanim] Load SelectorScreen.reanim.compiled for 1:1 menu rendering.
+    // PAK path: compiled/reanim/SelectorScreen.reanim.compiled
+    mReanimLoaded = ReanimLoadCompiled(
+        "compiled/reanim/SelectorScreen.reanim.compiled", mReanimDef);
+    if (mReanimLoaded)
+    {
+        TBuf8<80> b;
+        b.Format(_L8("GS:reanim loaded: %d tracks, FPS=%.1f\n"),
+                 mReanimDef.mTrackCount, mReanimDef.mFPS);
+        GSLog(b);
+    }
+    else
+    {
+        GSLog(_L8("GS:reanim FAILED to load SelectorScreen.reanim.compiled\n"));
+    }
 }
 
 GameSelector::~GameSelector()
@@ -278,11 +295,51 @@ void GameSelector::Draw(Graphics* g)
 {
     if (g == NULL) return;
 
-    // -- Background: IMAGE_BACKGROUND1 (lawn) if loaded, else IMAGE_TITLESCREEN.
-    // Upstream uses Reanimation(SelectorScreen) as background, but that requires
-    // the Reanimation system (M5). IMAGE_BACKGROUND1 is the lawn image -- the
-    // menu in the original PvZ is drawn ON TOP of the lawn. This is closer to
-    // 1:1 than using the titlescreen as background.
+    g->SetColor(Color(255, 255, 255, 255));
+
+    // [M4 reanim] If SelectorScreen.reanim.compiled loaded, render static frame
+    // from track transforms. Each track has transforms with image refs + positions.
+    // We render transform[0] (frame 0) of each track — a static snapshot of the
+    // menu scene (background, wooden signs, clouds, flowers, etc.).
+    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
+    {
+        for (int i = 0; i < mReanimDef.mTrackCount; i++)
+        {
+            ReanimTrack& track = mReanimDef.mTracks[i];
+            if (track.mTransformCount <= 0 || !track.mTransforms)
+                continue;
+
+            // Use transform[0] (first frame)
+            ReanimTransform& t = track.mTransforms[0];
+            if (!t.mImage)
+                continue;
+
+            // Draw image at transform position, scaled by transform scale.
+            // Upstream coordinates are in 800x600 space; our canvas is 400x300.
+            // Scale: x*0.5, y*0.5.
+            int drawX = (int)(t.mTransX * 0.5f);
+            int drawY = (int)(t.mTransY * 0.5f);
+            MemoryImage* mem = static_cast<MemoryImage*>(t.mImage);
+            if (t.mScaleX != 1.0f || t.mScaleY != 1.0f)
+            {
+                int w = (int)(t.mImage->GetWidth() * t.mScaleX * 0.5f);
+                int h = (int)(t.mImage->GetHeight() * t.mScaleY * 0.5f);
+                if (w > 0 && h > 0)
+                    g->DrawImage(mem, drawX, drawY, w, h);
+            }
+            else
+            {
+                // Draw at half size (800x600 -> 400x300)
+                int w = t.mImage->GetWidth() / 2;
+                int h = t.mImage->GetHeight() / 2;
+                if (w > 0 && h > 0)
+                    g->DrawImage(mem, drawX, drawY, w, h);
+            }
+        }
+        return;  // reanim rendered, skip fallback
+    }
+
+    // -- Fallback: IMAGE_BACKGROUND1 (lawn) or IMAGE_TITLESCREEN --
     Image* bg = IMAGE_BACKGROUND1;
     if (bg == NULL)
         bg = IMAGE_TITLESCREEN;
@@ -292,11 +349,9 @@ void GameSelector::Draw(Graphics* g)
         if (!bg) bg = mApp->mResourceManager->GetImage("IMAGE_TITLESCREEN");
     }
 
-    g->SetColor(Color(255, 255, 255, 255));
     if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
     {
         MemoryImage* mem = static_cast<MemoryImage*>(bg);
-        // IMAGE_BACKGROUND1 is 1400x600 upstream. Scale to fit 400x300 canvas.
         g->DrawImage(mem, 0, 0, mWidth, mHeight);
     }
     else
