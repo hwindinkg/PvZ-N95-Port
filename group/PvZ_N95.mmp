@@ -67,6 +67,7 @@ SOURCE          miniz.c                // [M4 reanim] zlib replacement for .rean
 SOURCEPATH      ..\src\Sexy.TodLib
 SOURCE          TodCommon.cpp
 SOURCE          TodDebug.cpp
+SOURCE          ReanimLoader.cpp     // [M4 reanim] .reanim.compiled parser (zlib + binary format)
 
 // === Resources ===
 SOURCEPATH      ..\src

@@ -110,14 +110,15 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ### 1:1 port roadmap (next priorities)
 
-1. **Fix text rendering** — make `Graphics::DrawString` call `mFont->DrawString`
-   so SystemFont's pixel-rect rendering is invoked.
-2. **Find/restore missing assets** — check if PAK has REANIM_SELECTORSCREEN_*
-   under different paths, or if a different PAK file has them.
-3. **Port Reanimation system** (M5) — required for 1:1 menu. Large effort.
-4. **Port upstream GameSelector.cpp 1:1** — once Reanimation works + assets found.
-5. **Port IMAGE_BACKGROUND1 tiling** (M4 #3) — as fallback background if
-   Reanimation background unavailable.
+1. ✅ **Fix text rendering** — SystemFont pixel-rect rendering implemented
+2. ✅ **Find/restore missing assets** — PAK analysis confirmed all 31
+   IMAGE_REANIM_SELECTORSCREEN_* assets present under `reanim/` prefix
+3. ✅ **Add zlib** — miniz (single-file zlib) added to build
+4. ✅ **ReanimLoader** — minimal .reanim.compiled parser (zlib + binary format)
+5. **Port Reanimation engine** — Reanimator.cpp (animation playback)
+6. **Port EffectSystem** — reanimation holder/manager
+7. **Port upstream GameSelector.cpp 1:1** — with real Reanimation + assets
+8. **Port upstream TitleScreen.cpp** — SODROLLCAP animation on loading bar
 
 ### Build/test history (session 2)
 
