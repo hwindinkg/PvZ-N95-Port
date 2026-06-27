@@ -127,6 +127,17 @@ public:
     bool            IsButtonDown() const { return mIsDown && mIsOver && !mDisabled && !mBtnNoDraw; }
     void            SetColor(int idx, const Sexy::Color& c) { if (idx >= 0 && idx < NUM_COLORS) mColors[idx] = c; }
 
+    // -- Compat: hit-test helpers used by board.cpp (Board::MouseDown).
+    // Upstream GameButton has a real MouseHitTest that checks the polygon
+    // shape; the old port stub returned false unconditionally. We replicate
+    // the stub behaviour -- board.cpp only uses it to gate "did the click
+    // land on the menu button", and the WidgetManager's FindWidget already
+    // routes clicks to the right widget. Return false so the early-return
+    // path in Board::MouseDown is NOT taken; the menu/store button gets
+    // the click through the normal widget dispatch.
+    bool            MouseHitTest(int x, int y) { (void)x; (void)y; return false; }
+    bool            MouseHitTest(int x, int y, int theClickCount) { (void)x; (void)y; (void)theClickCount; return false; }
+
     // -- Helpers (used internally and by DrawStoneButton) ----------------
     static bool     HaveButtonImage(Sexy::Image* theImage, const Sexy::Rect& theRect);
     void            DrawButtonImage(Sexy::Graphics* g, Sexy::Image* theImage,
