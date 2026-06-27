@@ -4,6 +4,7 @@
 #include "PakInterface.h"
 #include "PvZVfs.h"
 #include "engine/ResourceManager.h"
+#include "engine/WidgetManager.h"
 #include "Resources.h"
 #include <f32file.h>
 
@@ -259,6 +260,7 @@ TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode a
         if (isCentre && !iCentreKeyDown)
         {
             iCentreKeyDown = true;
+            iCursorVisible = true;  // show cursor on first click too
             SynthesizeMouseClick();
             return EKeyWasConsumed;
         }
@@ -326,6 +328,11 @@ void CPvZAppUi::InitVirtualCursor()
 void CPvZAppUi::SynthesizeMouseMove()
 {
     if (!iLawnApp || !iLawnApp->mWidgetManager) return;
+    // Update the static cursor globals so WidgetManager::DrawScreen can
+    // render the cursor overlay.
+    Sexy::g_sCursorX = iCursorX;
+    Sexy::g_sCursorY = iCursorY;
+    Sexy::g_sCursorVisible = iCursorVisible;
     iLawnApp->mWidgetManager->MouseMove(iCursorX, iCursorY);
 }
 
@@ -333,6 +340,9 @@ void CPvZAppUi::SynthesizeMouseClick()
 {
     if (!iLawnApp || !iLawnApp->mWidgetManager) return;
     // Move to the cursor position first so the correct widget is hit.
+    Sexy::g_sCursorX = iCursorX;
+    Sexy::g_sCursorY = iCursorY;
+    Sexy::g_sCursorVisible = iCursorVisible;
     iLawnApp->mWidgetManager->MouseMove(iCursorX, iCursorY);
     // MouseDown then MouseUp -- this triggers WidgetManager::FindWidget ->
     // w->MouseDown -> SetFocus; then w->MouseUp which GameButton uses to

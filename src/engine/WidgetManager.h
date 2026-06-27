@@ -66,6 +66,13 @@ public:
     template<typename T> void RemoveWidget(T*& w) { w = NULL; }
 };
 
+// [M4 #2] Virtual d-pad cursor position, set by CPvZAppUi::HandleKeyEventL
+// and read by WidgetManager::DrawScreen to draw the cursor overlay.
+// Static globals avoid a circular include between engine/ and platform/symbian/.
+extern int  g_sCursorX;
+extern int  g_sCursorY;
+extern bool g_sCursorVisible;
+
 } // namespace Sexy
 
 #endif // WIDGETMANAGER_H

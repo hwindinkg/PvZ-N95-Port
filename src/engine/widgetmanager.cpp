@@ -3,6 +3,12 @@
 
 namespace Sexy {
 
+// [M4 #2] Virtual d-pad cursor globals (declared in WidgetManager.h).
+// Set by CPvZAppUi::HandleKeyEventL, read by WidgetManager::DrawScreen.
+int  g_sCursorX = 200;
+int  g_sCursorY = 150;
+bool g_sCursorVisible = false;
+
 WidgetManager::WidgetManager()
     : mDefaultTab(NULL)
     , mFocusWidget(NULL)
@@ -68,6 +74,27 @@ void WidgetManager::SetFocus(Widget* theWidget)
 void WidgetManager::DrawScreen(Graphics* g)
 {
     DrawAll(g);
+
+    // [M4 #2] Draw the virtual d-pad cursor overlay on top of all widgets.
+    // The cursor position is set by CPvZAppUi::HandleKeyEventL (d-pad arrows
+    // move it 16px/press). Without a visible cursor the user can't tell where
+    // their click will land. Drawn as a yellow crosshair + small filled square
+    // so it's visible over any background.
+    // Cursor position is stored in static globals set by the platform layer
+    // (CPvZAppUi) -- declared in WidgetManager.h.
+    if (g_sCursorVisible && g_sCursorX >= 0 && g_sCursorY >= 0)
+    {
+        int cx = g_sCursorX;
+        int cy = g_sCursorY;
+        // Yellow crosshair.
+        g->SetColor(Sexy::Color(255, 255, 0, 255));
+        g->DrawRect(cx - 8, cy - 1, 17, 3);   // horizontal bar
+        g->DrawRect(cx - 1, cy - 8, 3, 17);   // vertical bar
+        // Center filled square (the "click point").
+        g->SetColor(Sexy::Color(255, 0, 0, 255));
+        g->FillRect(cx - 2, cy - 2, 5, 5);
+    }
+
     mDirty = false;
 }
 

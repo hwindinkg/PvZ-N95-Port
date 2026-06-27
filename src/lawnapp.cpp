@@ -1823,20 +1823,11 @@ void LawnApp::LoadingThreadCompleted()
 // GOTY @Patoke: 0x456150
 void LawnApp::LoadingCompleted()
 {
-    mWidgetManager->RemoveWidget(mTitleScreen);
-    SafeDeleteWidget(mTitleScreen);
-    mTitleScreen = NULL;
-
-    // [M4 #1 fix] Diagnostic: dump widget list to wgt_dump.txt BEFORE
-    // ShowGameSelector adds GameSelector + buttons. This is a separate file
-    // from wgt_log.txt (which gets overwritten by DrawAll's one-shot log).
-    // On previous run, draw_progress.txt showed 13 widgets (expected 12) with
-    // a mystery (0,0,400,300) widget on top of GameSelector -- suspected stale
-    // TitleScreen. This dump will confirm.
-    //
-    // Using Replace (matching PvZAppUi.cpp's Log helper pattern) -- opens or
-    // creates the file, truncates to 0, writes from start. Simpler than
-    // Open+SetSize and avoids any GCCE quirks with SetSize.
+    // [M4 #1 diag] Dump widget list + mTitleScreen pointer BEFORE RemoveWidget,
+    // so we can see whether mTitleScreen actually matches a widget in the array.
+    // Previous run showed: after RemoveWidget+delete, 1 widget (ptr=0072a2a0)
+    // remained -- meaning mTitleScreen pointed somewhere else, OR RemoveWidget
+    // failed to find it. This dump resolves which.
     {
         RFs fs; RFile f;
         if (fs.Connect() == KErrNone)
@@ -1845,8 +1836,73 @@ void LawnApp::LoadingCompleted()
             if (f.Replace(fs, _L("C:\\Data\\PvZ\\wgt_dump.txt"),
                           EFileWrite | EFileShareAny) == KErrNone)
             {
-                TBuf8<64> hdr;
-                hdr.Format(_L8("LoadingCompleted: %d widgets\n"),
+                TBuf8<96> hdr;
+                hdr.Format(_L8("LoadingCompleted ENTER: mTitleScreen=%08x, %d widgets in manager\n"),
+                           (TUint)mTitleScreen, mWidgetManager->GetWidgetCount());
+                f.Write(hdr);
+                for (int i = 0; i < mWidgetManager->GetWidgetCount(); i++)
+                {
+                    Sexy::Widget* w = mWidgetManager->GetWidgetAt(i);
+                    if (w)
+                    {
+                        TBuf8<128> line;
+                        line.Format(_L8("  [%d] ptr=%08x x=%d y=%d w=%d h=%d vis=%d\n"),
+                                    i, (TUint)w,
+                                    (TInt)w->mX, (TInt)w->mY,
+                                    (TInt)w->mWidth, (TInt)w->mHeight,
+                                    (TInt)w->mVisible);
+                        f.Write(line);
+                    }
+                }
+                f.Write(_L8("--- end ---\n"));
+                f.Flush();
+                f.Close();
+            }
+            fs.Close();
+        }
+    }
+
+    mWidgetManager->RemoveWidget(mTitleScreen);
+    SafeDeleteWidget(mTitleScreen);
+    mTitleScreen = NULL;
+
+    // [M4 #1 fix] STALE WIDGET CLEANUP -- safe version.
+    // Previous run showed: after RemoveWidget(mTitleScreen) + delete, ONE widget
+    // (ptr=0072a2a0, 0,0,400,300) was STILL in the manager. That widget drew
+    // purple FillRect + unscaled titlescreen on top of GameSelector.
+    // mTitleScreen didn't match its pointer (else RemoveWidget would have caught
+    // it). So there's a SECOND full-screen widget in the array that we don't
+    // have a named pointer to. Scan the array and remove any full-screen widget
+    // (i.e. covers the whole 400x300 canvas). This is safe because at
+    // LoadingCompleted time the ONLY legitimate full-screen widget would be
+    // GameSelector -- which hasn't been created yet (ShowGameSelector runs
+    // after this). We do NOT delete the widget objects (they may be owned
+    // elsewhere); we only remove them from the manager's draw/hit-test array.
+    //
+    // Iterate BACKWARDS because RemoveWidget shifts array elements down --
+    // forward iteration would skip the element after a removed one.
+    for (int i = mWidgetManager->GetWidgetCount() - 1; i >= 0; i--)
+    {
+        Sexy::Widget* w = mWidgetManager->GetWidgetAt(i);
+        if (w && w->mX == 0 && w->mY == 0 &&
+            w->mWidth >= 400 && w->mHeight >= 300)
+        {
+            mWidgetManager->RemoveWidget(w);
+        }
+    }
+
+    // [M4 #1 diag] Dump AGAIN after RemoveWidget+delete to see what remains.
+    {
+        RFs fs; RFile f;
+        if (fs.Connect() == KErrNone)
+        {
+            fs.MkDirAll(_L("C:\\Data\\PvZ"));
+            if (f.Open(fs, _L("C:\\Data\\PvZ\\wgt_dump.txt"),
+                       EFileWrite | EFileShareAny) == KErrNone)
+            {
+                TInt pos = 0; f.Seek(ESeekEnd, pos);
+                TBuf8<96> hdr;
+                hdr.Format(_L8("\nLoadingCompleted AFTER RemoveWidget+delete: %d widgets remain\n"),
                            mWidgetManager->GetWidgetCount());
                 f.Write(hdr);
                 for (int i = 0; i < mWidgetManager->GetWidgetCount(); i++)

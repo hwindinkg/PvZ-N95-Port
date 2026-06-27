@@ -48,6 +48,12 @@ private:
     int             iCursorY;
     bool            iCursorVisible;
     bool            iCentreKeyDown;  // debounce for centre-key clicks
+
+public:
+    // Accessors for PvZGameView to draw the cursor overlay.
+    int  CursorX() const { return iCursorX; }
+    int  CursorY() const { return iCursorY; }
+    bool CursorVisible() const { return iCursorVisible; }
 };
 
 #endif
