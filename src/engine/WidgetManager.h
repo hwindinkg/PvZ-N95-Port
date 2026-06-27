@@ -25,6 +25,12 @@ public:
     bool mWidgetsEnabled;
     bool mKeyDown[256];
 
+    // Bitmask of currently-held mouse buttons (bit 0 = left, bit 1 = right,
+    // bit 2 = middle). Mirrors the upstream Sexy framework so GameButton::Update
+    // can do `mIsDown = aManager->mDownButtons & 5` (left|middle) without change.
+    // Updated by MouseDown/MouseUp so widgets can poll it in Update().
+    int mDownButtons;
+
     void FocusNextWidget(bool next);
     void SetFocus(Widget* theWidget);
 

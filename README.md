@@ -69,6 +69,49 @@ App **boots, renders real game art with correct colours**, stable render loop
 with correct colours (no purple tint, no R/B swap). The four fixes above
 (commits pending) are **confirmed on-device**.
 
+**LATEST M4 #1 WORK (2026-06-27, code-review only — not yet built on device).**
+GameSelector + GameButton + ToolTipWidget ported; d-pad→mouse synthesis +
+`HandlePointerEventL` added to `PvZAppUi`. The menu now has 10 clickable
+buttons (Adventure/Survival/Minigames/Puzzles/Store/Almanac/ZenGarden/Options/
+Help/Quit) laid out on a 4-row grid over the title background. Click routing
+goes through `ButtonListener::ButtonDepressed` → `LawnApp` flow methods
+(`PreNewGame` / `ShowChallengeScreen` / `ShowStoreScreen` / `DoNewOptions` /
+`ConfirmQuit` / `DoAlmanacDialog`). Patches in
+`/home/z/my-project/download/m4-gameselector-patches/`.
+
+**What's new in M4 #1 (this session):**
+- `WidgetManager` gained `mDownButtons` bitmask (matches upstream) so
+  `GameButton::Update` can poll `mDownButtons & 5` for left|middle mouse.
+- `WidgetManager::MouseDown/MouseUp/MouseMove` now assign `mLastMouseX/Y`.
+- `GameButton` rewritten from 50-line stub to full `Widget` subclass (~165
+  lines .h, ~415 lines .cpp) with image+label, hover/down states, click
+  routing via `ButtonDepressed`. Stone-button 9-slice path with beige-rect
+  fallback when `IMAGE_BUTTON_*` globals are NULL.
+- `GameSelector` rewritten from 112-line M3 stub to ~410-line implementation
+  with 10 `GameButton` children, layout grid, click dispatch, tooltip, ESC
+  → `ConfirmQuit`, ENTER → `PreNewGame(GAMEMODE_ADVENTURE)`.
+- `ToolTipWidget` rewritten from 13-line stub to ~45-line .h + ~60-line .cpp.
+  Compat API (`SetWarningText/SetLabel/SetPosition/mCenter`) preserved so
+  `board.cpp` keeps compiling. NEW: `SetText` + real `Draw` (semi-transparent
+  black bg, thin border, text via `FONT_PICO129` if loaded).
+- `PvZAppUi`: `HandlePointerEventL` added (maps 320x240 window → 400x300
+  logical, forwards to `WidgetManager::MouseDown/Up/Move/Drag`). `HandleKeyEventL`
+  extended: d-pad arrows move a virtual cursor 16px/press + synthesize
+  `MouseMove`; centre key (EStdKeyDevice3) / Enter synthesizes
+  `MouseDown+MouseUp` (a click). Escape still routes to `KeyDown`.
+- `PvZ_N95.mmp`: `ToolTipWidget.cpp` + `Widget\GameButton.cpp` added to build.
+- BUILD MARKER bumped to `v13-m4-gameselector`.
+
+**What's NOT done (M5+ TODOs — see "M4 still open" below):**
+- Fonts (`GetFontThrow` stubbed) — button labels/title won't render until wired.
+- 51 NULL `IMAGE_/FONT_/SOUND_` symbols — `IMAGE_BUTTON_*` may still be NULL,
+  buttons fall back to beige filled rects.
+- `IMAGE_BACKGROUND1` tiling (M4 #3) — GameSelector still uses `IMAGE_TITLESCREEN`.
+- 149 `REANIM_*` not in PAK (M4 #6).
+- `StoreScreen.cpp` / `AlmanacDialog.cpp` / `ZenGarden.cpp` full impls — clicking
+  those buttons calls the LawnApp flow methods, which currently no-op.
+- Reanimation cloud/flower/leaf/hand decoration, ParticleSystem trophy sparkle.
+
 **Working:**
 - GCCE build pipeline (`group/build_gcce.cmd`) — compile, link, make SIS.
 - C++ runtime (EH / `User::Leave` / `TRAP`) via `STATICLIBRARY libgcc.lib`.
@@ -80,6 +123,8 @@ with correct colours (no purple tint, no R/B swap). The four fixes above
 - **`BringToFront`** ensures the target widget is drawn on top (the previous
   `BringToBack` buried it under an overlay).
 - **`ArgbToRgba`** in POT fallback fixes red/blue channel ordering.
+- **[M4 #1]** 10-button main menu + d-pad/touch input routing (not yet
+  device-verified — code review only).
 
 **TODO / still open (M4, priority order):**
 1. **Full `GameSelector` implementation** — Adventure/Survival/minigames/options
@@ -87,12 +132,26 @@ with correct colours (no purple tint, no R/B swap). The four fixes above
    `ToolTipWidget.cpp`, `Music.cpp`, `ProfileMgr.cpp`, `ZenGarden.cpp`,
    `SaveGame.cpp` (only `.h` stubs exist currently). Upstream reference:
    `src/Lawn/Widget/GameSelector.cpp` from `wszqkzqk/PvZ-Portable`.
+   **[MVP DONE 2026-06-27]** `GameButton.cpp` + `GameSelector.cpp` + `ToolTipWidget.cpp`
+   ported (patches in `/home/z/my-project/download/m4-gameselector-patches/`).
+   10 clickable buttons, d-pad/touch input, click routing to LawnApp flow
+   methods. `Music.cpp`/`ProfileMgr.cpp`/`SaveGame.cpp` are already inline
+   no-op stubs in their .h files (no .cpp needed). **Still TODO**:
+   `StoreScreen.cpp`/`AlmanacDialog.cpp`/`ZenGarden.cpp` full impls (clicking
+   those buttons currently no-ops); Reanimation decoration; ProfileMgr real
+   persistence; SaveGame real serialisation.
 2. **Key/touch input** — N95 needs d-pad + centre-key mapped to
    `WidgetManager::MouseDown/MouseUp` or `KeyDown`. Currently `PvZAppUi::HandleKeyEventL`
    only forwards four arrow keys + Enter + Escape via `WidgetManager::KeyDown`;
    the WidgetManager's `MouseDown/MouseUp/hit-test path is unreachable because
    `PvZGameView` doesn't call it. Add a `HandlePointerEventL` or extend the
    key handler to synthesise Mouse events.
+   **[DONE 2026-06-27]** `HandlePointerEventL` added to `PvZAppUi` (forwards
+   touch events with 320x240→400x300 coord mapping). `HandleKeyEventL`
+   extended: d-pad arrows move a virtual cursor 16px/press and synthesise
+   `MouseMove`; centre key (EStdKeyDevice3) / Enter synthesises
+   `MouseDown+MouseUp` (a click). Escape still routes to `KeyDown`. See
+   patches `08_pvzappui-h.patch` + `09_pvzappui-cpp.patch`.
 3. **Restore the lawn (`IMAGE_BACKGROUND1`) properly.** Needs BOTH: (a) decode it
    without OOM, and (b) a texture ≤1024 — i.e. **texture TILING** (split into
    ≤1024 tiles, the way the original Sexy framework does) or a pre-downscale.
