@@ -29,8 +29,16 @@ typedef unsigned int        uint32_t;
 typedef signed long long    int64_t;
 typedef unsigned long long  uint64_t;
 
+/* intptr_t may already be defined by Common.h or e32def.h as 'long int'.
+ * Don't redefine if already declared. */
+#ifndef _INTPTR_T_DEFINED
+#define _INTPTR_T_DEFINED
 typedef signed int          intptr_t;
+#endif
+#ifndef _UINTPTR_T_DEFINED
+#define _UINTPTR_T_DEFINED
 typedef unsigned int        uintptr_t;
+#endif
 
 typedef int64_t             intmax_t;
 typedef uint64_t            uintmax_t;
