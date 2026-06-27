@@ -25,6 +25,14 @@ public:
     void Palletedize();
     void DeleteBits();
 
+    // [M4 fix] Apply a colorkey: pixels matching `keyColor` (with optional
+    // tolerance) become fully transparent (alpha=0). Used for JPEG assets
+    // that should have transparency but don't (e.g. IMAGE_PVZ_LOGO is stored
+    // as pvz_logo.jpg in the PAK -- JPEG has no alpha channel, so the logo's
+    // black background renders as solid black instead of transparent).
+    // bits format is 0xAARRGGBB (one uint32 per pixel, native endian).
+    void ApplyColorKey(unsigned int keyColor, int tolerance = 0);
+
     static unsigned int* gGlobals;
 };
 

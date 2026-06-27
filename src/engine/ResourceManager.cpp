@@ -171,7 +171,20 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
                 Log(path);
                 Sexy::Image* img = LoadImageFromPak("", path);
                 if (img)
+                {
+                    // [M4 fix] Apply colorkey for logo images stored as JPEG
+                    // (no alpha channel). IMAGE_PVZ_LOGO / IMAGE_POPCAP_LOGO /
+                    // IMAGE_PARTNER_LOGO are JPEGs in the PAK -- their black
+                    // background should be transparent. Make black pixels
+                    // (tolerance 8 for JPEG compression artifacts) transparent.
+                    if (strstr(aResName, "LOGO") != NULL)
+                    {
+                        Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(img);
+                        mem->ApplyColorKey(0x00000000, 8);
+                        Log("  (colorkey applied: black -> transparent)");
+                    }
                     return img;
+                }
                 // Found the file but decode failed -- keep probing other
                 // candidates rather than giving up entirely.
                 Log("  (decode failed, continuing probe)");

@@ -79,4 +79,42 @@ void MemoryImage::DeleteBits()
     mOwnsBits = false;
 }
 
+void MemoryImage::ApplyColorKey(unsigned int keyColor, int tolerance)
+{
+    if (!mBits || mWidth <= 0 || mHeight <= 0)
+        return;
+
+    // bits format: 0xAARRGGBB, one uint32 per pixel (native endian).
+    unsigned int* pixels = (unsigned int*)mBits;
+    int pixelCount = mWidth * mHeight;
+
+    // Extract channels from keyColor (0xAARRGGBB).
+    int keyR = (int)((keyColor >> 16) & 0xFF);
+    int keyG = (int)((keyColor >> 8)  & 0xFF);
+    int keyB = (int)((keyColor)       & 0xFF);
+
+    for (int i = 0; i < pixelCount; i++)
+    {
+        unsigned int px = pixels[i];
+        int r = (int)((px >> 16) & 0xFF);
+        int g = (int)((px >> 8)  & 0xFF);
+        int b = (int)((px)       & 0xFF);
+
+        // Check if pixel matches keyColor within tolerance.
+        int dr = r - keyR; if (dr < 0) dr = -dr;
+        int dg = g - keyG; if (dg < 0) dg = -dg;
+        int db = b - keyB; if (db < 0) db = -db;
+        if (dr <= tolerance && dg <= tolerance && db <= tolerance)
+        {
+            // Make fully transparent, preserve RGB (irrelevant when alpha=0).
+            pixels[i] = 0x00000000;
+        }
+        else
+        {
+            // Ensure opaque (JPEG decodes with alpha=0xFF already, but be safe).
+            pixels[i] = px | 0xFF000000;
+        }
+    }
+}
+
 } // namespace Sexy
