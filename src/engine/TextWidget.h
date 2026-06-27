@@ -32,7 +32,12 @@ namespace Sexy
 {
 
 class ScrollbarWidget;
-class _Font;
+// [M4 #4 fix] _Font is typedef'd to Sexy::Font (see ResourceManager.h).
+#include "Font.h"
+#ifndef _FONT_TYPEDEF_DEFINED
+#define _FONT_TYPEDEF_DEFINED
+typedef Sexy::Font _Font;
+#endif
 
 typedef std::vector<std::string> SexyStringVector;
 typedef std::vector<int> IntVector;
@@ -40,45 +45,45 @@ typedef std::vector<int> IntVector;
 class TextWidget : public Widget, public ScrollListener
 {
 public:
-	_Font*				mFont;
-	ScrollbarWidget*	mScrollbar;
-	
-	SexyStringVector	mLogicalLines;
-	SexyStringVector	mPhysicalLines;
-	IntVector			mLineMap;
-	double				mPosition;
-	double				mPageSize;
-	bool				mStickToBottom;
-	int					mHiliteArea[2][2];
-	int					mMaxLines;
-	
+        _Font*                          mFont;
+        ScrollbarWidget*        mScrollbar;
+        
+        SexyStringVector        mLogicalLines;
+        SexyStringVector        mPhysicalLines;
+        IntVector                       mLineMap;
+        double                          mPosition;
+        double                          mPageSize;
+        bool                            mStickToBottom;
+        int                                     mHiliteArea[2][2];
+        int                                     mMaxLines;
+        
 public:
-	TextWidget();
+        TextWidget();
 
-	virtual SexyStringVector GetLines();
-	virtual void SetLines(SexyStringVector theNewLines);
-	virtual void Clear();
-	virtual void DrawColorString(Graphics* g, const std::string& theString, int x, int y, bool useColors);
-	virtual void DrawColorStringHilited(Graphics* g, const std::string& theString, int x, int y, int theStartPos, int theEndPos);
-	virtual int GetStringIndex(const std::string& theString, int thePixel);
-	
-	virtual int GetColorStringWidth(const std::string& theString);
-	virtual void Resize(int theX, int theY, int theWidth, int theHeight);
-	virtual Color GetLastColor(const std::string& theString);
-	virtual void AddToPhysicalLines(int theIdx, const std::string& theLine);
-	
-	virtual void AddLine(const std::string& theString);
-	virtual bool SelectionReversed();
-	virtual void GetSelectedIndices(int theLineIdx, int* theIndices);
-	virtual void Draw(Graphics* g);
-	virtual void ScrollPosition(int theId, double thePosition);
-	virtual void GetTextIndexAt(int x, int y, int* thePosArray);
-	virtual std::string GetSelection();
+        virtual SexyStringVector GetLines();
+        virtual void SetLines(SexyStringVector theNewLines);
+        virtual void Clear();
+        virtual void DrawColorString(Graphics* g, const std::string& theString, int x, int y, bool useColors);
+        virtual void DrawColorStringHilited(Graphics* g, const std::string& theString, int x, int y, int theStartPos, int theEndPos);
+        virtual int GetStringIndex(const std::string& theString, int thePixel);
+        
+        virtual int GetColorStringWidth(const std::string& theString);
+        virtual void Resize(int theX, int theY, int theWidth, int theHeight);
+        virtual Color GetLastColor(const std::string& theString);
+        virtual void AddToPhysicalLines(int theIdx, const std::string& theLine);
+        
+        virtual void AddLine(const std::string& theString);
+        virtual bool SelectionReversed();
+        virtual void GetSelectedIndices(int theLineIdx, int* theIndices);
+        virtual void Draw(Graphics* g);
+        virtual void ScrollPosition(int theId, double thePosition);
+        virtual void GetTextIndexAt(int x, int y, int* thePosArray);
+        virtual std::string GetSelection();
 
-	virtual void MouseDown(int x, int y, int theClickCount);
-	virtual void MouseDrag(int x, int y);	
-	
-	virtual void KeyDown(KeyCode theKey);
+        virtual void MouseDown(int x, int y, int theClickCount);
+        virtual void MouseDrag(int x, int y);   
+        
+        virtual void KeyDown(KeyCode theKey);
 };
 
 }

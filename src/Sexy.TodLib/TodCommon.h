@@ -29,14 +29,21 @@ class SexyMatrix3;
 class SexyVector2;
 class Color;
 }
-class _Font;
+// [M4 #4 fix] _Font is typedef'd to Sexy::Font in ResourceManager.h / Stubs.h /
+// SystemFont.h. Forward-declaring `class _Font` here would CONFLICT with that
+// typedef. Include Font.h + use the guarded typedef instead.
+#include "../engine/Font.h"
+#ifndef _FONT_TYPEDEF_DEFINED
+#define _FONT_TYPEDEF_DEFINED
+typedef Sexy::Font _Font;
+#endif
 
 // ---------------------------------------------------------------------------
 // Sexy_Rand  --  replacement for Sexy::Rand() using Symbian Math::Random()
 // ---------------------------------------------------------------------------
 inline int Sexy_Rand(int range)
 {
-	return (range > 0) ? (Math::Random() % range) : 0;
+        return (range > 0) ? (Math::Random() % range) : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -51,20 +58,20 @@ inline int Sexy_Rand(int range)
 // ---------------------------------------------------------------------------
 enum TodCurves
 {
-	CURVE_CONSTANT,
-	CURVE_LINEAR,
-	CURVE_EASE_IN,
-	CURVE_EASE_OUT,
-	CURVE_EASE_IN_OUT,
-	CURVE_EASE_IN_OUT_WEAK,
-	CURVE_FAST_IN_OUT,
-	CURVE_FAST_IN_OUT_WEAK,
-	CURVE_BOUNCE,
-	CURVE_BOUNCE_FAST_MIDDLE,
-	CURVE_BOUNCE_SLOW_MIDDLE,
-	CURVE_SIN_WAVE,
-	CURVE_EASE_SIN_WAVE,
-	CURVE_NUM
+        CURVE_CONSTANT,
+        CURVE_LINEAR,
+        CURVE_EASE_IN,
+        CURVE_EASE_OUT,
+        CURVE_EASE_IN_OUT,
+        CURVE_EASE_IN_OUT_WEAK,
+        CURVE_FAST_IN_OUT,
+        CURVE_FAST_IN_OUT_WEAK,
+        CURVE_BOUNCE,
+        CURVE_BOUNCE_FAST_MIDDLE,
+        CURVE_BOUNCE_SLOW_MIDDLE,
+        CURVE_SIN_WAVE,
+        CURVE_EASE_SIN_WAVE,
+        CURVE_NUM
 };
 
 
@@ -73,24 +80,24 @@ enum TodCurves
 // ---------------------------------------------------------------------------
 struct TodWeightedArray
 {
-	intptr_t   mItem;
-	int32_t    mWeight;
+        intptr_t   mItem;
+        int32_t    mWeight;
 };
 
 struct TodWeightedGridArray
 {
-	int32_t    mX;
-	int32_t    mY;
-	int32_t    mWeight;
+        int32_t    mX;
+        int32_t    mY;
+        int32_t    mWeight;
 };
 
 class TodSmoothArray
 {
 public:
-	int32_t    mItem;
-	float      mWeight;
-	float      mLastPicked;
-	float      mSecondLastPicked;
+        int32_t    mItem;
+        float      mWeight;
+        float      mLastPicked;
+        float      mSecondLastPicked;
 };
 
 // ---------------------------------------------------------------------------
@@ -99,8 +106,8 @@ public:
 template <typename T>
 inline T TodPickFromArray(const T* theArray, int theCount)
 {
-	TOD_ASSERT(theCount > 0);
-	return theCount > 0 ? theArray[Sexy_Rand(theCount)] : T();
+        TOD_ASSERT(theCount > 0);
+        return theCount > 0 ? theArray[Sexy_Rand(theCount)] : T();
 }
 
 // ---------------------------------------------------------------------------
