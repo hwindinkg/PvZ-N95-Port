@@ -4,6 +4,7 @@
 #include <e32base.h>
 #include <string.h>
 #include "Common.h"
+#include "Font.h"   // for Sexy::Font (so _Font typedef resolves)
 
 // intptr_t isn't available in Symbian GCCE stdapis.
 // On ARM 32-bit, a pointer fits in TInt32.
@@ -11,18 +12,16 @@
 #define intptr_t TInt32
 #endif
 
-namespace Sexy { class Image; class MemoryImage; class Font; }
+namespace Sexy { class Image; class MemoryImage; }
 
-// [M4 #4 fix] _Font is now a typedef for Sexy::Font (see engine/Stubs.h).
-// Previously it was an opaque forward-declared class, which made FONT_*
-// globals incompatible with Graphics::SetFont(Sexy::Font*). The typedef
-// in Stubs.h unifies the types. Forward-declaring `class _Font` here would
-// CONFLICT with the typedef (can't have both a class and a typedef with
-// the same name in the same scope). Including Font.h gives us the full
-// Sexy::Font definition, and Stubs.h's typedef makes _Font = Sexy::Font.
-// We do NOT redeclare _Font here.
+// [M4 #4 fix] _Font is now a typedef for Sexy::Font. Previously it was an
+// opaque forward-declared class, which made FONT_* globals incompatible
+// with Graphics::SetFont(Sexy::Font*). Defined here (with #ifndef guard)
+// so any file including ResourceManager.h gets _Font = Sexy::Font.
+// Stubs.h and SystemFont.h have the same guard.
 #ifndef _FONT_TYPEDEF_DEFINED
 #define _FONT_TYPEDEF_DEFINED
+typedef Sexy::Font _Font;
 #endif
 
 // Exception for resource loading (used by Resources.cpp try/catch blocks)
