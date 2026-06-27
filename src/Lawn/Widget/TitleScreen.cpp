@@ -27,7 +27,13 @@
 #include "TitleScreen.h"
 
 #include "../../LawnApp.h"
-#include "../../Resources.h"
+// NOTE: do NOT #include ../../Resources.h here. LawnApp.h includes engine/Stubs.h
+// which #defines IMAGE_MONEYBAG, IMAGE_REANIM_CRAZYDAVE_MOUTH1, etc. as macros.
+// Those macros would corrupt the extern declarations in Resources.h (turning
+// `extern Image* IMAGE_MONEYBAG;` into `extern Image* ((Sexy::Image*)0);` which
+// is a syntax error). TitleScreen.h already forward-declares the 4 IMAGE_*
+// globals we need (IMAGE_TITLESCREEN, IMAGE_LOADBAR_DIRT, IMAGE_LOADBAR_GRASS,
+// IMAGE_PVZ_LOGO), so we don't need Resources.h.
 #include "../../engine/Graphics.h"
 #include "../../engine/Image.h"
 #include "../../engine/MemoryImage.h"
