@@ -79,44 +79,45 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ### Current blockers (blocking 1:1 menu)
 
-1. **SYSTEMFONT RENDERS GREY RECTS, NOT TEXT**:
-   `gl_log.txt` shows only 3 textures (titlescreen + 2 loadbar). The font sheet
-   (128x48) texture is NOT created. `Graphics::DrawImage(MemoryImage*, x, y, srcRect)`
-   calls `GetOrCreateTexture` which should create a 128x64 POT texture, but it
-   doesn't appear in gl_log. Either:
-   - (a) `SystemFont::DrawString` is never called (check gfx_log — only "SetColor"
-     logged, no DrawImage trace), OR
-   - (b) `GetOrCreateTexture` returns 0 for the font sheet (mGL NULL? bits NULL?),
-     and `DrawImage` falls back to FillRect (grey rect).
-   Need to add logging to SystemFont::DrawString and GetOrCreateTexture to diagnose.
+1. **CRITICAL: MENU ASSETS NOT IN PAK**:
+   rmgr_log.txt confirms ALL `IMAGE_REANIM_SELECTORSCREEN_*` (15 entries including
+   `_BG` the menu background, `_ADVENTURE_BUTTON`, `_SURVIVAL_BUTTON`, etc.) are
+   "not found in PAK". `IMAGE_BACKGROUND1` (lawn) is never even attempted.
+   The original PvZ menu is drawn via `Reanimation(REANIM_SELECTOR_SCREEN)` which
+   uses `IMAGE_REANIM_SELECTORSCREEN_BG` as the background sprite — this asset is
+   MISSING from the PAK on device.
+   **Without these assets, a 1:1 visual port of the menu is IMPOSSIBLE.**
+   This is an asset pipeline issue, not a code issue. The PAK file on device
+   must be rebuilt with these assets, OR we must find them under different names.
 
-2. **MENU NOT 1:1**:
-   Current menu = titlescreen background + 10 beige rect buttons with (broken)
-   text labels. Original PvZ menu has:
-   - Lawn background (IMAGE_BACKGROUND1, 1400x600 tiled)
-   - Tombstone/wooden sign with button sprites (IMAGE_REANIM_SELECTORSCREEN_*)
-   - Reanimation clouds/flowers/leaf animation
-   - Proper button layout matching upstream GameSelector.cpp (1509 lines)
+2. **TEXT NOT RENDERING**:
+   `gfx_log.txt` shows only "SetColor called" — `SystemFont::DrawString` is never
+   reached. `Graphics::DrawString(text, x, y)` is a placeholder that draws a
+   white rect, NOT a call to `mFont->DrawString`. The port's Graphics::DrawString
+   does NOT dispatch to the Font's DrawString method. Fix: either make
+   Graphics::DrawString call mFont->DrawString, OR have callers call
+   mFont->DrawString directly.
 
-3. **149 REANIM_SELECTORSCREEN_* ASSETS NOT IN PAK** (M4 #6):
-   Even if we port upstream GameSelector.cpp 1:1, the button sprite images
-   are missing. Would need fallback rect buttons or asset pipeline fix.
+3. **MENU LAYOUT NOT 1:1**:
+   Current menu = titlescreen background + 10 beige rect buttons in a grid.
+   Original PvZ menu = Reanimation-based scene with:
+   - `IMAGE_REANIM_SELECTORSCREEN_BG` (animated lawn background)
+   - Wooden signs with button sprites (`IMAGE_REANIM_SELECTORSCREEN_*_BUTTON`)
+   - Clouds, flowers, leaf Reanimations
+   - Buttons positioned via Reanimation track transforms (not hardcoded x,y)
+   Even with assets, requires porting Reanimation system (Reanimator.cpp +
+   TodParticle, ~5000 lines upstream).
 
 ### 1:1 port roadmap (next priorities)
 
-1. **Fix SystemFont rendering** — add logging, find why texture not created.
-   This is the critical blocker for ALL text (button labels, tooltips, title).
-2. **Port IMAGE_BACKGROUND1 tiling** (M4 #3) — lawn background for menu.
-   1400x600 → split into ≤1024 tiles (PowerVR MBX limit, though gl_log shows
-   GL_MAX_TEXTURE_SIZE=2048 — may be able to use single 2048x1024 texture).
-3. **Port upstream GameSelector.cpp 1:1** — tombstone background, proper layout.
-   Replace simplified 10-button grid with upstream's Reanimation-based buttons.
-   Fallback to rect buttons if REANIM_SELECTORSCREEN_* unavailable.
-4. **Port upstream TitleScreen.cpp** — state machine with PopCap logo fade,
-   partner logo, "Click to Start" hyperlink (not just text).
-5. **Port HyperlinkWidget** — for "Click to Start" and menu buttons.
-6. **Port Reanimation system** (M5) — for SODROLLCAP, clouds, flowers.
-   Large effort (Reanimator.cpp + TodParticle + 149 REANIM_* assets).
+1. **Fix text rendering** — make `Graphics::DrawString` call `mFont->DrawString`
+   so SystemFont's pixel-rect rendering is invoked.
+2. **Find/restore missing assets** — check if PAK has REANIM_SELECTORSCREEN_*
+   under different paths, or if a different PAK file has them.
+3. **Port Reanimation system** (M5) — required for 1:1 menu. Large effort.
+4. **Port upstream GameSelector.cpp 1:1** — once Reanimation works + assets found.
+5. **Port IMAGE_BACKGROUND1 tiling** (M4 #3) — as fallback background if
+   Reanimation background unavailable.
 
 ### Build/test history (session 2)
 
