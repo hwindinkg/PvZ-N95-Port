@@ -78,7 +78,8 @@ int rand(void)
 // User::Alloc/User::Free via custom new/delete, but has no libc.
 // Provide C-callable wrappers. Use 'unsigned int' instead of size_t
 // (Symbian GCCE may not have size_t in this context).
-extern "C" {
+// NOTE: we're already inside the extern "C" block opened at the top
+// of this file, so no need for a second extern "C".
 
 void* malloc(unsigned int aSize)
 {
@@ -106,4 +107,4 @@ void* calloc(unsigned int aCount, unsigned int aSize)
     return p;
 }
 
-} // extern "C"
+} // extern "C" (closes the block opened at line 19)
