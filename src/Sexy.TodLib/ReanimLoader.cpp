@@ -12,8 +12,12 @@
 #include "../engine/ResourceManager.h"
 
 // miniz.h includes stdio.h (for FILE*) which conflicts with Common.h's
-// C++ linkage declarations of sprintf/vsprintf. Wrap in extern "C" to
-// force C linkage on all miniz declarations.
+// C++ linkage declarations of sprintf/vsprintf. Define MINIZ_NO_STDIO to
+// prevent stdio.h inclusion (we only need mz_uncompress, not file I/O).
+// Also define MINIZ_NO_ARCHIVE_APIS to skip ZIP archive code.
+#define MINIZ_NO_STDIO
+#define MINIZ_NO_ARCHIVE_APIS
+#define MINIZ_NO_ARCHIVE_WRITING_APIS
 extern "C" {
 #include "miniz.h"
 }
