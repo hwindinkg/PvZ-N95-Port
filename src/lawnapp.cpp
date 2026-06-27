@@ -427,9 +427,14 @@ void LawnApp::PreNewGame(GameMode theGameMode, bool theLookForSavedGame)
     if (theLookForSavedGame && TryLoadGame())
         return;
 
-    std::string aFileName = GetSavedGameName(mGameMode, mPlayerInfo->mId);
+    // [M4 #1 fix] mPlayerInfo is NULL in this port -- ProfileMgr is a no-op
+    // stub (GetAnyProfile returns NULL). Accessing mPlayerInfo->mId crashes
+    // with KERN-EXEC 3. Use a default id of 0 when no profile is loaded.
+    // Once ProfileMgr is properly ported, this guard can be removed.
+    int playerId = (mPlayerInfo != NULL) ? mPlayerInfo->mId : 0;
+    std::string aFileName = GetSavedGameName(mGameMode, playerId);
     EraseFile(aFileName);
-    std::string aLegacyFileName = GetLegacySavedGameName(mGameMode, mPlayerInfo->mId);
+    std::string aLegacyFileName = GetLegacySavedGameName(mGameMode, playerId);
     EraseFile(aLegacyFileName);
     NewGame();
 }
@@ -1889,6 +1894,16 @@ void LawnApp::LoadingCompleted()
         {
             mWidgetManager->RemoveWidget(w);
         }
+    }
+
+    // [M4 #1 fix] HARD RESET -- if the loop above didn't clear the stale
+    // widget (RemoveWidget appears unreliable under GCCE 3.4.3), zero the
+    // widget count directly. mWidgetCount is public in WidgetContainer.h.
+    // Safe because at LoadingCompleted time no legitimate widgets exist yet
+    // (GameSelector + buttons are created in ShowGameSelector after this).
+    if (mWidgetManager->GetWidgetCount() > 0)
+    {
+        mWidgetManager->mWidgetCount = 0;
     }
 
     // [M4 #1 diag] Dump AGAIN after RemoveWidget+delete to see what remains.
