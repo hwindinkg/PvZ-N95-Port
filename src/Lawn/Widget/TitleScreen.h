@@ -1,12 +1,9 @@
 #ifndef __TITLESCREEN_H__
 #define __TITLESCREEN_H__
 #include "../../engine/Widget.h"
+#include "../../Resources.h"   // for IMAGE_TITLESCREEN / IMAGE_LOADBAR_* / IMAGE_PVZ_LOGO (all in namespace Sexy)
 
 namespace Sexy { class LawnApp; }
-namespace Sexy { extern Image* IMAGE_TITLESCREEN; }
-namespace Sexy { extern Image* IMAGE_LOADBAR_DIRT; }
-namespace Sexy { extern Image* IMAGE_LOADBAR_GRASS; }
-namespace Sexy { extern Image* IMAGE_PVZ_LOGO; }
 
 namespace Sexy {
 
