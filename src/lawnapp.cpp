@@ -731,7 +731,13 @@ void LawnApp::DoNewOptions(bool theFromGameSelector)
     //FinishModelessDialogs();
 
     NewOptionsDialog* aDialog = new NewOptionsDialog(this, theFromGameSelector);
-    CenterDialog(aDialog, IMAGE_OPTIONS_MENUBACK->mWidth, IMAGE_OPTIONS_MENUBACK->mHeight);
+    // [M4 #1 fix] IMAGE_OPTIONS_MENUBACK may be NULL (one of the 51 NULL
+    // symbols per README M4 #5). Dereferencing NULL->mWidth crashes with
+    // KERN-EXEC 3. Use 0 (which CenterDialog will handle as "use dialog's
+    // own size") when the image isn't loaded.
+    int dlgW = IMAGE_OPTIONS_MENUBACK ? IMAGE_OPTIONS_MENUBACK->mWidth : 0;
+    int dlgH = IMAGE_OPTIONS_MENUBACK ? IMAGE_OPTIONS_MENUBACK->mHeight : 0;
+    CenterDialog(aDialog, dlgW, dlgH);
     AddDialog(DIALOG_NEWOPTIONS, aDialog);
     mWidgetManager->SetFocus(aDialog);
 }
@@ -1311,6 +1317,21 @@ void LawnApp::Init()
     if (mPlayerInfo == NULL)
     {
         mPlayerInfo = mProfileMgr->GetAnyProfile();
+    }
+
+    // [M4 #1 fix] ProfileMgr is a no-op stub in this port -- GetAnyProfile
+    // returns NULL. Many code paths (PreNewGame, Board::InitLevel, etc.)
+    // dereference mPlayerInfo without a NULL check, causing KERN-EXEC 3.
+    // Create a default PlayerInfo so all mPlayerInfo-> accesses are safe.
+    // This gives the player id=0, level=1 (adventure start), no progress.
+    // Once ProfileMgr is properly ported with real persistence, this fallback
+    // can be removed.
+    if (mPlayerInfo == NULL)
+    {
+        mPlayerInfo = new PlayerInfo();
+        mPlayerInfo->mId = 0;
+        mPlayerInfo->mName = "Player";
+        mPlayerInfo->mLevel = 1;
     }
 
     mMaxExecutions = GetInteger("MaxExecutions", 0);

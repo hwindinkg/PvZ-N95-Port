@@ -321,49 +321,51 @@ void GameSelector::ButtonDepressed(int theId)
     switch (theId)
     {
     case GameSelector_Adventure:
-        // Direct call -- matches upstream pattern. The WidgetManager is NOT
-        // iterating widgets when ButtonDepressed fires (we're called from
-        // GameButton::MouseUp <- WidgetManager::MouseUp, which dispatches
-        // only to mLastDownWidget, no array iteration). PreNewGame may
-        // synchronously kill this GameSelector (via KillGameSelector ->
-        // RemoveWidget + delete), but the event dispatch unwinds cleanly
-        // because the caller (WidgetManager::MouseUp) doesn't touch the
-        // widget array after the dispatch returns.
-        mApp->PreNewGame(GAMEMODE_ADVENTURE, true);
+        // [M4 #1] Adventure -> PreNewGame -> NewGame -> MakeNewBoard ->
+        // Board::InitLevel -> ShowSeedChooserScreen -> CutScene::StartLevelIntro.
+        // This whole chain depends on unported subsystems (Board game logic,
+        // SeedChooser UI, CutScene animation, plant/zombie reanimations).
+        // Calling PreNewGame crashes deep in Board::InitLevel because of NULL
+        // IMAGE_* / REANIM_* resources. Disable until M5 ports the gameplay.
+        GSLog(_L8("GS:Adventure (gameplay not yet ported -- M5)\n"));
         break;
 
     case GameSelector_Survival:
-        if (!mSurvivalLocked)
-            mApp->ShowChallengeScreen(CHALLENGE_PAGE_SURVIVAL);
+        // ShowChallengeScreen -> ChallengeScreen constructor needs IMAGE_*
+        // resources that are NULL. Crashes. Disable until ChallengeScreen
+        // is properly ported.
+        GSLog(_L8("GS:Survival (ChallengeScreen not yet ported -- M5)\n"));
         break;
 
     case GameSelector_Minigame:
-        // CHALLENGE_PAGE_MINIGAMES doesn't exist in this port's ConstEnums.h
-        // -- use CHALLENGE_PAGE_CHALLENGE (the "mini-games" page in PvZ).
-        if (!mMinigamesLocked)
-            mApp->ShowChallengeScreen(CHALLENGE_PAGE_CHALLENGE);
+        GSLog(_L8("GS:Minigame (ChallengeScreen not yet ported -- M5)\n"));
         break;
 
     case GameSelector_Puzzle:
-        if (!mPuzzleLocked)
-            mApp->ShowChallengeScreen(CHALLENGE_PAGE_PUZZLE);
+        GSLog(_L8("GS:Puzzle (ChallengeScreen not yet ported -- M5)\n"));
         break;
 
     case GameSelector_Store:
-        if (mApp->CanShowStore())
-            mApp->ShowStoreScreen();
+        // ShowStoreScreen -> StoreScreen constructor (1187 lines upstream)
+        // needs many IMAGE_* resources that are NULL. Crashes. Disable.
+        GSLog(_L8("GS:Store (StoreScreen not yet ported -- M5)\n"));
         break;
 
     case GameSelector_Almanac:
-        if (mApp->CanShowAlmanac())
-            mApp->DoAlmanacDialog(SEED_NONE, ZOMBIE_INVALID);
+        // DoAlmanacDialog -> AlmanacDialog constructor (718 lines upstream)
+        // needs IMAGE_ALMANAC_* resources that are NULL. Crashes. Disable.
+        GSLog(_L8("GS:Almanac (AlmanacDialog not yet ported -- M5)\n"));
         break;
 
     case GameSelector_ZenGarden:
-        GSLog(_L8("GS:ZenGarden (not yet implemented)\n"));
+        GSLog(_L8("GS:ZenGarden (not yet ported -- M5)\n"));
         break;
 
     case GameSelector_Options:
+        // DoNewOptions has a NULL guard on IMAGE_OPTIONS_MENUBACK now, but
+        // NewOptionsDialog itself may still crash on other NULL resources.
+        // Try it -- if it crashes, we'll add more guards.
+        GSLog(_L8("GS:Options (calling DoNewOptions)\n"));
         mApp->DoNewOptions(true /* fromGameSelector */);
         break;
 
@@ -372,6 +374,10 @@ void GameSelector::ButtonDepressed(int theId)
         break;
 
     case GameSelector_Quit:
+        // ConfirmQuit -> shows a yes/no dialog. Should be safe (Dialog base
+        // class is ported). If it crashes, the dialog's IMAGE_* refs need
+        // NULL guards.
+        GSLog(_L8("GS:Quit (calling ConfirmQuit)\n"));
         mApp->ConfirmQuit();
         break;
 
@@ -386,23 +392,24 @@ void GameSelector::ButtonMouseEnter(int /*theId*/)
 }
 
 // -------------------------------------------------------------------------
-// KeyDown -- ESC -> Quit confirmation, ENTER -> Adventure.
+// KeyDown -- ESC -> Quit confirmation, ENTER -> same as Adventure click.
+// Both are disabled for now (gameplay not ported -- see ButtonDepressed note).
 // -------------------------------------------------------------------------
 void GameSelector::KeyDown(KeyCode theKey)
 {
     if (!mApp) return;
     if (theKey == KEYCODE_ESCAPE)
     {
+        // ConfirmQuit may crash on dialog IMAGE_* refs -- log and try.
+        GSLog(_L8("GS:KeyDown ESC (calling ConfirmQuit)\n"));
         mApp->ConfirmQuit();
     }
     else if (theKey == KEYCODE_RETURN)
     {
-        // Direct call (see ButtonDepressed note on the dispatch safety).
-        mApp->PreNewGame(GAMEMODE_ADVENTURE, true);
+        // Adventure -> PreNewGame crashes deep in Board::InitLevel.
+        // Log only -- see ButtonDepressed(GameSelector_Adventure) comment.
+        GSLog(_L8("GS:KeyDown ENTER (Adventure not yet ported -- M5)\n"));
     }
-    // Arrow-key navigation between buttons can be added here once the
-    // focus-widget chain is wired (port's WidgetManager::FocusNextWidget
-    // exists but isn't currently called from input).
 }
 
 void GameSelector::MouseDown(int /*x*/, int /*y*/, int /*theClickCount*/)
