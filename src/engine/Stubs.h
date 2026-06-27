@@ -34,26 +34,17 @@ typedef Sexy::Font _Font;
 // Stub constants
 // ============================================================
 const int IMG_DOWNSCALE = 1;
-#define IMAGE_OPTIONS_MENUBACK       ((Sexy::Image*)0)
-#define IMAGE_MONEYBAG               ((Sexy::Image*)0)
-#define IMAGE_SHOVEL                ((Sexy::Image*)0)
-#define IMAGE_REANIM_CRAZYDAVE_MOUTH1 ((Sexy::Image*)0)
-#define IMAGE_REANIM_CRAZYDAVE_MOUTH4 ((Sexy::Image*)0)
-#define IMAGE_REANIM_CRAZYDAVE_MOUTH5 ((Sexy::Image*)0)
-#define IMAGE_REANIM_CRAZYDAVE_MOUTH6 ((Sexy::Image*)0)
-#define IMAGE_STORE_SPEECHBUBBLE     ((Sexy::Image*)0)
-#define IMAGE_STORE_SPEECHBUBBLE2    ((Sexy::Image*)0)
-// [M4 #4 fix] Removed FONT_BRIANNETOD16 / FONT_PICO129 #define macros.
-// They were `((_Font*)0)` which conflicted with the `extern _Font*`
-// declarations in Resources.h (the macro turned the extern into a syntax
-// error). Now that _Font = Sexy::Font, Resources.h's extern declarations
-// are valid and Resources.cpp assigns real Font* pointers to them.
-
-// These are #define macros (not real variables) to prevent duplicate definitions
-// Real definitions are in Resources_stub.cpp
-#define IMAGE_ZENSHOPBUTTON              ((Sexy::Image*)0)
-#define IMAGE_ZENSHOPBUTTON_HIGHLIGHT    ((Sexy::Image*)0)
-#define IMAGE_SHOVELBANK                 ((Sexy::Image*)0)
+// [M4 #4 fix] Removed ALL IMAGE_* #define macros. They were `((Sexy::Image*)0)`
+// which CONFLICTED with the `extern Image*` declarations in Resources.h --
+// the preprocessor turned `extern Image* IMAGE_MONEYBAG;` into
+// `extern Image* ((Sexy::Image*)0);` which is a syntax error. Now that
+// Resources.h declares these as `extern Image*` (in namespace Sexy) and
+// Resources.cpp assigns real values via GetImageThrow, the macros are
+// not needed. Files that used these globals must #include Resources.h.
+// Removed: IMAGE_OPTIONS_MENUBACK, IMAGE_MONEYBAG, IMAGE_SHOVEL,
+// IMAGE_REANIM_CRAZYDAVE_MOUTH1/4/5/6, IMAGE_STORE_SPEECHBUBBLE/2,
+// IMAGE_ZENSHOPBUTTON, IMAGE_ZENSHOPBUTTON_HIGHLIGHT, IMAGE_SHOVELBANK,
+// FONT_BRIANNETOD16, FONT_PICO129.
 
 const int FOLEY_CRAZY_DAVE_SHORT = 100;
 const int FOLEY_CRAZY_DAVE_LONG = 101;
