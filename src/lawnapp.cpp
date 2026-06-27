@@ -1755,8 +1755,15 @@ void LawnApp::LoadGroup(const char* theGroupName, int theGroupAveMsToLoad)
 
 void LawnApp::LoadingThreadProc()
 {
-    if (!TodLoadResources("LoaderBar"))
-        return;
+    // [M4 #1 fix] TodLoadResources is a no-op stub in this port (Stubs.h:
+    // inline bool TodLoadResources(const char*) { return true; }). It returns
+    // true but loads NOTHING. This means ExtractLoaderBarResources never ran,
+    // so IMAGE_LOADBAR_DIRT / IMAGE_LOADBAR_GRASS / IMAGE_PVZ_LOGO stayed NULL.
+    // Call ExtractResourcesByName directly to actually load the LoaderBar group.
+    if (!ExtractResourcesByName(mResourceManager, "LoaderBar"))
+    {
+        // Continue anyway -- the loading screen will fall back to a plain bar.
+    }
 
     TodStringListLoad("Properties/LawnStrings.txt");
 

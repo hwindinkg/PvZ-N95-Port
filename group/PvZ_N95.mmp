@@ -84,6 +84,7 @@ SOURCE          Challenge.cpp
 SOURCE          ToolTipWidget.cpp     // [M4 #1] simple tooltip widget (compat API preserved)
 SOURCE          Widget\GameSelector.cpp   // [M4 #1] clickable main menu (Adventure/Survival/Minigames/etc.)
 SOURCE          Widget\GameButton.cpp     // [M4 #1] button widget (image+label, hover/down, click routing)
+SOURCE          Widget\TitleScreen.cpp    // [M4 #1] loading screen with animated progress bar
 
 // === LawnApp ===
 SOURCEPATH      ..\src
