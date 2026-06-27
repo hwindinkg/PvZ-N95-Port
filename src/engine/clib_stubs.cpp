@@ -76,10 +76,11 @@ int rand(void)
 // --- malloc / free / realloc stubs (for miniz C library) ---
 // miniz uses C standard malloc/free/realloc. The port uses Symbian's
 // User::Alloc/User::Free via custom new/delete, but has no libc.
-// Provide C-callable wrappers.
+// Provide C-callable wrappers. Use 'unsigned int' instead of size_t
+// (Symbian GCCE may not have size_t in this context).
 extern "C" {
 
-void* malloc(size_t aSize)
+void* malloc(unsigned int aSize)
 {
     if (aSize == 0) return NULL;
     return User::Alloc(aSize);
@@ -90,16 +91,16 @@ void free(void* aPtr)
     if (aPtr) User::Free(aPtr);
 }
 
-void* realloc(void* aPtr, size_t aNewSize)
+void* realloc(void* aPtr, unsigned int aNewSize)
 {
     if (aPtr == NULL) return malloc(aNewSize);
     if (aNewSize == 0) { free(aPtr); return NULL; }
     return User::ReAlloc(aPtr, aNewSize);
 }
 
-void* calloc(size_t aCount, size_t aSize)
+void* calloc(unsigned int aCount, unsigned int aSize)
 {
-    size_t total = aCount * aSize;
+    unsigned int total = aCount * aSize;
     void* p = malloc(total);
     if (p) memset(p, 0, total);
     return p;
