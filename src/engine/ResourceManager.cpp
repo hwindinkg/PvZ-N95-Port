@@ -214,7 +214,8 @@ _Font* ResourceManager::GetFontThrow(const char* name)
     // FONT_PICO129, etc.) will point to the same SystemFont instance. They
     // differ visually only in the upstream's per-font image + metrics; here
     // they all render as the same 8x8 monospace.
-    return SystemFont::Get();
+    // SystemFont is in namespace Sexy; GetFontThrow returns _Font* (= Sexy::Font*).
+    return Sexy::SystemFont::Get();
 }
 
 intptr_t ResourceManager::GetSoundThrow(const char* name)
