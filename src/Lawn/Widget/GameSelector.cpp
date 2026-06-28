@@ -62,9 +62,18 @@ static void GSLog(const TDesC8& aMsg)
     if (fs.Connect() == KErrNone)
     {
         fs.MkDirAll(_L("C:\\Data\\PvZ"));
-        if (f.Replace(fs, _L("C:\\Data\\PvZ\\gs_log.txt"), EFileWrite) == KErrNone)
+        // APPEND instead of Replace — so we can see ALL log lines,
+        // not just the last one (which was overwriting previous clicks).
+        TInt err = f.Open(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
+                          EFileWrite | EFileShareAny);
+        if (err == KErrNotFound)
+            err = f.Create(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
+                           EFileWrite | EFileShareAny);
+        if (err == KErrNone)
         {
+            TInt pos = 0; f.Seek(ESeekEnd, pos);
             f.Write(aMsg);
+            f.Flush();
             f.Close();
         }
         fs.Close();

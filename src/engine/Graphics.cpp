@@ -595,7 +595,7 @@ void Graphics::DrawImageRotated(Image* img, float x, float y,
 }
 
 // ---------------------------------------------------------------------------
-// DrawString  --  placeholder (white rect approximating text extent)
+// DrawString  --  dispatches to mFont->DrawString (was placeholder white rect)
 // ---------------------------------------------------------------------------
 
 void Graphics::DrawString(const char* text, int x, int y)
@@ -605,38 +605,14 @@ void Graphics::DrawString(const char* text, int x, int y)
 
 void Graphics::DrawString(const char* text, int x, int y, int justify)
 {
-    if (!mGL || !text)
+    if (!mGL || !text || !mFont)
         return;
 
-    // Approximate text dimensions
-    TInt len = 0;
-    while (text[len] != '\0')
-        ++len;
-
-    // Rough metric: 8 pixels wide per char, 12 pixels tall
-    static const TInt KCharW = 8;
-    static const TInt KCharH = 12;
-
-    TInt textW = len * KCharW;
-    TInt textH = KCharH;
-
-    TInt drawX = x;
-    if (justify == DS_ALIGN_CENTER || justify == DS_ALIGN_CENTER_VERTICAL_MIDDLE)
-        drawX = x - textW / 2;
-    else if (justify == DS_ALIGN_RIGHT || justify == DS_ALIGN_RIGHT_VERTICAL_MIDDLE)
-        drawX = x - textW;
-
-    TInt drawY = y;
-    if (justify == DS_ALIGN_LEFT_VERTICAL_MIDDLE ||
-        justify == DS_ALIGN_RIGHT_VERTICAL_MIDDLE ||
-        justify == DS_ALIGN_CENTER_VERTICAL_MIDDLE)
-        drawY = y - textH / 2;
-
-    // Draw a semi-transparent white block to indicate text position
-    Color old = mColor;
-    SetColor(Color(255, 255, 255, 128));
-    FillRect(drawX, drawY - textH, textW, textH);
-    SetColor(old);
+    // Dispatch to the font's DrawString method. The font (SystemFont)
+    // renders each glyph as pixel rects using the current mColor.
+    // Justify is handled by the caller (GameButton etc.) which computes
+    // x/y offsets before calling DrawString.
+    mFont->DrawString(this, x, y, text, -1, NULL);
 }
 
 } // namespace Sexy
