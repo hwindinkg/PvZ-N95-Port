@@ -205,89 +205,75 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Session-9] DIRECT DRAW: get the SelectorScreen_BG image from
-    // ResourceManager and draw it scaled to fill the canvas.
-    // The image is 100x75 (JPEG), scaled to 400x300 (×4).
-    // This bypasses ReanimPlayer entirely — the reanim's coordinate math
-    // and lazy-load were unreliable on-device (gl_log showed 0 new textures
-    // despite preloaded images + Draw being called).
-    if (mApp && mApp->mResourceManager)
+    // [Session-10] DIRECT DRAW using globals (NOT GetImage in render loop).
+    // Calling GetImage in Draw triggers ICL decode which hangs/crashes on N95.
+    // The images are loaded during LoadingThreadProc (preload) and stored in
+    // the ResourceManager cache + IMAGE_* globals. Use the cached pointers.
+
+    // Background: SelectorScreen_BG (graveyard scene)
+    // Use the preloaded reanim image (preloaded in constructor).
+    Sexy::Image* bg = NULL;
+    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
     {
-        // Background: SelectorScreen_BG (graveyard scene)
-        Sexy::Image* bg = mApp->mResourceManager->GetImage(
-            "IMAGE_REANIM_SELECTORSCREEN_BG");
-        if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
+        // Find the SelectorScreen_BG track and get its preloaded image.
+        for (int i = 0; i < mReanimDef.mTrackCount; i++)
         {
-            MemoryImage* mem = static_cast<MemoryImage*>(bg);
-            g->DrawImage(mem, 0, 0, mWidth, mHeight);
+            if (mReanimDef.mTracks[i].mName &&
+                mReanimDef.mTracks[i].mTransformCount > 0 &&
+                mReanimDef.mTracks[i].mTransforms[0].mImage)
+            {
+                // Check if this is the BG track (name contains "BG")
+                const char* name = mReanimDef.mTracks[i].mName;
+                if (name[0] == 'S' && name[1] == 'e' && name[2] == 'l' &&
+                    name[3] == 'e' && name[4] == 'c' && name[5] == 't' &&
+                    name[6] == 'o' && name[7] == 'r' && name[8] == 'S' &&
+                    name[9] == 'c' && name[10] == 'r' && name[11] == 'e' &&
+                    name[12] == 'e' && name[13] == 'n' && name[14] == '_' &&
+                    name[15] == 'B' && name[16] == 'G')
+                {
+                    bg = mReanimDef.mTracks[i].mTransforms[0].mImage;
+                    break;
+                }
+            }
         }
-        else
-        {
-            // Diagnostic: BG image not available
-            g->SetColor(Color(40, 30, 20, 255));
-            g->FillRect(0, 0, mWidth, mHeight);
-            g->SetColor(Color(255, 100, 100, 255));
-            SystemFont* f = SystemFont::Get();
-            if (f) { g->SetFont(f); g->DrawString("No BG", 10, 20); }
-            g->SetColor(Color(255, 255, 255, 255));
-        }
+    }
 
-        // Button sprites: draw each button image at its position.
-        // Positions are from the reanim track data (gs_log RP:track),
-        // scaled from reanim space to canvas (×0.5).
-        // Reanim coords: Adventure ~405x624, Survival ~406x732, etc.
-        // Canvas coords (×0.5): Adventure ~202x312, Survival ~203x366
-        // But canvas is only 300 tall — buttons at y>600 are off-screen.
-        // The reanim's visible area is 0-600 in Y (×0.5 = 0-300).
-        // Buttons at y~624 are just below the visible area — they're on
-        // the wooden signs which extend downward. For the menu, we draw
-        // the main visible buttons.
-        struct BtnSprite
-        {
-            const char* resName;
-            int canvasX, canvasY; // pre-computed canvas position
-            int canvasW, canvasH; // pre-computed canvas size
-        };
-        // These positions are derived from the reanim track transforms
-        // (RP:track data), scaled ×0.5 from reanim 800x600 to canvas 400x300.
-        // The button images are ~300x100 in reanim space → ~150x50 on canvas.
-        static const BtnSprite sprites[] =
-        {
-            // Adventure button (StartAdventure): reanim x=405 y=624
-            // → canvas x=202 y=312 — but that's below canvas (300).
-            // The reanim BG is 800x600 visible; buttons at y>600 are below
-            // the fold. For now, draw the BG only; buttons need the full
-            // reanim scroll/transform system (Stage 2 Reanimator port).
-        };
-
-        // Draw the PvZ logo on top of the background (like the original menu)
-        Sexy::Image* logo = mApp->mResourceManager->GetImage("IMAGE_PVZ_LOGO");
-        if (logo && logo->GetWidth() > 0)
-        {
-            MemoryImage* logoMem = static_cast<MemoryImage*>(logo);
-            int lw = logo->GetWidth() / 3;   // 700/3 ≈ 233
-            int lh = logo->GetHeight() / 3;  // 116/3 ≈ 38
-            int lx = (mWidth - lw) / 2;
-            int ly = 15;
-            g->DrawImage(logoMem, lx, ly, lw, lh);
-        }
-
-        // Draw "Click to Begin" text
-        SystemFont* font = SystemFont::Get();
-        if (font)
-        {
-            g->SetFont(font);
-            g->SetColor(Color(255, 240, 200, 255));
-            const char* msg = "Click to Begin";
-            int sw = font->StringWidth(msg);
-            g->DrawString(msg, (mWidth - sw) / 2, mHeight - 30);
-        }
+    if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
+    {
+        MemoryImage* mem = static_cast<MemoryImage*>(bg);
+        g->DrawImage(mem, 0, 0, mWidth, mHeight);
     }
     else
     {
-        // No ResourceManager — dark background
-        g->SetColor(Color(30, 25, 20, 255));
+        // Diagnostic: BG image not available
+        g->SetColor(Color(40, 30, 20, 255));
         g->FillRect(0, 0, mWidth, mHeight);
+        g->SetColor(Color(255, 100, 100, 255));
+        SystemFont* f = SystemFont::Get();
+        if (f) { g->SetFont(f); g->DrawString("No BG", 10, 20); }
+        g->SetColor(Color(255, 255, 255, 255));
+    }
+
+    // Draw the PvZ logo on top (use global, NOT GetImage)
+    if (IMAGE_PVZ_LOGO && IMAGE_PVZ_LOGO->GetWidth() > 0)
+    {
+        MemoryImage* logoMem = static_cast<MemoryImage*>(IMAGE_PVZ_LOGO);
+        int lw = IMAGE_PVZ_LOGO->GetWidth() / 3;
+        int lh = IMAGE_PVZ_LOGO->GetHeight() / 3;
+        int lx = (mWidth - lw) / 2;
+        int ly = 15;
+        g->DrawImage(logoMem, lx, ly, lw, lh);
+    }
+
+    // Draw "Click to Begin" text
+    SystemFont* font = SystemFont::Get();
+    if (font)
+    {
+        g->SetFont(font);
+        g->SetColor(Color(255, 240, 200, 255));
+        const char* msg = "Click to Begin";
+        int sw = font->StringWidth(msg);
+        g->DrawString(msg, (mWidth - sw) / 2, mHeight - 30);
     }
 }
 

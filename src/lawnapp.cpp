@@ -1756,6 +1756,20 @@ void LawnApp::LoadGroup(const char* theGroupName, int theGroupAveMsToLoad)
 
 void LawnApp::LoadingThreadProc()
 {
+    // [Session-10] Load ONLY essential images for the loading screen first,
+    // so the first frame renders quickly. The original PvZ loads resources
+    // PROGRESSIVELY during the loading bar animation — not all at once before
+    // the first frame. The current port loads everything synchronously here,
+    // which is slow (hundreds of images) and causes OOM crashes.
+    //
+    // For now: load LoaderBar group + PopCap logo + TitleScreen first, so the
+    // loading screen + PopCap intro can render immediately. The rest
+    // (LoadingImages, LoadingFonts, etc.) loads after.
+
+    // Load PopCap logo early so TitleScreen can show it during the intro.
+    if (mResourceManager)
+        mResourceManager->GetImage("IMAGE_POPCAP_LOGO");
+
     // [M4 #1 fix] TodLoadResources is a no-op stub in this port (Stubs.h:
     // inline bool TodLoadResources(const char*) { return true; }). It returns
     // true but loads NOTHING. This means ExtractLoaderBarResources never ran,

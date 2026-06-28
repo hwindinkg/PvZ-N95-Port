@@ -125,44 +125,41 @@ void TitleScreen::Draw(Graphics* g)
 
     // [Session-9] PopCap logo intro (phases 0-2).
     // Black background + PopCap logo centered, fading in/out.
+    // [Session-10] DON'T call GetImage in the render loop — it triggers ICL
+    // decode which hangs/crashes on the N95 (rmgr_log showed 2 incomplete
+    // popcap_logo decodes, no "convert done"). Use the IMAGE_POPCAP_LOGO
+    // global directly. If it's NULL (not loaded by LoadingThreadProc), skip
+    // the logo intro entirely (jump to phase 3 = loading screen).
     if (mLogoPhase < 3)
     {
-        // Black background
-        g->SetColor(Color(0, 0, 0, 255));
-        g->FillRect(0, 0, mWidth, mHeight);
-
-        // PopCap logo centered
-        Image* popcap = IMAGE_POPCAP_LOGO;
-        if (popcap == NULL && mApp->mResourceManager)
-            popcap = mApp->mResourceManager->GetImage("IMAGE_POPCAP_LOGO");
-        if (popcap && popcap->GetWidth() > 0)
+        // If PopCap logo isn't loaded, skip the intro immediately.
+        if (!IMAGE_POPCAP_LOGO)
         {
-            // Scale to fit canvas (original ~256x256, scale to ~100x100)
-            int lw = popcap->GetWidth() / 3;
-            int lh = popcap->GetHeight() / 3;
-            int lx = (mWidth - lw) / 2;
-            int ly = (mHeight - lh) / 2;
-            // Alpha modulation isn't supported by Graphics, so we just draw
-            // the logo. The fade effect would need per-draw alpha (Stage 4).
-            MemoryImage* mem = static_cast<MemoryImage*>(popcap);
-            g->DrawImage(mem, lx, ly, lw, lh);
+            mLogoPhase = 3;
+            mLogoFrame = 0;
         }
         else
         {
-            // PopCap logo not loaded — show text
-            g->SetColor(Color(255, 255, 255, 255));
-            SystemFont* f = SystemFont::Get();
-            if (f)
+            // Black background
+            g->SetColor(Color(0, 0, 0, 255));
+            g->FillRect(0, 0, mWidth, mHeight);
+
+            // PopCap logo centered (use global directly, no GetImage call)
+            Image* popcap = IMAGE_POPCAP_LOGO;
+            if (popcap && popcap->GetWidth() > 0)
             {
-                g->SetFont(f);
-                const char* msg = "PopCap";
-                int sw = f->StringWidth(msg);
-                g->DrawString(msg, (mWidth - sw) / 2, mHeight / 2);
+                int lw = popcap->GetWidth() / 3;
+                int lh = popcap->GetHeight() / 3;
+                int lx = (mWidth - lw) / 2;
+                int ly = (mHeight - lh) / 2;
+                MemoryImage* mem = static_cast<MemoryImage*>(popcap);
+                g->DrawImage(mem, lx, ly, lw, lh);
             }
+            return;
         }
-        return; // don't draw loading screen during logo intro
     }
 
+    // If we jumped here from the logo-skip above, fall through to loading screen.
     // Phase 3: loading screen (background + logo + progress bar + click text)
     // -- Background: IMAGE_TITLESCREEN scaled to full canvas ----------------
     Image* bg = IMAGE_TITLESCREEN;
