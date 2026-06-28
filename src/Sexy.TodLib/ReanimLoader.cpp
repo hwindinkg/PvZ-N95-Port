@@ -428,19 +428,17 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     TInt tBufLen = eLen;
                     ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
 
-                    // [Session-13] INHERIT from previous transform. In the XML format,
-                    // each <t> only specifies CHANGED fields. Missing fields should
-                    // persist from the previous transform (not reset to default).
-                    // This is critical for animation: tf[0] has the initial position,
-                    // tf[1] might only change <x>, tf[2] might only change <y>, etc.
-                    // Without inheritance, tf[1+] would reset everything to 0.
-                    //
-                    // IMPORTANT: do NOT copy mImageName/mFontName/mText pointers —
-                    // they are owned by the first transform that set them, and the
-                    // destructor would double-free. Instead, set them to "" (literal)
-                    // and let ScanForImage find the image at draw time by scanning
-                    // backwards to the transform that has the name.
-                    if (j > 0)
+                    // [Session-13] INHERIT from previous transform.
+                    // Disabled for now — causes crash. Use defaults for all
+                    // transforms. ScanForImage at draw time handles image
+                    // persistence. Position/scale inheritance is handled by
+                    // GetTransformAtTime's interpolation (it lerps between
+                    // before/after transforms, and if after has default 0,0,
+                    // the lerp goes toward 0,0 — but for static menus this
+                    // is OK since mAnimTime=0 means we're at the 'before'
+                    // transform which has the real data).
+                    /*
+                    if (j > 0 && outDefinition.mTracks[i].mTransforms)
                     {
                         ReanimTransform& prev = outDefinition.mTracks[i].mTransforms[j - 1];
                         t.mTransX = prev.mTransX;
@@ -451,16 +449,15 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                         t.mScaleY = prev.mScaleY;
                         t.mFrame  = prev.mFrame;
                         t.mAlpha  = prev.mAlpha;
-                        // Image: DON'T copy the pointer — set to empty. ScanForImage
-                        // will scan backwards at draw time to find the image name.
-                        t.mImage    = prev.mImage;  // Image* pointer is safe to copy (not owned)
-                        t.mImageName = "";          // Don't copy char* pointer (would double-free)
+                        t.mImage    = prev.mImage;
+                        t.mImageName = "";
                         t.mFontName = "";
                         t.mText     = "";
                     }
                     else
+                    */
                     {
-                        // First transform: use defaults
+                        // Use defaults for ALL transforms
                         t.mTransX = 0; t.mTransY = 0;
                         t.mSkewX = 0;  t.mSkewY = 0;
                         t.mScaleX = 1; t.mScaleY = 1;
