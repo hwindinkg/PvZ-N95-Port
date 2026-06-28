@@ -101,6 +101,7 @@ GameSelector::GameSelector(LawnApp* theApp)
 
     // [Stage-1] Load SelectorScreen.reanim (XML version) for 1:1 menu.
     mReanimLoaded = EFalse;
+    GSLog(_L8("GS:loading reanim...\n"));
     TRAPD(reanimErr, mReanimLoaded = ReanimLoadCompiled(
         "reanim/SelectorScreen.reanim", mReanimDef));
     if (reanimErr != KErrNone)
@@ -110,6 +111,7 @@ GameSelector::GameSelector(LawnApp* theApp)
         GSLog(eb);
         mReanimLoaded = EFalse;
     }
+    GSLog(_L8("GS:reanim load done\n"));
     if (mReanimLoaded)
     {
         TBuf8<80> b;
@@ -156,20 +158,18 @@ GameSelector::GameSelector(LawnApp* theApp)
             }
         }
 
-        // [Session-8] Preload all reanim images NOW (in the constructor, not
-        // in Draw). The lazy-load in ReanimPlayer::Draw was not firing on-
-        // device (gs_log showed RP:track lines but ZERO RP:load lines).
-        // Preloading here is simpler and more reliable: iterate every track,
-        // find transforms with image names, call GetImage to resolve them.
-        // Most images are already in the ResourceManager cache from
-        // LoadingThreadProc, so GetImage returns instantly.
+        // [Session-8] Preload all reanim images. Only preload transform[0]
+        // of each track — with inheritance, transform[0] has the image name
+        // and all subsequent transforms inherit it. Preloading all 706×48
+        // transforms is wasteful and can cause OOM.
         int preloadedCount = 0;
+        GSLog(_L8("GS:preloading images...\n"));
         for (int i = 0; i < mReanimDef.mTrackCount; i++)
         {
             ReanimTrack& tr = mReanimDef.mTracks[i];
-            for (int j = 0; j < tr.mTransformCount; j++)
+            if (tr.mTransformCount > 0)
             {
-                ReanimTransform& xf = tr.mTransforms[j];
+                ReanimTransform& xf = tr.mTransforms[0];
                 if (!xf.mImage && xf.mImageName && xf.mImageName[0] != '\0')
                 {
                     if (gResourceManager)
@@ -183,22 +183,16 @@ GameSelector::GameSelector(LawnApp* theApp)
         pl.Format(_L8("GS:preloaded %d reanim images\n"), preloadedCount);
         GSLog(pl);
 
-        // [Session-13] Create the full Reanimation runtime (1:1 upstream).
-        // AllocReanimation creates a Reanimation bound to mReanimDef, then
-        // we PlayReanim("anim_open") to play the menu open animation.
-        // [Session-13] mX=400, mY=300 = center of 800×600 screen (matches
-        // upstream AddReanimation(0.5f, 0.5f, ...)). The reanim uses
-        // center-origin coordinates: (0,0) = screen center.
+        // [Session-13] Create the full Reanimation runtime.
+        GSLog(_L8("GS:creating Reanimation...\n"));
         mSelectorReanim = mReanimHolder.AllocReanimation(
             400.0f, 300.0f, 0, &mReanimDef);
         if (mSelectorReanim)
         {
-            // Play the open animation once and hold on the last frame.
+            GSLog(_L8("GS:playing anim_open...\n"));
             mSelectorReanim->PlayReanim("anim_open",
                 REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
-            // BG in render group 1 (drawn first)
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG", 1);
-            // Hide flower/leaf decoration (upstream hides them initially)
             mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
             mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);
             GSLog(_L8("GS:Reanimation created, playing anim_open\n"));
