@@ -570,6 +570,59 @@ void Graphics::DrawImage(MemoryImage* img, int x, int y, const Rect& srcRect)
 }
 
 // ---------------------------------------------------------------------------
+// DrawImageScaledSrcRect  --  sub-rect of source scaled to destination
+// [Session-12] Used by the loading bar to "unroll" the grass: draws only
+// the left portion of the grass image (srcRect) but scales it to the full
+// bar width (dstW × dstH). As curW grows, more of the source is revealed.
+// ---------------------------------------------------------------------------
+void Graphics::DrawImageScaledSrcRect(MemoryImage* img, int dstX, int dstY,
+                                       int dstW, int dstH, const Rect& srcRect)
+{
+    if (!mGL || !img || dstW <= 0 || dstH <= 0 ||
+        srcRect.mWidth <= 0 || srcRect.mHeight <= 0)
+        return;
+
+    GLuint texID = GetOrCreateTexture(img);
+    if (!texID)
+    {
+        Color old = mColor;
+        SetColor(Color(255, 255, 255));
+        FillRect(dstX, dstY, dstW, dstH);
+        SetColor(old);
+        return;
+    }
+
+    ApplyClipRect();
+
+    mGL->SetTexture(texID);
+    mGL->SetTextureEnabled(ETrue);
+
+    float fx = static_cast<float>(dstX);
+    float fy = static_cast<float>(dstY);
+    float fw = static_cast<float>(dstW);
+    float fh = static_cast<float>(dstH);
+
+    // Compute UV coordinates for the sub-rect within the POT texture.
+    float imgW = static_cast<float>(img->GetWidth());
+    float imgH = static_cast<float>(img->GetHeight());
+    float uMaxR = 1.0f, vMaxR = 1.0f;
+    FindCachedTexCoords(img, uMaxR, vMaxR);
+    float u0 = (static_cast<float>(srcRect.mX) / imgW) * uMaxR;
+    float v0 = (static_cast<float>(srcRect.mY) / imgH) * vMaxR;
+    float u1 = (static_cast<float>(srcRect.mX + srcRect.mWidth)  / imgW) * uMaxR;
+    float v1 = (static_cast<float>(srcRect.mY + srcRect.mHeight) / imgH) * vMaxR;
+
+    mGL->Begin(GL_TRIANGLE_STRIP);
+    mGL->AddVertex(fx,      fy,      u0, v0);
+    mGL->AddVertex(fx + fw, fy,      u1, v0);
+    mGL->AddVertex(fx,      fy + fh, u0, v1);
+    mGL->AddVertex(fx + fw, fy + fh, u1, v1);
+    mGL->End();
+
+    DisableClipRect();
+}
+
+// ---------------------------------------------------------------------------
 // DrawImageF  (Image*, float, float)
 // ---------------------------------------------------------------------------
 

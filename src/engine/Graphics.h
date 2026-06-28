@@ -96,6 +96,10 @@ public:
     void DrawImage(MemoryImage* img, int x, int y);
     void DrawImage(MemoryImage* img, int x, int y, int dstW, int dstH);
     void DrawImage(MemoryImage* img, int x, int y, const Rect& srcRect);
+    // [Session-12] Scaled src-rect draw: draws a sub-rect of the source image
+    // scaled to (dstW, dstH). Used by the loading bar to "unroll" the grass.
+    void DrawImageScaledSrcRect(MemoryImage* img, int dstX, int dstY,
+                                int dstW, int dstH, const Rect& srcRect);
     void DrawImageF(Image* img, float x, float y);
     void DrawImageRotated(Image* img, float x, float y,
                           const Rect& srcRect, float rot,

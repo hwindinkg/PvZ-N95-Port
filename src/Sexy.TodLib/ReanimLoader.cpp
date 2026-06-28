@@ -598,6 +598,30 @@ void ReanimPlayer::Update(float aDtSeconds)
     }
 }
 
+// [Session-12] Helper: scan backwards from index `fromIdx` to find the
+// nearest transform with an image. In the XML format, only transform[0]
+// has the <i> image tag; subsequent transforms only update position/scale.
+// The image PERSISTS from the last keyframe that set it.
+static void ScanForImage(ReanimTrack& track, int fromIdx, ReanimTransform& aOut)
+{
+    aOut.mImage    = NULL;
+    aOut.mImageName = "";
+    aOut.mFontName = "";
+    aOut.mText     = "";
+    for (int k = fromIdx; k >= 0; k--)
+    {
+        ReanimTransform& scan = track.mTransforms[k];
+        if (scan.mImage || (scan.mImageName && scan.mImageName[0] != '\0'))
+        {
+            aOut.mImage    = scan.mImage;
+            aOut.mImageName = scan.mImageName;
+            aOut.mFontName = scan.mFontName;
+            aOut.mText     = scan.mText;
+            return;
+        }
+    }
+}
+
 TBool ReanimPlayer::GetCurrentTransform(int aTrackIndex, ReanimTransform& aOut)
 {
     if (!mDefinition || aTrackIndex < 0 ||
@@ -615,15 +639,33 @@ TBool ReanimPlayer::GetCurrentTransform(int aTrackIndex, ReanimTransform& aOut)
 
     float frame = mAnimTime * mDefinition->mFPS;
 
-    // Clamp to the first / last keyframe.
+    // Clamp to the first keyframe.
     if (frame <= track.mTransforms[0].mFrame)
     {
         aOut = track.mTransforms[0];
+        // [Session-12] Even the first transform might not have an image
+        // (unlikely but safe). Scan backwards from 0.
+        if (!aOut.mImage && (!aOut.mImageName || !aOut.mImageName[0]))
+            ScanForImage(track, 0, aOut);
         return ETrue;
     }
+    // Clamp to the last keyframe.
     if (frame >= track.mTransforms[n - 1].mFrame)
     {
-        aOut = track.mTransforms[n - 1];
+        // [Session-12] CRITICAL FIX: the last transform (e.g. transform[705])
+        // typically has NO image — the image is only in transform[0]. We must
+        // scan backwards to find it. Previously this returned transform[n-1]
+        // directly with mImage=NULL → nothing drew → purple screen.
+        ReanimTransform& last = track.mTransforms[n - 1];
+        aOut.mTransX = last.mTransX;
+        aOut.mTransY = last.mTransY;
+        aOut.mSkewX  = last.mSkewX;
+        aOut.mSkewY  = last.mSkewY;
+        aOut.mScaleX = last.mScaleX;
+        aOut.mScaleY = last.mScaleY;
+        aOut.mAlpha  = last.mAlpha;
+        aOut.mFrame  = frame;
+        ScanForImage(track, n - 1, aOut);
         return ETrue;
     }
 
@@ -650,32 +692,7 @@ TBool ReanimPlayer::GetCurrentTransform(int aTrackIndex, ReanimTransform& aOut)
     aOut.mScaleY = ReanimLerp(a.mScaleY, b.mScaleY, t);
     aOut.mAlpha  = ReanimLerp(a.mAlpha,  b.mAlpha,  t);
     aOut.mFrame  = frame;
-    // [Session-12] Image/font/text: scan BACKWARDS from the active keyframe
-    // to find the nearest transform that HAS an image. In the XML format,
-    // only transform[0] has the <i> image tag; subsequent transforms only
-    // update position/scale/alpha. The image PERSISTS from the last keyframe
-    // that set it (this is how upstream's compiled format works — every
-    // transform stores the full image pointer, but our XML parser only
-    // stores it where <i> appears).
-    //
-    // Without this scan, showing the last frame (mAnimTime=9999) returns
-    // transform[705] which has mImage=NULL → nothing draws.
-    aOut.mImage    = NULL;
-    aOut.mImageName = "";
-    aOut.mFontName = "";
-    aOut.mText     = "";
-    for (int k = i; k >= 0; k--)
-    {
-        ReanimTransform& scan = track.mTransforms[k];
-        if (scan.mImage || (scan.mImageName && scan.mImageName[0] != '\0'))
-        {
-            aOut.mImage    = scan.mImage;
-            aOut.mImageName = scan.mImageName;
-            aOut.mFontName = scan.mFontName;
-            aOut.mText     = scan.mText;
-            break;
-        }
-    }
+    ScanForImage(track, i, aOut);
     return ETrue;
 }
 

@@ -154,32 +154,20 @@ void CPvZAppUi::ConstructL()
     }
 
     // --- CRITICAL: drive resource loading (no loading thread on this port) ---
-    // The original game spawns a background thread running LoadingThreadProc()
-    // while the TitleScreen shows a progress bar; when it finishes,
-    // LoadingCompleted() removes the title screen and shows the GameSelector
-    // (main menu). This Symbian port stubbed out threading and NEVER wired a
-    // replacement, so LoadingThreadProc() was never called -> resources never
-    // loaded -> the game sat forever on the title screen (the static purple
-    // frame with the white box; wgt_log showed Widgets=1). We run the load
-    // synchronously HERE -- after the GL interface is wired (textures need GL),
-    // and before the heartbeat timer starts.
+    // [Session-12] DEFER LoadingThreadProc to the FIRST RenderTick, so the
+    // PopCap logo + loading screen appear IMMEDIATELY after boot (not after
+    // a 5-second black screen while resources load). The loading bar will
+    // animate during the logo intro (90 frames), then LoadingThreadProc runs
+    // on the first frame of phase 3, then the bar finishes.
     if (iLawnApp)
     {
-        Log(_L("step: LoadingThreadProc (sync) START"));
-        iLawnApp->LoadingThreadProc();
-        Log(_L("step: LoadingThreadProc DONE"));
-        // [M4 #1 fix] DEFER LoadingCompleted so the loading screen is visible.
-        // LoadingThreadProc is synchronous -- by the time it returns, all
-        // resources are loaded. If we call LoadingCompleted here, TitleScreen
-        // is removed before the heartbeat timer renders a single frame, so
-        // the user never sees the progress bar animation.
-        // Instead: set iLoadingState=1 and iLoadingFrames=150 (~5s at 30fps).
-        // [Session-9] Increased from 60 to 150 to account for the PopCap logo
-        // intro (90 frames = 3s) + loading bar animation (60 frames = 2s).
-        // RenderTick will transition to state 2 after the countdown.
-        iLoadingState = 1;
+        // Don't call LoadingThreadProc here — defer to RenderTick.
+        // Set iLoadingState=0 (not yet started) and iLoadingFrames=150.
+        // RenderTick will: if state==0, call LoadingThreadProc, then set
+        // state=1. If state==1, count down frames. If state==2, wait for click.
+        iLoadingState = 0;
         iLoadingFrames = 150;
-        Log(_L("step: loading animation deferred to RenderTick (150 frames)"));
+        Log(_L("step: loading deferred to RenderTick (faster boot)"));
     }
 
     // Put the GL container on the control stack so it receives
@@ -211,12 +199,31 @@ void CPvZAppUi::RenderTick()
         return;
     }
 
-    // [M4 #1] Loading screen state machine.
+    // [Session-12] Loading screen state machine.
+    // State 0: LoadingThreadProc not yet run. Run it on the first tick
+    //   AFTER the PopCap logo intro (phase 0-2 = 90 frames). This gives
+    //   the user an immediate visual (PopCap logo) while resources load.
+    //   Actually, run it immediately on the first tick so resources are
+    //   available when the loading screen (phase 3) appears.
     // State 1: progress bar animating. When iLoadingFrames hits 0, go to
-    //   state 2 (wait for click) -- do NOT auto-advance to menu.
-    // State 2: "Click to Start" -- wait for user input (handled in
-    //   HandleKeyEventL / HandlePointerEventL).
+    //   state 2 (wait for click).
+    // State 2: "Click to Start" -- wait for user input.
     // State 3: menu active (LoadingCompleted already called).
+    if (iLoadingState == 0)
+    {
+        // [Session-12] Run LoadingThreadProc on the first RenderTick.
+        // This lets the PopCap logo render FIRST (immediate visual feedback),
+        // then resources load (blocking ~3-5s), then the loading bar animates.
+        Log(_L("step: LoadingThreadProc (deferred) START"));
+        TRAPD(loadErr, iLawnApp->LoadingThreadProc());
+        if (loadErr != KErrNone)
+        {
+            TBuf<64> b; b.Format(_L("step: LoadingThreadProc LEAVED err=%d"), loadErr);
+            Log(b);
+        }
+        Log(_L("step: LoadingThreadProc DONE"));
+        iLoadingState = 1;
+    }
     if (iLoadingState == 1)
     {
         iLoadingFrames--;

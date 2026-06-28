@@ -124,12 +124,10 @@ void TitleScreen::Draw(Graphics* g)
     g->SetColor(Color(255, 255, 255, 255));
 
     // [Session-9] PopCap logo intro (phases 0-2).
-    // Black background + PopCap logo centered, fading in/out.
-    // [Session-10] DON'T call GetImage in the render loop — it triggers ICL
-    // decode which hangs/crashes on the N95 (rmgr_log showed 2 incomplete
-    // popcap_logo decodes, no "convert done"). Use the IMAGE_POPCAP_LOGO
-    // global directly. If it's NULL (not loaded by LoadingThreadProc), skip
-    // the logo intro entirely (jump to phase 3 = loading screen).
+    // Black background + PopCap logo centered.
+    // [Session-12] The PopCap logo is loaded early in PvZAppUi::ConstructL.
+    // It's a JPEG (opaque, no alpha). On black background, the logo's black
+    // background blends in, and the white/colored logo text shows.
     if (mLogoPhase < 3)
     {
         // If PopCap logo isn't loaded, skip the intro immediately.
@@ -140,21 +138,47 @@ void TitleScreen::Draw(Graphics* g)
         }
         else
         {
+            // [Session-12] Diagnostic: log PopCap logo state on first draw.
+            static bool sLoggedPopcap = false;
+            if (!sLoggedPopcap)
+            {
+                sLoggedPopcap = true;
+                RFs fs; RFile f;
+                if (fs.Connect() == KErrNone)
+                {
+                    fs.MkDirAll(_L("C:\\Data\\PvZ"));
+                    if (f.Open(fs, _L("C:\\Data\\PvZ\\gfx_log.txt"),
+                               EFileWrite | EFileShareAny) == KErrNone)
+                    {
+                        TInt pos = 0; f.Seek(ESeekEnd, pos);
+                        TBuf8<128> b;
+                        MemoryImage* mem = static_cast<MemoryImage*>(IMAGE_POPCAP_LOGO);
+                        b.Format(_L8("PopCap: %dx%d bits=%08x phase=%d\n"),
+                                 IMAGE_POPCAP_LOGO->GetWidth(),
+                                 IMAGE_POPCAP_LOGO->GetHeight(),
+                                 (TUint)(mem ? mem->GetBits() : 0),
+                                 mLogoPhase);
+                        f.Write(b);
+                        f.Flush();
+                        f.Close();
+                    }
+                    fs.Close();
+                }
+            }
+
             // Black background
             g->SetColor(Color(0, 0, 0, 255));
             g->FillRect(0, 0, mWidth, mHeight);
 
-            // PopCap logo centered (use global directly, no GetImage call)
+            // PopCap logo centered. [Session-12] Scale to fit canvas nicely.
+            // Original is 300x300. Scale to ~120x120 (not /3 = 100x100, too small).
             Image* popcap = IMAGE_POPCAP_LOGO;
-            if (popcap && popcap->GetWidth() > 0)
-            {
-                int lw = popcap->GetWidth() / 3;
-                int lh = popcap->GetHeight() / 3;
-                int lx = (mWidth - lw) / 2;
-                int ly = (mHeight - lh) / 2;
-                MemoryImage* mem = static_cast<MemoryImage*>(popcap);
-                g->DrawImage(mem, lx, ly, lw, lh);
-            }
+            int lw = popcap->GetWidth() * 2 / 5;   // 300*2/5 = 120
+            int lh = popcap->GetHeight() * 2 / 5;  // 300*2/5 = 120
+            int lx = (mWidth - lw) / 2;
+            int ly = (mHeight - lh) / 2;
+            MemoryImage* mem = static_cast<MemoryImage*>(popcap);
+            g->DrawImage(mem, lx, ly, lw, lh);
             return;
         }
     }
@@ -211,15 +235,21 @@ void TitleScreen::Draw(Graphics* g)
         // Scale dirt to bar size (full bar width).
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: [Session-12] Simple stretch approach. The grass image is
-        // drawn scaled to (curW, barH). This stretches horizontally but is
-        // the most reliable — glScissor doesn't work on MBX, and the overlay
-        // approach looked like a filling bar. The stretch is visually close
-        // to the original (the grass texture tiles horizontally anyway).
+        // Grass: [Session-12] Use DrawImageScaledSrcRect to "unroll" the grass.
+        // Draw only the left (curW/barW) portion of the grass source image,
+        // scaled to the full bar height. This keeps the grass texture's
+        // horizontal aspect (no stretching) — it reveals more of the texture
+        // as the bar fills, like unrolling a scroll.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            g->DrawImage(grassMem, barX, barY, curW, barH);
+            // Source rect: left portion of the grass image
+            int srcW = (grassImg->GetWidth() * curW) / barW;
+            if (srcW < 1) srcW = 1;
+            if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
+            Rect srcRect(0, 0, srcW, grassImg->GetHeight());
+            // Dest: draw at (barX, barY) scaled to (curW, barH)
+            g->DrawImageScaledSrcRect(grassMem, barX, barY, curW, barH, srcRect);
         }
     }
     else
