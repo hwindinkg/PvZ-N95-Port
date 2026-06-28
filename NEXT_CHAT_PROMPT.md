@@ -12,17 +12,17 @@
 - **Whisk3D (эталон EGL/Symbian)**: https://github.com/Dante-Leoncini/Whisk3D/tree/symbian
 
 ## Главная задача
-**Порт 1:1 всей игры PvZ** на Symbian S60 3rd FP1 (Nokia N95). Не аппроксимация, не "похоже" — точный порт. Сейчас сделано (session 5, commit f94ef93):
+**Порт 1:1 всей игры PvZ** на Symbian S60 3rd FP1 (Nokia N95). Не аппроксимация, не "похоже" — точный порт. Сейчас сделано (session 6, commit 355abef):
 - Engine boot (EGL/GLES, landscape, 30 FPS)
 - PAK VFS (3198 файлов, XOR 0xF7)
-- Loading screen (progress bar + Click to Start) — **progress bar рендерится криво (полоской), починить**
-- **ReanimLoader XML парсер ИСПРАВЛЕН** (session 4) — FindElement парсит ВСЕ ~48 треков
-- **ReanimPlayer runtime** (session 4) — интерполяция + Draw, меню анимируется
-- **IMAGE_REANIM_* mapping ИСПРАВЛЕН** (session 4) — спрайты меню грузятся
+- Loading screen (progress bar + Click to Start) — **progress bar ИСПРАВЛЕН** (session 6: SetClipRect вместо stretch)
+- **ReanimLoader XML парсер ИСПРАВЛЕН** (session 4) — FindElement парсит ВСЕ 48 треков
+- **ReanimPlayer runtime** (session 4) — интерполяция + Draw
+- **mImageName copy bug ИСПРАВЛЕН** (session 6) — GetCurrentTransform не копировал mImageName → lazy-load не работал → изображения не грузились. Теперь исправлено.
+- **IMAGE_REANIM_* mapping ИСПРАВЛЕН** (session 4)
 - **SystemFont ')' glyph ИСПРАВЛЕН** (session 4)
-- **Purple screen + crash ИСПРАВЛЕНЫ** (session 5) — state machine re-entry + lazy image loading + TRAP + NULL checks. Было: LoadingCompleted() вызывался 36× (state=3 ставился ПОСЛЕ вызова, Leave на OOM → state не advancing → 35× GameSelector ctor → heap exhaustion → KERN-EXEC 3). Теперь: state=3 ДО вызова + TRAPD + images lazy-load в Draw вместо 14× ICL decode в ctor.
-- **Lawn bg always drawn** (session 5) — IMAGE_BACKGROUND1 рисуется ПЕРВЫМ, reanim поверх. Нет фиолетового экрана.
-- Заглушечное меню (лужайка + 10 rect кнопок) — **всё ещё ЗАМЕНИТЬ на 1:1** (reanim рендерится ПОД кнопками). gs_log.txt теперь содержит ВСЕ track names для маппинга.
+- **Purple screen + crash ИСПРАВЛЕНЫ** (session 5) — state machine + lazy image loading + TRAP
+- **НОРМАЛЬНОЕ МЕНЮ** (session 6) — 10 stub кнопок УБРАНЫ, меню = reanim (SelectorScreen_BG + кнопки-спрайты + облака + цветы). Hit-testing по transform[0] позициям треков. mMouseVisible=true для click routing.
 - miniz (zlib) + d-pad input (курсор + клики)
 
 ## Что нужно портировать (ВЕСЬ upstream движок):
@@ -79,14 +79,16 @@
 - `.reanim.compiled` файлы — НЕ ИСПОЛЬЗОВАТЬ (64-bit struct sizes, несовместимы с 32-bit ARM)
 - compiled/particles/*.xml.compiled — определения частиц (нужен Definition.cpp парсер)
 
-## Текущие блокеры (по приоритету) — обновлено session 5:
-1. ~~ReanimLoader XML парсит 1 трек вместо 48~~ — **ИСПРАВЛЕНО** (session 4, FindElement)
-2. ~~Reanim images не загружаются~~ — **ИСПРАВЛЕНО** (session 4, IMAGE_REANIM_ mapping)
-3. **Меню — 10 rect кнопок рисуются ПОВЕРХ reanim** — reanim грузится+анимируется+lazy-load работает, но stub GameButton'ы всё ещё сверху. Нужно: убрать rect кнопки, использовать reanim button-sprite track'и для hit-testing. **ПРЕДВАРИТЕЛЬНО**: gs_log.txt содержит ВСЕ track names — прочитай их с устройства, замапь на кнопки.
-4. ~~SystemFont глифы кривые~~ — **ИСПРАВЛЕНО** (session 4, ')' glyph + скобки)
-5. **Loading bar рендерится криво (полоской)** — TitleScreen.cpp grass-bar clip/scale логика. Пользователь видит "кривое разворачивание поля как полоски загрузки". Нужно починить DrawImage с srcRect (сейчас stub) или использовать DrawImage scaled.
-6. ~~Purple screen + crash~~ — **ИСПРАВЛЕНО** (session 5, state machine + lazy image loading)
-7. **Upstream код не портирован** — Reanimator.cpp (1501), Board.cpp (6364), Plant.cpp, Zombie.cpp, EffectSystem.cpp (541), TodParticle.cpp (1290), SeedChooserScreen.cpp (1158) и т.д.
+## Текущие блокеры (по приоритету) — обновлено session 6:
+1. ~~ReanimLoader XML парсит 1 трек вместо 48~~ — **ИСПРАВЛЕНО** (session 4)
+2. ~~Reanim images не загружаются~~ — **ИСПРАВЛЕНО** (session 4 mapping + session 6 mImageName copy fix)
+3. ~~Меню — 10 rect кнопок поверх reanim~~ — **ИСПРАВЛЕНО** (session 6: stub кнопки убраны, меню = reanim с hit-testing)
+4. ~~SystemFont глифы кривые~~ — **ИСПРАВЛЕНО** (session 4)
+5. ~~Loading bar криво (полоской)~~ — **ИСПРАВЛЕНО** (session 6: SetClipRect)
+6. ~~Purple screen + crash~~ — **ИСПРАВЛЕНО** (session 5)
+7. **Reanim статичный (duration=0)** — все 706 transforms на frame=0. Облака/цветы не анимируются. `anim_*` tracks — это animation layers, не timeline keyframes. Нужен полный Reanimator runtime для проигрывания layers (Stage 2).
+8. **Adventure/Store/Almanac/etc. клики = "not yet ported"** — нужен Board.cpp (6364 строк) + Plant.cpp + Zombie.cpp + SeedChooserScreen.cpp (Stage 2-3).
+9. **Upstream код не портирован** — Reanimator.cpp (1501), Board.cpp (6364), Plant.cpp, Zombie.cpp, EffectSystem.cpp (541), TodParticle.cpp (1290), SeedChooserScreen.cpp (1158), StoreScreen.cpp (1187), AlmanacDialog.cpp (718) и т.д.
 
 ## Технические ограничения Symbian GCCE 3.4.3:
 - C++03 (NO auto, nullptr, range-for, constexpr, std::filesystem, std::atomic, char32_t)
