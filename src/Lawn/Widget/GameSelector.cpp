@@ -242,8 +242,14 @@ void GameSelector::Draw(Graphics* g)
         // buttons are off-screen. This matches the "just BG" behavior but
         // uses ReanimPlayer (which also draws clouds, flowers, leaves that
         // ARE in the visible area).
-        mReanimPlayer.mX = 0;
-        mReanimPlayer.mY = 0;
+        // [Session-11] The reanim uses center-origin coordinates: (0,0) = center
+        // of the 800×600 screen. The BG at (0,0) with scale 8× and image 100×75
+        // has center at screen-center, extending from (-400,-300) to (400,300)
+        // in reanim space = (0,0) to (800,600) in top-left screen coords.
+        // To map to our 400×300 canvas (×0.5), we offset by (400,300) so the
+        // reanim origin maps to the canvas top-left.
+        mReanimPlayer.mX = 400.0f;
+        mReanimPlayer.mY = 300.0f;
         mReanimPlayer.Draw(g);
         return;
     }
