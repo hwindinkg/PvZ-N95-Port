@@ -152,8 +152,18 @@ GameSelector::GameSelector(LawnApp* theApp)
 
     // [M4 reanim] Load SelectorScreen.reanim.compiled for 1:1 menu rendering.
     // PAK path: compiled/reanim/SelectorScreen.reanim.compiled
-    mReanimLoaded = ReanimLoadCompiled(
-        "compiled/reanim/SelectorScreen.reanim.compiled", mReanimDef);
+    // Wrap in TRAP to catch OOM/leave — reanim decompresses 1.9MB which
+    // may exceed available heap on N95. If it fails, fall back to
+    // IMAGE_BACKGROUND1 menu (still functional, just not 1:1).
+    TRAPD(reanimErr, mReanimLoaded = ReanimLoadCompiled(
+        "compiled/reanim/SelectorScreen.reanim.compiled", mReanimDef));
+    if (reanimErr != KErrNone)
+    {
+        TBuf8<80> b;
+        b.Format(_L8("GS:reanim TRAP err=%d\n"), reanimErr);
+        GSLog(b);
+        mReanimLoaded = EFalse;
+    }
     if (mReanimLoaded)
     {
         TBuf8<80> b;
@@ -163,7 +173,7 @@ GameSelector::GameSelector(LawnApp* theApp)
     }
     else
     {
-        GSLog(_L8("GS:reanim FAILED to load SelectorScreen.reanim.compiled\n"));
+        GSLog(_L8("GS:reanim FAILED — falling back to IMAGE_BACKGROUND1 menu\n"));
     }
 }
 

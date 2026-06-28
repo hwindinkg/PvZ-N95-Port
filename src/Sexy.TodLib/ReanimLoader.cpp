@@ -131,14 +131,21 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                       (compressed[6] << 16) | (compressed[7] << 24);
 
     // Step 3: zlib decompress
-    unsigned char* decompressed = new unsigned char[uncSize];
+    // uncSize is 1.9MB for SelectorScreen — may OOM on N95 (64MB heap).
+    // Use User::LeaveIfError on allocation to allow TRAP to catch it.
+    unsigned char* decompressed = (unsigned char*)User::Alloc(uncSize);
+    if (!decompressed)
+    {
+        delete[] compressed;
+        return EFalse;  // OOM — caller handles via TRAP
+    }
     mz_ulong uncLen = uncSize;
     int result = mz_uncompress(decompressed, &uncLen,
                                compressed + 8, fileSize - 8);
     delete[] compressed;
     if (result != MZ_OK)
     {
-        delete[] decompressed;
+        User::Free(decompressed);
         return EFalse;
     }
 
@@ -235,7 +242,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
         outDefinition.mTracks[i].mName = SMemRStr(readPtr);
     }
 
-    delete[] decompressed;
+    User::Free(decompressed);
     return ETrue;
 }
 
