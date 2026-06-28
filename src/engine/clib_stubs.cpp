@@ -107,4 +107,69 @@ void* calloc(unsigned int aCount, unsigned int aSize)
     return p;
 }
 
+// --- strncpy / atof stubs (for ReanimLoader XML parser) ---
+
+char* strncpy(char* aDst, const char* aSrc, unsigned int aN)
+{
+    char* r = aDst;
+    while (aN > 0 && *aSrc) { *aDst++ = *aSrc++; --aN; }
+    while (aN > 0) { *aDst++ = 0; --aN; }
+    return r;
+}
+
+double atof(const char* aStr)
+{
+    // Simple atof: parse sign, integer part, decimal part
+    double result = 0.0;
+    double sign = 1.0;
+    int i = 0;
+
+    // Skip whitespace
+    while (aStr[i] == ' ' || aStr[i] == '\t') i++;
+
+    // Sign
+    if (aStr[i] == '-') { sign = -1.0; i++; }
+    else if (aStr[i] == '+') i++;
+
+    // Integer part
+    while (aStr[i] >= '0' && aStr[i] <= '9')
+    {
+        result = result * 10.0 + (aStr[i] - '0');
+        i++;
+    }
+
+    // Decimal part
+    if (aStr[i] == '.')
+    {
+        i++;
+        double scale = 0.1;
+        while (aStr[i] >= '0' && aStr[i] <= '9')
+        {
+            result += (aStr[i] - '0') * scale;
+            scale *= 0.1;
+            i++;
+        }
+    }
+
+    // Exponent (e.g. 1.5e2)
+    if (aStr[i] == 'e' || aStr[i] == 'E')
+    {
+        i++;
+        double expSign = 1.0;
+        if (aStr[i] == '-') { expSign = -1.0; i++; }
+        else if (aStr[i] == '+') i++;
+        int exp = 0;
+        while (aStr[i] >= '0' && aStr[i] <= '9')
+        {
+            exp = exp * 10 + (aStr[i] - '0');
+            i++;
+        }
+        double mult = 1.0;
+        for (int j = 0; j < exp; j++) mult *= 10.0;
+        if (expSign < 0) result /= mult; else result *= mult;
+    }
+
+    return sign * result;
+}
+
 } // extern "C" (closes the block opened at line 19)
