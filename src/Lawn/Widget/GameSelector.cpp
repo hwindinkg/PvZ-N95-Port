@@ -117,10 +117,17 @@ GameSelector::GameSelector(LawnApp* theApp)
         GSLog(b);
 
         mReanimPlayer.SetDefinition(&mReanimDef);
-        mReanimPlayer.mLoopType = ReanimPlayer::LOOP_ON;
-        mReanimPlayer.mAnimRate = 1.0f;
+        mReanimPlayer.mLoopType = ReanimPlayer::LOOP_OFF;
+        mReanimPlayer.mAnimRate = 0.0f;  // don't advance (static)
+        // [Session-11] Set mAnimTime to a large value so GetCurrentTransform
+        // clamps to the LAST transform (transform[705]). The reanim has 706
+        // transforms per track: transform[0] = animation start (buttons
+        // off-screen at y=624), transform[705] = animation end (buttons in
+        // final visible position). Without this, mAnimTime=0 shows the start
+        // frame with buttons off-screen.
+        mReanimPlayer.mAnimTime = 9999.0f;
         TBuf8<96> pb;
-        pb.Format(_L8("GS:ReanimPlayer bound, duration=%.2fs\n"),
+        pb.Format(_L8("GS:ReanimPlayer bound, duration=%.2fs, showing last frame\n"),
                   mReanimPlayer.GetDuration());
         GSLog(pb);
 
@@ -188,9 +195,10 @@ void GameSelector::UpdateTooltip()
 void GameSelector::Update()
 {
     Widget::Update();
-    // Advance the reanim player. The port runs at 30 FPS.
-    if (mReanimLoaded)
-        mReanimPlayer.Update(1.0f / 30.0f);
+    // [Session-11] Don't advance the reanim player (mAnimRate=0). The menu
+    // shows the last frame (transform[705]) statically.
+    // if (mReanimLoaded)
+    //     mReanimPlayer.Update(1.0f / 30.0f);
 }
 
 // -------------------------------------------------------------------------

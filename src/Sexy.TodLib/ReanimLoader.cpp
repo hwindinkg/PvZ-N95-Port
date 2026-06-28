@@ -689,6 +689,8 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
 
     // [Session-8] One-time diagnostic: log which tracks have image names and
     // whether they resolved. Written to gs_log.txt on the FIRST Draw call.
+    // [Session-11] Also log the LAST transform (transform[n-1]) to see the
+    // final button positions (transform[0] has buttons off-screen).
     static TBool sFirstDraw = ETrue;
     if (sFirstDraw)
     {
@@ -705,16 +707,22 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
                 {
                     ReanimTrack& tr = mDefinition->mTracks[i];
                     if (tr.mTransformCount <= 0) continue;
-                    ReanimTransform& xf = tr.mTransforms[0];
-                    if (xf.mImageName && xf.mImageName[0] != '\0')
+                    // Log transform[0] and transform[last]
+                    for (int ti = 0; ti < 2; ti++)
                     {
-                        TBuf8<160> line;
-                        const char* nm = tr.mName ? tr.mName : "(null)";
-                        const char* img = xf.mImageName ? xf.mImageName : "(null)";
-                        line.Format(_L8("RP:track[%d] '%s' img='%s' x=%.0f y=%.0f sx=%.2f sy=%.2f\n"),
-                                    i, (const TUint8*)nm, (const TUint8*)img,
-                                    xf.mTransX, xf.mTransY, xf.mScaleX, xf.mScaleY);
-                        f.Write(line);
+                        int idx = (ti == 0) ? 0 : tr.mTransformCount - 1;
+                        ReanimTransform& xf = tr.mTransforms[idx];
+                        if (xf.mImageName && xf.mImageName[0] != '\0')
+                        {
+                            TBuf8<180> line;
+                            const char* nm = tr.mName ? tr.mName : "(null)";
+                            const char* img = xf.mImageName ? xf.mImageName : "(null)";
+                            line.Format(_L8("RP:track[%d] '%s' tf[%d] img='%s' x=%.0f y=%.0f sx=%.2f sy=%.2f\n"),
+                                        i, (const TUint8*)nm, idx,
+                                        (const TUint8*)img,
+                                        xf.mTransX, xf.mTransY, xf.mScaleX, xf.mScaleY);
+                            f.Write(line);
+                        }
                     }
                 }
                 f.Flush();
