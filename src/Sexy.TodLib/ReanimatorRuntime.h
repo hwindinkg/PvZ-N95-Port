@@ -27,11 +27,9 @@
 
 #include <e32def.h>
 #include "ReanimLoader.h"
+#include "../ConstEnums.h"  // ReanimLoopType enum (REANIM_LOOP, REANIM_PLAY_ONCE, etc.)
 
 namespace Sexy { class Graphics; class Image; }
-
-// ReanimLoopType is already defined in ConstEnums.h (included via
-// ReanimLoader.h → Widget.h → ConstEnums.h). Don't redefine it here.
 
 // ===========================================================================
 // ReanimatorFrameTime — current frame position (from upstream Reanimator.h)
