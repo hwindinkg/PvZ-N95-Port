@@ -151,14 +151,15 @@ void TitleScreen::Draw(Graphics* g)
         // was stretched to (curW, barH) which distorted it into a "strip".
         // Now we use SetClipRect so the grass keeps its native aspect and
         // only the left portion up to mCurBarWidth is visible.
+        // DrawImage/FillRect apply the clip rect (GL_SCISSOR_TEST) internally
+        // via ApplyClipRect() and disable it after — so we just set the clip
+        // rect, draw, then clear it.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
             g->SetClipRect(Rect(barX, barY, curW, barH));
-            g->ApplyClipRect();
             // Draw grass at full bar width (the clip rect hides the right part).
             g->DrawImage(grassMem, barX, barY, barW, barH);
-            g->DisableClipRect();
             g->ClearClipRect();
         }
     }
