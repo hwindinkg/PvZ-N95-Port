@@ -16,6 +16,7 @@
  */
 
 #include "Graphics.h"
+#include "Font.h"   // for Font::DrawString (forward-declared in Graphics.h)
 #include "GLInterface.h"
 #include "SexyMatrix.h"
 #include <e32debug.h>
