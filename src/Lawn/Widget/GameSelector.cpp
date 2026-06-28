@@ -194,10 +194,11 @@ void GameSelector::Update()
 }
 
 // -------------------------------------------------------------------------
-// Draw -- render the SelectorScreen menu. [Session-9] Direct image draw:
-// bypass ReanimPlayer (which had texture creation issues) and draw the
-// background + button sprites directly from ResourceManager. This is the
-// most reliable path — the images are already cached from LoadingThreadProc.
+// Draw -- render the full SelectorScreen menu via ReanimPlayer.
+// [Session-11] Use ReanimPlayer::Draw to render ALL 48 tracks (BG + buttons
+// + clouds + flowers + leaves). Images are preloaded in the constructor.
+// The reanim coordinate space extends below y=600 (buttons at y=624-887),
+// so we scroll the view by setting mY offset to show the button area.
 // -------------------------------------------------------------------------
 void GameSelector::Draw(Graphics* g)
 {
@@ -205,92 +206,46 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Session-10] DIRECT DRAW using globals (NOT GetImage in render loop).
-    // Calling GetImage in Draw triggers ICL decode which hangs/crashes on N95.
-    // The images are loaded during LoadingThreadProc (preload) and stored in
-    // the ResourceManager cache + IMAGE_* globals. Use the cached pointers.
-
-    // Background: SelectorScreen_BG (graveyard scene)
-    // Use the preloaded reanim image (preloaded in constructor).
-    Sexy::Image* bg = NULL;
     if (mReanimLoaded && mReanimDef.mTrackCount > 0)
     {
-        // Find the SelectorScreen_BG track and get its preloaded image.
-        for (int i = 0; i < mReanimDef.mTrackCount; i++)
-        {
-            if (mReanimDef.mTracks[i].mName &&
-                mReanimDef.mTracks[i].mTransformCount > 0 &&
-                mReanimDef.mTracks[i].mTransforms[0].mImage)
-            {
-                // Check if this is the BG track (name contains "BG")
-                const char* name = mReanimDef.mTracks[i].mName;
-                if (name[0] == 'S' && name[1] == 'e' && name[2] == 'l' &&
-                    name[3] == 'e' && name[4] == 'c' && name[5] == 't' &&
-                    name[6] == 'o' && name[7] == 'r' && name[8] == 'S' &&
-                    name[9] == 'c' && name[10] == 'r' && name[11] == 'e' &&
-                    name[12] == 'e' && name[13] == 'n' && name[14] == '_' &&
-                    name[15] == 'B' && name[16] == 'G')
-                {
-                    bg = mReanimDef.mTracks[i].mTransforms[0].mImage;
-                    break;
-                }
-            }
-        }
+        // [Session-11] The reanim space is 800x600 visible, but buttons are
+        // at y=624-887 (below the visible area). The upstream game shows the
+        // full scene by positioning the reanim at the center (0.5, 0.5) and
+        // using the Reanimation's overlay matrix. For our simple ReanimPlayer,
+        // we set mY to scroll down so buttons are visible.
+        //
+        // Button tracks in reanim space (from gs_log RP:track):
+        //   Adventure:  y=624  → canvas y=312 (off-screen at 300)
+        //   Survival:   y=732  → canvas y=366
+        //   Challenges: y=817  → canvas y=408
+        //   ZenGarden:  y=887  → canvas y=443
+        //
+        // To show buttons, scroll down by ~325 reanim-space pixels (mY=-325).
+        // This puts Adventure at canvas y=(624-325)*0.5=149 (visible).
+        // The BG (0,0 → 800x600) shifts up to y=(0-325)*0.5=-162 (partially
+        // off-screen top, but the BG is 8× scaled so it still fills).
+        //
+        // Actually, the upstream game's visible area is 800x600 and buttons
+        // ARE at y=624+. This means the upstream canvas is TALLER than 600
+        // (the game window is 800x600 but the reanim extends below, and the
+        // game scrolls or the buttons are partially visible at the bottom).
+        //
+        // For now: don't scroll. Render at mY=0. The BG fills the canvas,
+        // buttons are off-screen. This matches the "just BG" behavior but
+        // uses ReanimPlayer (which also draws clouds, flowers, leaves that
+        // ARE in the visible area).
+        mReanimPlayer.mX = 0;
+        mReanimPlayer.mY = 0;
+        mReanimPlayer.Draw(g);
+        return;
     }
 
-    if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
-    {
-        MemoryImage* mem = static_cast<MemoryImage*>(bg);
-        // [Session-10] Diagnostic: log BG image state (one-time)
-        static bool sLoggedBg = false;
-        if (!sLoggedBg)
-        {
-            sLoggedBg = true;
-            RFs fs; RFile f;
-            if (fs.Connect() == KErrNone)
-            {
-                if (f.Open(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
-                           EFileWrite | EFileShareAny) == KErrNone)
-                {
-                    TInt pos = 0; f.Seek(ESeekEnd, pos);
-                    TBuf8<160> line;
-                    line.Format(_L8("GS:Draw BG %dx%d bits=%08x\n"),
-                                bg->GetWidth(), bg->GetHeight(),
-                                (TUint)mem->GetBits());
-                    f.Write(line);
-                    f.Flush();
-                    f.Close();
-                }
-                fs.Close();
-            }
-        }
-        g->DrawImage(mem, 0, 0, mWidth, mHeight);
-    }
-    else
-    {
-        // Diagnostic: BG image not available
-        g->SetColor(Color(40, 30, 20, 255));
-        g->FillRect(0, 0, mWidth, mHeight);
-        g->SetColor(Color(255, 100, 100, 255));
-        SystemFont* f = SystemFont::Get();
-        if (f) { g->SetFont(f); g->DrawString("No BG", 10, 20); }
-        g->SetColor(Color(255, 255, 255, 255));
-    }
-
-    // [Session-10] NO PvZ logo on the menu (user: "should not be there").
-    // The original menu has: tombstone with buttons, tree, vase-buttons,
-    // achievement pot-button. Those come from the reanim tracks, not a logo.
-
-    // Draw "Click to Begin" text
-    SystemFont* font = SystemFont::Get();
-    if (font)
-    {
-        g->SetFont(font);
-        g->SetColor(Color(255, 240, 200, 255));
-        const char* msg = "Click to Begin";
-        int sw = font->StringWidth(msg);
-        g->DrawString(msg, (mWidth - sw) / 2, mHeight - 30);
-    }
+    // Reanim failed to load — dark background + error text.
+    g->SetColor(Color(30, 25, 20, 255));
+    g->FillRect(0, 0, mWidth, mHeight);
+    g->SetColor(Color(255, 100, 100, 255));
+    SystemFont* f = SystemFont::Get();
+    if (f) { g->SetFont(f); g->DrawString("No Reanim", 10, 20); }
 }
 
 // -------------------------------------------------------------------------

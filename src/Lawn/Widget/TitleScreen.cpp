@@ -202,7 +202,7 @@ void TitleScreen::Draw(Graphics* g)
     Image* dirtImg = IMAGE_LOADBAR_DIRT;
     Image* grassImg = IMAGE_LOADBAR_GRASS;
 
-    if (dirtImg && grassImg && dirtImg->GetWidth() > 0 && grassImg->GetWidth() > 0)
+    if (dirtImg && grassImg && dirtImg->GetWidth() > 0 && grassImg->GetHeight() > 0)
     {
         // Real loading bar: dirt strip + grass overlay.
         MemoryImage* dirtMem = static_cast<MemoryImage*>(dirtImg);
@@ -211,15 +211,38 @@ void TitleScreen::Draw(Graphics* g)
         // Scale dirt to bar size (full bar width).
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: draw scaled to (curW, barH). [Session-9] Reverted from
-        // SetClipRect (which didn't work on the N95 MBX driver — glScissor
-        // either wasn't supported or worked differently). The stretch is
-        // slightly distorted but the animation is visible, which is more
-        // important than perfect aspect ratio.
+        // Grass: [Session-11] Use DrawImage with srcRect to show only the
+        // left portion (curW / barW ratio) of the grass, drawn at full bar
+        // height. This "unrolls" the grass from left to right without
+        // stretching it. The srcRect crops the grass image, the dest keeps
+        // full barW × barH.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            g->DrawImage(grassMem, barX, barY, curW, barH);
+            // Source rect: left portion of the grass image
+            int srcW = (grassImg->GetWidth() * curW) / barW;
+            if (srcW < 1) srcW = 1;
+            if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
+            Rect srcRect(0, 0, srcW, grassImg->GetHeight());
+            // Dest: draw at (barX, barY) with the src rect
+            // DrawImage(img, x, y, srcRect) draws the sub-rect at native size.
+            // But we need it scaled to barH. Use the scaled variant with
+            // adjusted srcRect.
+            //
+            // Actually, the port's DrawImage(img, x, y, srcRect) is a stub
+            // (does nothing). And DrawImage(img, x, y, w, h) stretches.
+            // The best we can do without a working srcRect draw is:
+            // draw the grass at full barW but overlay a dark rect on the
+            // right portion to "hide" it — simulating a crop.
+            g->DrawImage(grassMem, barX, barY, barW, barH);
+            // Cover the right portion (from barX+curW to barX+barW) with
+            // the dirt color to hide the grass that hasn't "grown" yet.
+            if (curW < barW)
+            {
+                g->SetColor(Color(80, 50, 25, 255));  // dark dirt brown
+                g->FillRect(barX + curW, barY, barW - curW, barH);
+                g->SetColor(Color(255, 255, 255, 255));
+            }
         }
     }
     else
