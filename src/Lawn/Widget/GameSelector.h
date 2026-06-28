@@ -1,27 +1,28 @@
 /*
- * GameSelector.h -- M4 #1 main-menu widget.
+ * GameSelector.h -- main-menu widget (1:1 reanim-based, session 6).
  *
- * Ported from upstream PvZ-Portable src/Lawn/Widget/GameSelector.h, adapted
- * to this port's infrastructure:
- *   - uses port's GameButton (not upstream's NewLawnButton -- needs
- *     DialogButton infrastructure that isn't ported yet)
- *   - uses port's ButtonListener interface (ButtonDepressed instead of
- *     upstream's ButtonPress)
- *   - Reanimation / ParticleSystem fields are stubbed out (Reanimator /
- *     TodLib not ported yet -- they're M5)
- *   - ToolTipWidget is ported as a simple text-label widget (no rich
- *     formatting) -- see ToolTipWidget.h
+ * Renders the SelectorScreen reanim directly (background, wooden signs,
+ * button sprites, clouds, flowers, leaves) and does hit-testing against
+ * the reanim button-track positions. No more 10 stub GameButton widgets.
  *
- * Layout (M4 #1 MVP): 9 buttons in a 3x3 grid + Adventure button on top.
- *   Adventure      (full-width, large)
- *   [Survival] [Minigame] [Puzzle]
- *   [Store]    [Almanac]  [Zen Garden]
- *   [Options]  [Help]     [Quit]
+ * Ported from upstream PvZ-Portable src/Lawn/Widget/GameSelector.h.
+ * The upstream version uses Reanimation + NewLawnButton (DialogButton);
+ * this port uses ReanimPlayer (lightweight runtime in ReanimLoader.h) +
+ * manual hit-zones derived from the reanim track transforms.
  *
- * All buttons are created in the constructor. Click routing goes through
- * ButtonDepress -> a switch on mId -> the appropriate LawnApp method
- * (PreNewGame / ShowChallengeScreen / ShowStoreScreen / DoNewOptions /
- * ConfirmQuit etc.).
+ * Reanim tracks used (from SelectorScreen.reanim, 48 tracks total):
+ *   SelectorScreen_BG          -- full background
+ *   SelectorScreen_BG_Center/Left/Right -- background parts
+ *   SelectorScreen_Adventure_button / _shadow
+ *   SelectorScreen_Survival_button / _shadow
+ *   SelectorScreen_Challenges_button / _shadow  (Minigames/Puzzles)
+ *   SelectorScreen_ZenGarden_button / _shadow
+ *   SelectorScreen_StartAdventure_button / _shadow
+ *   Cloud1-7, flower1-3, leaf1-5, woodsign1-3, almanac_key_shadow
+ *
+ * Click routing: MouseDown hit-tests each button track's transform[0]
+ * position + image size (×0.5 for 800x600 -> 400x300 canvas), and calls
+ * ButtonDepressed(id) -> LawnApp flow methods.
  */
 #ifndef __GAMESELECTOR_H__
 #define __GAMESELECTOR_H__
@@ -32,8 +33,6 @@
 #include "../../Sexy.TodLib/ReanimLoader.h"
 
 namespace Sexy { class LawnApp; }
-class ToolTipWidget;
-class GameButton;
 
 namespace Sexy {
 
@@ -60,21 +59,9 @@ public:
         GameSelector_QuickPlay         = 114
     };
 
-    // -- Owned sub-widgets ------------------------------------------------
-    GameButton*     mAdventureButton;
-    GameButton*     mMinigameButton;
-    GameButton*     mPuzzleButton;
-    GameButton*     mSurvivalButton;
-    GameButton*     mOptionsButton;
-    GameButton*     mQuitButton;
-    GameButton*     mHelpButton;
-    GameButton*     mStoreButton;
-    GameButton*     mAlmanacButton;
-    GameButton*     mZenGardenButton;
-    GameButton*     mChangeUserButton;
-    ToolTipWidget*  mToolTip;
+    // -- Reanim data ------------------------------------------------------
     ReanimDefinition mReanimDef;   // parsed SelectorScreen.reanim
-    ReanimPlayer    mReanimPlayer; // runtime that animates mReanimDef
+    ReanimPlayer    mReanimPlayer; // runtime that renders mReanimDef
     bool            mReanimLoaded;
 
     // -- State -----------------------------------------------------------
@@ -100,26 +87,26 @@ public:
     // -- Widget overrides ------------------------------------------------
     virtual void Draw(Graphics* g);
     virtual void Update();
-    virtual void Resize(int x, int y, int w, int h) { Widget::Resize(x, y, w, h); LayoutButtons(); }
-    // NOTE: port's WidgetContainer::AddWidget does NOT call AddedToManager
-    // (unlike upstream's WidgetManager). We create buttons in the constructor
-    // directly, so AddedToManager/RemovedFromManager are not needed here.
+    virtual void Resize(int x, int y, int w, int h) { Widget::Resize(x, y, w, h); }
     virtual void KeyDown(KeyCode theKey);
     virtual void MouseDown(int x, int y, int theClickCount);
+    virtual void MouseMove(int x, int y);
 
-    // -- ButtonListener overrides ---------------------------------------
-    // Port's ButtonListener interface uses ButtonDepressed (NOT ButtonPress
-    // like upstream). See engine/ButtonListener.h.
+    // -- ButtonListener overrides (kept for compat, no stub buttons now) -
     virtual void ButtonDepressed(int theId);
-    virtual void ButtonMouseEnter(int theId);
+    virtual void ButtonMouseEnter(int theId) { (void)theId; }
     virtual void ButtonMouseLeave(int theId) { (void)theId; }
     virtual void ButtonMouseMove(int, int, int) {}
 
     // -- API -------------------------------------------------------------
     void            SyncProfile(bool theShowLoading);
-    void            LayoutButtons();
     void            UpdateTooltip();
     bool            ShouldDoZenTutorialBeforeAdventure() { return false; }
+
+    // -- Hit-testing -----------------------------------------------------
+    // Returns the button ID at canvas point (x,y), or -1 if no hit.
+    // Uses the reanim button-track transform[0] position + image size.
+    int             HitTestButton(int x, int y);
 };
 
 } // namespace Sexy

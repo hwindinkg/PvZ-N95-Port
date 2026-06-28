@@ -63,6 +63,117 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ---
 
+## Current status (2026-06-28, session 6) — real reanim menu + bug fixes
+
+### On-device diagnosis (from uploaded logs)
+
+The session-5 build booted correctly (no crash, `LoadingCompleted returned
+OK`), reanim loaded (`48 tracks, FPS=20`), all track names dumped to gs_log.
+But the user saw **lawn background + 10 stub buttons** instead of the reanim
+menu. Two root causes found:
+
+#### Bug 1: `mImageName` not copied in `GetCurrentTransform` (CRITICAL)
+
+`ReanimPlayer::GetCurrentTransform` copied `mImage`, `mFontName`, `mText`
+from the active keyframe to the output transform, but **NOT `mImageName`**
+(added in session 5). So `ReanimPlayer::Draw` always saw `mImageName == ""`
+→ the lazy-load branch never fired → no images were ever resolved →
+`ReanimPlayer::Draw` rendered nothing → the lawn background showed through
+(because session-5 `GameSelector::Draw` draws lawn first as a base layer).
+
+**Fix:** added `aOut.mImageName = a.mImageName;` in the interpolated branch
+of `GetCurrentTransform`. (The single-transform and clamp branches use
+`aOut = track.mTransforms[i]` which copies the whole struct, so they were
+already correct.)
+
+**Effect:** `Draw` now sees the image name, calls `GetImage`, resolves the
+`Image*`, caches it in the keyframe, and renders it. The SelectorScreen_BG
+track now actually draws the graveyard background, button sprites appear,
+etc.
+
+#### Bug 2: 10 stub GameButton widgets drawn on top of reanim
+
+Even with images loading, the 10 stub `GameButton` widgets (created in the
+old constructor, added to the `WidgetManager` as top-level widgets) were
+drawn ON TOP of the reanim menu. They covered the reanim button sprites
+with beige rectangles + text labels.
+
+**Fix:** **rewrote `GameSelector` completely** — no more stub buttons:
+- Constructor: just loads the reanim + binds `ReanimPlayer`. No
+  `GameButton` widgets, no `ToolTipWidget`, no `LayoutButtons`.
+- `Draw`: renders the reanim ONLY (SelectorScreen_BG covers the full
+  canvas; no lawn fallback needed when reanim loads). Falls back to
+  lawn+title only if reanim fails to load.
+- `MouseDown`: hit-tests the click against each reanim button track's
+  `transform[0]` position + image size (×0.5 for 800×600 → 400×300). Maps
+  track names to button IDs:
+  - `SelectorScreen_Adventure_button` → Adventure (100)
+  - `SelectorScreen_Survival_button` → Survival (110) [locked]
+  - `SelectorScreen_Challenges_button` → Minigames (101) [locked]
+  - `SelectorScreen_ZenGarden_button` → Zen Garden (109) [locked]
+  - `SelectorScreen_StartAdventure_button` → Adventure (100)
+  - Options/Help/Quit use fixed canvas positions (bottom woodsign area)
+- `mMouseVisible = true` so `WidgetManager::FindWidget` routes clicks to
+  GameSelector (was `false` before, which is why clicks never reached it).
+- `ButtonDepressed` / `KeyDown` routing unchanged (Options/Quit work;
+  Adventure/Store/etc. log "not yet ported").
+
+#### Bug 3: Loading bar rendered as a distorted strip
+
+`TitleScreen::Draw` drew the grass bar by **stretching** it to
+`(mCurBarWidth, barH)` — a horizontal squish that made it look like a
+thin strip instead of a growing grass section.
+
+**Fix:** use `Graphics::SetClipRect` + `ApplyClipRect` to clip the grass
+to `(barX, barY, curW, barH)`, then draw it at full bar width. The clip
+rect hides the right portion; the grass keeps its native aspect. (The
+port's `ClipRect` is implemented in `Graphics.cpp`; `DrawImage` with
+`srcRect` was a stub, which is why the old code stretched instead.)
+
+### Reanim track inventory (from gs_log, 48 tracks)
+
+| # | Track name | Purpose |
+|---|-----------|---------|
+| 0-7 | anim_open/sign/idle/grass/flower1-3/start | animation layers |
+| 8-13 | anim_cloud1-7 | cloud animation layers |
+| 14 | **SelectorScreen_BG** | full background |
+| 15-20 | Cloud1-7 | cloud sprites |
+| 21-23 | SelectorScreen_BG_Center/Left/Right | bg parts |
+| 24 | almanac_key_shadow | almanac key shadow |
+| 25-34 | SelectorScreen_*_button / _shadow | button sprites + shadows |
+| 35-41 | leaf1-5, leaf22, leaf_SelectorScreen_Leaves | leaf decorations |
+| 42-44 | flower1-3 | flower decorations |
+| 45-47 | woodsign1-3 | wooden signs (Options/Help/Quit) |
+
+### Expected on-device behaviour after session 6
+
+1. Loading screen: grass bar grows with correct aspect (no strip)
+2. Click-to-start → menu appears: **SelectorScreen_BG** (graveyard scene)
+   fills the canvas, wooden signs + button sprites visible
+3. No 10 stub buttons — the menu IS the reanim
+4. D-pad cursor visible; centre key clicks reanim buttons (Adventure etc.)
+5. Options/Help/Quit click zones work (bottom woodsign area)
+
+### What is NOT done yet (carried forward)
+
+- Adventure click → `PreNewGame` still logs "gameplay not yet ported"
+  (Stage 2: Board/Plant/Zombie port).
+- Store/Almanac/ZenGarden/Challenge click → "not yet ported" (Stage 3).
+- The reanim is **static** (duration=0, all 706 transforms at frame 0) —
+  clouds/flowers don't drift yet. The `anim_*` tracks are animation
+  *layers*, not timeline keyframes; playing them needs the full
+  Reanimator runtime (Stage 2). For now the menu is a correct static
+  1:1 render.
+- Sound/music still stubbed (Stage 4).
+
+### Build/test history (session 6)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| (this) | Fix mImageName copy + rewrite GameSelector (no stub buttons) + clip loading bar | Pending on-device build |
+
+---
+
 ## Current status (2026-06-28, session 5) — purple screen + crash fixed
 
 ### On-device symptoms (from uploaded logs)

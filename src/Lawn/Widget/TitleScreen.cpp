@@ -144,16 +144,22 @@ void TitleScreen::Draw(Graphics* g)
         MemoryImage* dirtMem = static_cast<MemoryImage*>(dirtImg);
         MemoryImage* grassMem = static_cast<MemoryImage*>(grassImg);
 
-        // Scale dirt to bar size.
+        // Scale dirt to bar size (full bar width).
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: clip to mCurBarWidth. Port's Graphics::ClipRect exists but
-        // DrawImage with srcRect is a stub. Workaround: draw grass scaled to
-        // (mCurBarWidth, barH) -- visually approximates the clipping.
+        // Grass: clip to mCurBarWidth. [Session-6 fix] Previously the grass
+        // was stretched to (curW, barH) which distorted it into a "strip".
+        // Now we use SetClipRect so the grass keeps its native aspect and
+        // only the left portion up to mCurBarWidth is visible.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            g->DrawImage(grassMem, barX, barY, curW, barH);
+            g->SetClipRect(Rect(barX, barY, curW, barH));
+            g->ApplyClipRect();
+            // Draw grass at full bar width (the clip rect hides the right part).
+            g->DrawImage(grassMem, barX, barY, barW, barH);
+            g->DisableClipRect();
+            g->ClearClipRect();
         }
     }
     else

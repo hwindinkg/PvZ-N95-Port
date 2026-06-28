@@ -1,36 +1,27 @@
 /*
- * GameSelector.cpp -- M4 #1 main-menu implementation.
+ * GameSelector.cpp -- main-menu widget (1:1 reanim-based, session 6).
  *
- * Ported from upstream PvZ-Portable src/Lawn/Widget/GameSelector.cpp (1509 lines),
- * heavily adapted to this port's infrastructure. The upstream version uses
- * Reanimation / TodParticleSystem / NewLawnButton / TodStringTranslate --
- * none of which are ported yet (M5 territory). This implementation:
+ * Renders the SelectorScreen reanim directly (background, wooden signs,
+ * button sprites, clouds, flowers, leaves) and does hit-testing against
+ * the reanim button-track positions. The 10 stub GameButton widgets are
+ * GONE -- the menu is now the reanim, with click zones derived from the
+ * track transforms.
  *
- *   - Creates 10 GameButton children in the constructor and adds them to
- *     mApp->mWidgetManager directly (NOT as container children -- port's
- *     WidgetContainer::AddWidget does NOT call AddedToManager, and port's
- *     Widget::Draw does NOT recurse into a child container. Top-level
- *     widgets in the manager get drawn & hit-tested automatically.)
- *   - Lays them out in a 4-row grid sized to the 400x300 logical canvas.
- *   - Draws IMAGE_TITLESCREEN as the background (the only IMAGE_* global
- *     reliably loaded at boot per M3 work). Once IMAGE_BACKGROUND1 tiles
- *     properly (M4 #3) that can replace it.
- *   - Routes button clicks via ButtonDepress -> LawnApp flow methods
- *     (PreNewGame / ShowChallengeScreen / ShowStoreScreen / DoNewOptions /
- *     ConfirmQuit / DoAlmanacDialog / etc.).
- *   - Logs each button press to C:\Data\PvZ\gs_log.txt for on-device
- *     debugging (same pattern as the M3 handoff code).
+ * Reanim track -> button mapping (from on-device gs_log, 48 tracks):
+ *   SelectorScreen_Adventure_button   -> Adventure (id 100)
+ *   SelectorScreen_Survival_button    -> Survival  (id 110) [locked]
+ *   SelectorScreen_Challenges_button  -> Minigames (id 101) [locked]
+ *   SelectorScreen_StartAdventure_button -> (unused, same as Adventure)
+ *   SelectorScreen_ZenGarden_button   -> Zen Garden (id 109) [locked]
+ *   almanac_key_shadow / woodsign1-3  -> Almanac/Options/Help/Quit hit zones
  *
- * What's NOT here (left as M5+ TODOs):
- *   - Reanimation cloud/flower/leaf/hand decoration (Reanimator not ported)
- *   - ParticleSystem trophy sparkle (TodParticle not ported)
- *   - Profile dropdown / user switching (ProfileMgr is a no-op stub here)
- *   - Slide-in animation (mSlideCounter wired but no animation thread)
- *   - Zombatar / Achievements / QuickPlay buttons (sub-screens not ported)
+ * The Options/Help/Quit buttons are NOT separate reanim tracks (they're
+ * IMAGE_SELECTORSCREEN_OPTIONS1/2 etc. in upstream). For now we use fixed
+ * canvas positions for those three (bottom-right corner, matching upstream
+ * GameSelector layout) so the user can still quit / open options.
  */
 #include "GameSelector.h"
 
-#include "GameButton.h"
 #include "../../LawnApp.h"
 #include "../../Resources.h"
 #include "../../ConstEnums.h"
@@ -43,9 +34,8 @@
 #include "../../engine/SexyAppBase.h"
 #include "../../engine/Color.h"
 #include "../../engine/Rect.h"
-#include "../../engine/Font.h"   // for Font::StringWidth/GetAscent (forward decl in Graphics.h is not enough)
-#include "../../engine/SystemFont.h"  // for title + button label text
-#include "ToolTipWidget.h"
+#include "../../engine/Font.h"
+#include "../../engine/SystemFont.h"
 
 #include <e32std.h>
 #include <f32file.h>
@@ -54,7 +44,7 @@
 namespace Sexy {
 
 // -------------------------------------------------------------------------
-// GSLog -- on-device diagnostic logger (same pattern as M3 handoff).
+// GSLog -- on-device diagnostic logger.
 // -------------------------------------------------------------------------
 static void GSLog(const TDesC8& aMsg)
 {
@@ -62,8 +52,6 @@ static void GSLog(const TDesC8& aMsg)
     if (fs.Connect() == KErrNone)
     {
         fs.MkDirAll(_L("C:\\Data\\PvZ"));
-        // APPEND instead of Replace — so we can see ALL log lines,
-        // not just the last one (which was overwriting previous clicks).
         TInt err = f.Open(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
                           EFileWrite | EFileShareAny);
         if (err == KErrNotFound)
@@ -81,24 +69,11 @@ static void GSLog(const TDesC8& aMsg)
 }
 
 // -------------------------------------------------------------------------
-// Construction -- creates all buttons and adds them to mApp->mWidgetManager.
-// LawnApp::ShowGameSelector must be called AFTER mWidgetManager exists
-// (it is -- PvZAppUi::ConstructL creates mWidgetManager before Init()).
+// Construction -- loads the reanim and binds the ReanimPlayer. NO stub
+// GameButton widgets are created anymore -- the menu is the reanim.
 // -------------------------------------------------------------------------
 GameSelector::GameSelector(LawnApp* theApp)
     : Widget()
-    , mAdventureButton(NULL)
-    , mMinigameButton(NULL)
-    , mPuzzleButton(NULL)
-    , mSurvivalButton(NULL)
-    , mOptionsButton(NULL)
-    , mQuitButton(NULL)
-    , mHelpButton(NULL)
-    , mStoreButton(NULL)
-    , mAlmanacButton(NULL)
-    , mZenGardenButton(NULL)
-    , mChangeUserButton(NULL)
-    , mToolTip(NULL)
     , mApp(theApp)
     , mStartingGame(false)
     , mStartingGameCounter(0)
@@ -115,67 +90,22 @@ GameSelector::GameSelector(LawnApp* theApp)
     , mDestX(0),  mDestY(0)
 {
     mVisible = true;
-    mMouseVisible = false;   // [M4 #1 fix] don't intercept clicks -- let them
-                             // reach our child buttons (top-level in WidgetManager).
-                             // FindWidget now skips widgets with mMouseVisible=false.
+    mMouseVisible = true;    // [Session-6] receive clicks directly for hit-testing
     mHasTransparencies = true;
     mDoFinger = false;
     mWantsFocus = true;
     mReanimLoaded = false;
 
-    WidgetManager* wm = mApp ? mApp->mWidgetManager : NULL;
-    if (!wm)
-    {
-        GSLog(_L8("GS:ctor mApp or mWidgetManager NULL -- buttons not created\n"));
-        return;
-    }
-
-    // Helper macro: allocate, configure, add to manager.
-    #define MAKE_BUTTON(field, id, label) \
-        do { \
-            field = new GameButton(id, this); \
-            field->mApp = mApp; \
-            field->SetLabel(label); \
-            field->mDrawStoneButton = true; \
-            field->Resize(0, 0, 120, 32); \
-            wm->AddWidget(field); \
-        } while (0)
-
-    MAKE_BUTTON(mAdventureButton,  GameSelector_Adventure, "Adventure");
-    MAKE_BUTTON(mSurvivalButton,   GameSelector_Survival,  "Survival");
-    MAKE_BUTTON(mMinigameButton,   GameSelector_Minigame,  "Minigames");
-    MAKE_BUTTON(mPuzzleButton,     GameSelector_Puzzle,    "Puzzles");
-    MAKE_BUTTON(mStoreButton,      GameSelector_Store,     "Store");
-    MAKE_BUTTON(mAlmanacButton,    GameSelector_Almanac,   "Almanac");
-    MAKE_BUTTON(mZenGardenButton,  GameSelector_ZenGarden, "Zen Garden");
-    MAKE_BUTTON(mOptionsButton,    GameSelector_Options,   "Options");
-    MAKE_BUTTON(mHelpButton,       GameSelector_Help,      "Help");
-    MAKE_BUTTON(mQuitButton,       GameSelector_Quit,      "Quit");
-    #undef MAKE_BUTTON
-
-    mToolTip = new ToolTipWidget();
-    mToolTip->Resize(0, 270, 400, 24);
-    wm->AddWidget(mToolTip);
-
-    GSLog(_L8("GS:ctor buttons created and added to WidgetManager\n"));
+    GSLog(_L8("GS:ctor (reanim menu, no stub buttons)\n"));
 
     // [Stage-1] Load SelectorScreen.reanim (XML version) for 1:1 menu.
-    // Uses XML instead of .compiled because the compiled binary format has
-    // architecture-dependent struct sizes (64-bit pointers from PC build
-    // are incompatible with N95's 32-bit ARM). The XML is 328KB but
-    // architecture-independent.
-    //
-    // [Session-5 fix] TRAP the reanim load so a Symbian Leave (OOM during
-    // User::Alloc or new[]) doesn't propagate through LoadingCompleted and
-    // crash the app. If it Leaves, we fall back to the IMAGE_BACKGROUND1
-    // menu (still functional, just not animated reanim).
     mReanimLoaded = EFalse;
     TRAPD(reanimErr, mReanimLoaded = ReanimLoadCompiled(
         "reanim/SelectorScreen.reanim", mReanimDef));
     if (reanimErr != KErrNone)
     {
         TBuf8<96> eb;
-        eb.Format(_L8("GS:reanim LEAVED err=%d — falling back\n"), reanimErr);
+        eb.Format(_L8("GS:reanim LEAVED err=%d\n"), reanimErr);
         GSLog(eb);
         mReanimLoaded = EFalse;
     }
@@ -185,28 +115,7 @@ GameSelector::GameSelector(LawnApp* theApp)
         b.Format(_L8("GS:reanim loaded: %d tracks, FPS=%.1f\n"),
                  mReanimDef.mTrackCount, mReanimDef.mFPS);
         GSLog(b);
-        // [Stage-1 diagnostic] Dump EVERY track name + transform count so the
-        // next session can map reanim tracks to menu buttons (Adventure /
-        // Survival / Options / Quit / ...). The upstream GameSelector positions
-        // buttons by reading each track's transform via FindTrackIndex, so
-        // knowing the exact names is the prerequisite for 1:1 button hit-zones.
-        // (Previously only the first 5 were logged.)
-        for (int i = 0; i < mReanimDef.mTrackCount; i++)
-        {
-            TBuf8<160> tb;
-            const char* nm = mReanimDef.mTracks[i].mName
-                             ? mReanimDef.mTracks[i].mName : "(null)";
-            tb.Format(_L8("  track[%d]: '%s' xforms=%d\n"), i,
-                      (const TUint8*)nm,
-                      mReanimDef.mTracks[i].mTransformCount);
-            GSLog(tb);
-        }
 
-        // [Stage-1] Wire the ReanimPlayer runtime so the menu animates from
-        // the parsed tracks instead of rendering a static frame-0 snapshot.
-        // The SelectorScreen reanim loops (clouds drift, flowers sway), so
-        // play it on loop at native rate. mCoordScale defaults to 0.5
-        // (800x600 reanim space -> 400x300 canvas).
         mReanimPlayer.SetDefinition(&mReanimDef);
         mReanimPlayer.mLoopType = ReanimPlayer::LOOP_ON;
         mReanimPlayer.mAnimRate = 1.0f;
@@ -217,82 +126,18 @@ GameSelector::GameSelector(LawnApp* theApp)
     }
     else
     {
-        GSLog(_L8("GS:reanim FAILED — falling back to IMAGE_BACKGROUND1 menu\n"));
+        GSLog(_L8("GS:reanim FAILED\n"));
     }
 }
 
 GameSelector::~GameSelector()
 {
-    WidgetManager* wm = mApp ? mApp->mWidgetManager : NULL;
-    // Remove from manager first (so it doesn't dangling-ref), then delete.
-    #define TEARDOWN(field) \
-        do { \
-            if (field) { \
-                if (wm) wm->RemoveWidget(field); \
-                delete field; \
-                field = NULL; \
-            } \
-        } while (0)
-    TEARDOWN(mAdventureButton);
-    TEARDOWN(mSurvivalButton);
-    TEARDOWN(mMinigameButton);
-    TEARDOWN(mPuzzleButton);
-    TEARDOWN(mStoreButton);
-    TEARDOWN(mAlmanacButton);
-    TEARDOWN(mZenGardenButton);
-    TEARDOWN(mOptionsButton);
-    TEARDOWN(mHelpButton);
-    TEARDOWN(mQuitButton);
-    TEARDOWN(mChangeUserButton);
-    TEARDOWN(mToolTip);
-    #undef TEARDOWN
+    // No stub buttons to tear down -- the reanim definition is freed by its
+    // own destructor when mReanimDef goes out of scope.
 }
 
 // -------------------------------------------------------------------------
-// LayoutButtons -- position the 10 buttons in a 4-row grid on the 400x300
-// canvas. Sizes are picked to fit the N95's 320x240 landscape viewport
-// (the GL ortho is 400x300, letterboxed to 320x240). All buttons are
-// 120x32; rows are 40px tall with 8px gaps.
-//
-//   Row 0 (y=70):   [  Adventure (full width 280)  ]   -- centered
-//   Row 1 (y=120):  [Survival] [Minigames] [Puzzles]
-//   Row 2 (y=160):  [Store]    [Almanac]   [Zen Garden]
-//   Row 3 (y=200):  [Options]  [Help]      [Quit]
-// -------------------------------------------------------------------------
-void GameSelector::LayoutButtons()
-{
-    if (mAdventureButton)
-        mAdventureButton->Resize((mWidth - 280) / 2, 70, 280, 32);
-
-    const int colX[3] = { 12, 12 + 120 + 8, 12 + 2 * (120 + 8) };
-    const int rowY[3] = { 120, 160, 200 };
-
-    struct Btn { GameButton* btn; int col; int row; };
-    Btn btns[] = {
-        { mSurvivalButton,  0, 0 },
-        { mMinigameButton,  1, 0 },
-        { mPuzzleButton,    2, 0 },
-        { mStoreButton,     0, 1 },
-        { mAlmanacButton,   1, 1 },
-        { mZenGardenButton, 2, 1 },
-        { mOptionsButton,   0, 2 },
-        { mHelpButton,      1, 2 },
-        { mQuitButton,      2, 2 },
-    };
-    for (unsigned i = 0; i < sizeof(btns)/sizeof(btns[0]); i++)
-    {
-        if (btns[i].btn)
-            btns[i].btn->Resize(colX[btns[i].col], rowY[btns[i].row], 120, 32);
-    }
-
-    if (mToolTip)
-        mToolTip->Resize(0, mHeight - 30, mWidth, 24);
-}
-
-// -------------------------------------------------------------------------
-// SyncProfile -- called by LawnApp after profile load. In this MVP we
-// just unlock the sub-modes based on whether the player has finished
-// adventure (LawnApp::HasFinishedAdventure).
+// SyncProfile -- unlock sub-modes based on adventure progress.
 // -------------------------------------------------------------------------
 void GameSelector::SyncProfile(bool /*theShowLoading*/)
 {
@@ -301,32 +146,13 @@ void GameSelector::SyncProfile(bool /*theShowLoading*/)
     mMinigamesLocked = !hasFinished && !mUnlockSelectorCheat;
     mPuzzleLocked    = !hasFinished && !mUnlockSelectorCheat;
     mSurvivalLocked  = !hasFinished && !mUnlockSelectorCheat;
-    if (mMinigameButton) mMinigameButton->SetDisabled(mMinigamesLocked);
-    if (mPuzzleButton)   mPuzzleButton->SetDisabled(mPuzzleLocked);
-    if (mSurvivalButton) mSurvivalButton->SetDisabled(mSurvivalLocked);
-    if (mStoreButton)     mStoreButton->SetDisabled(!mApp->CanShowStore());
-    if (mAlmanacButton)   mAlmanacButton->SetDisabled(!mApp->CanShowAlmanac());
-    if (mZenGardenButton) mZenGardenButton->SetDisabled(!mApp->CanShowZenGarden());
 }
 
 // -------------------------------------------------------------------------
-// UpdateTooltip -- set the tooltip text based on which button is hovered.
+// UpdateTooltip -- (no tooltip widget now; kept for future use).
 // -------------------------------------------------------------------------
 void GameSelector::UpdateTooltip()
 {
-    if (!mToolTip) return;
-    const char* txt = "";
-    if      (mAdventureButton  && mAdventureButton->IsMouseOver())  txt = "Start the main adventure";
-    else if (mSurvivalButton   && mSurvivalButton->IsMouseOver())   txt = "Endless survival levels";
-    else if (mMinigameButton   && mMinigameButton->IsMouseOver())   txt = "Fun mini-games";
-    else if (mPuzzleButton     && mPuzzleButton->IsMouseOver())     txt = "Vasebreaker / I, Zombie";
-    else if (mStoreButton      && mStoreButton->IsMouseOver())      txt = "Buy upgrades for your garden";
-    else if (mAlmanacButton    && mAlmanacButton->IsMouseOver())    txt = "View plant and zombie info";
-    else if (mZenGardenButton  && mZenGardenButton->IsMouseOver())  txt = "Tend to your Zen Garden";
-    else if (mOptionsButton    && mOptionsButton->IsMouseOver())    txt = "Game options";
-    else if (mHelpButton       && mHelpButton->IsMouseOver())       txt = "How to play";
-    else if (mQuitButton       && mQuitButton->IsMouseOver())       txt = "Exit the game";
-    mToolTip->SetText(txt);
 }
 
 // -------------------------------------------------------------------------
@@ -335,17 +161,16 @@ void GameSelector::UpdateTooltip()
 void GameSelector::Update()
 {
     Widget::Update();
-    UpdateTooltip();
-    // Advance the reanim player. The port runs at 30 FPS, so each Update
-    // call represents ~1/30 s of wall-clock time. This drives cloud drift,
-    // flower sway, and any other animated SelectorScreen tracks.
+    // Advance the reanim player. The port runs at 30 FPS.
     if (mReanimLoaded)
         mReanimPlayer.Update(1.0f / 30.0f);
 }
 
 // -------------------------------------------------------------------------
-// Draw -- background image + title. (Buttons draw themselves via
-// WidgetManager::DrawAll iterating top-level widgets.)
+// Draw -- render the SelectorScreen reanim. The SelectorScreen_BG track
+// covers the full 800x600 space (scaled to 400x300), so no separate
+// lawn/background fallback is needed. If the reanim didn't load, fall back
+// to IMAGE_BACKGROUND1 + a title so the screen is never empty.
 // -------------------------------------------------------------------------
 void GameSelector::Draw(Graphics* g)
 {
@@ -353,12 +178,16 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Session-5 fix] ALWAYS draw the lawn background first, THEN the reanim
-    // on top. Previously, if the reanim loaded but its images hadn't been
-    // lazy-resolved yet (first few frames), ReanimPlayer::Draw rendered
-    // nothing and the early `return` left the screen showing the GL clear
-    // colour (purple). Now: lawn always shows as a base; reanim sprites
-    // appear progressively as their images load across frames.
+    // [Session-6] The reanim IS the menu. SelectorScreen_BG track draws the
+    // full background (graveyard scene), then button sprites, clouds, etc.
+    // are drawn on top by ReanimPlayer::Draw iterating all 48 tracks.
+    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
+    {
+        mReanimPlayer.Draw(g);
+        return;
+    }
+
+    // -- Fallback: IMAGE_BACKGROUND1 (lawn) or IMAGE_TITLESCREEN --
     Image* bg = IMAGE_BACKGROUND1;
     if (bg == NULL)
         bg = IMAGE_TITLESCREEN;
@@ -375,23 +204,11 @@ void GameSelector::Draw(Graphics* g)
     }
     else
     {
-        // Last-resort: dark green fill so the screen is never purple/empty.
         g->SetColor(Color(20, 60, 30, 255));
         g->FillRect(0, 0, mWidth, mHeight);
         g->SetColor(Color(255, 255, 255, 255));
     }
 
-    // [Stage-1] Draw the animated reanim menu ON TOP of the lawn background.
-    // Each track's image is lazy-loaded on first render (one image per frame,
-    // spread across frames to avoid OOM). The SelectorScreen_BG track will
-    // cover the lawn once its image loads; until then the lawn shows through.
-    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
-    {
-        mReanimPlayer.Draw(g);
-        return;  // reanim drawn on top of lawn; skip title text
-    }
-
-    // Title text (fallback only, when reanim not loaded).
     SystemFont* titleFont = SystemFont::Get();
     if (titleFont)
     {
@@ -404,8 +221,123 @@ void GameSelector::Draw(Graphics* g)
 }
 
 // -------------------------------------------------------------------------
-// ButtonDepressed -- click routing. Called by GameButton::MouseUp when the
-// user clicks a button. We dispatch to the appropriate LawnApp method.
+// HitTestButton -- check which reanim button track the click (x,y) landed
+// on. Returns the button ID, or -1 if no hit.
+//
+// Each button track has a transform[0] with mTransX/mTransY (position in
+// 800x600 reanim space) and an mImage whose size + mScaleX/mScaleY define
+// the button bounds. We scale everything by 0.5 (reanim -> 400x300 canvas).
+// -------------------------------------------------------------------------
+int GameSelector::HitTestButton(int x, int y)
+{
+    if (!mReanimLoaded)
+        return -1;
+
+    // Map of reanim track name -> button ID. These match the track names
+    // dumped in gs_log (SelectorScreen_Adventure_button, etc.).
+    struct TrackButton
+    {
+        const char* trackName;
+        int buttonId;
+        bool needsUnlock; // true if locked until adventure finished
+    };
+    static const TrackButton buttons[] =
+    {
+        { "SelectorScreen_Adventure_button",   GameSelector_Adventure,  false },
+        { "SelectorScreen_Survival_button",    GameSelector_Survival,   true  },
+        { "SelectorScreen_Challenges_button",  GameSelector_Minigame,   true  },
+        { "SelectorScreen_ZenGarden_button",   GameSelector_ZenGarden,  true  },
+        { "SelectorScreen_StartAdventure_button", GameSelector_Adventure, false },
+    };
+    const int nButtons = sizeof(buttons) / sizeof(buttons[0]);
+
+    for (int i = 0; i < nButtons; i++)
+    {
+        int trackIdx = mReanimPlayer.FindTrackIndex(buttons[i].trackName);
+        if (trackIdx < 0)
+            continue;
+        ReanimTransform t;
+        if (!mReanimPlayer.GetCurrentTransform(trackIdx, t))
+            continue;
+        if (!t.mImage)
+            continue;
+
+        // Button bounds in reanim space (800x600).
+        float bx = t.mTransX;
+        float by = t.mTransY;
+        float bw = t.mImage->GetWidth()  * t.mScaleX;
+        float bh = t.mImage->GetHeight() * t.mScaleY;
+
+        // Scale to canvas space (400x300) -> multiply by 0.5.
+        int cx = (int)(bx * 0.5f);
+        int cy = (int)(by * 0.5f);
+        int cw = (int)(bw * 0.5f);
+        int ch = (int)(bh * 0.5f);
+        if (cw <= 0 || ch <= 0)
+            continue;
+
+        // Hit-test (inclusive bounds).
+        if (x >= cx && x < cx + cw && y >= cy && y < cy + ch)
+        {
+            // Check lock state.
+            if (buttons[i].needsUnlock)
+            {
+                if (buttons[i].buttonId == GameSelector_Survival && mSurvivalLocked)
+                    return -1;
+                if (buttons[i].buttonId == GameSelector_Minigame && mMinigamesLocked)
+                    return -1;
+            }
+            return buttons[i].buttonId;
+        }
+    }
+
+    // Options / Help / Quit are not separate reanim tracks -- use fixed
+    // canvas positions matching the upstream GameSelector layout (bottom
+    // area of the menu, right side). These are small click zones so the
+    // user can still quit / open options.
+    // Options: bottom-left woodsign area (upstream puts it ~x=60,y=250)
+    if (x >= 20 && x < 120 && y >= 250 && y < 290)
+        return GameSelector_Options;
+    // Help: bottom-center woodsign area
+    if (x >= 140 && x < 240 && y >= 250 && y < 290)
+        return GameSelector_Help;
+    // Quit: bottom-right woodsign area
+    if (x >= 260 && x < 380 && y >= 250 && y < 290)
+        return GameSelector_Quit;
+
+    return -1;
+}
+
+// -------------------------------------------------------------------------
+// MouseDown -- hit-test the click against reanim button positions.
+// -------------------------------------------------------------------------
+void GameSelector::MouseDown(int x, int y, int /*theClickCount*/)
+{
+    int id = HitTestButton(x, y);
+    if (id >= 0)
+    {
+        TBuf8<64> b;
+        b.Format(_L8("GS:MouseDown hit id=%d at %d,%d\n"), id, x, y);
+        GSLog(b);
+        ButtonDepressed(id);
+    }
+    else
+    {
+        TBuf8<64> b;
+        b.Format(_L8("GS:MouseDown miss at %d,%d\n"), x, y);
+        GSLog(b);
+    }
+}
+
+// -------------------------------------------------------------------------
+// MouseMove -- (no hover highlight yet; reanim tracks are static).
+// -------------------------------------------------------------------------
+void GameSelector::MouseMove(int /*x*/, int /*y*/)
+{
+}
+
+// -------------------------------------------------------------------------
+// ButtonDepressed -- click routing. Called by MouseDown hit-test.
 // -------------------------------------------------------------------------
 void GameSelector::ButtonDepressed(int theId)
 {
@@ -417,52 +349,36 @@ void GameSelector::ButtonDepressed(int theId)
     switch (theId)
     {
     case GameSelector_Adventure:
-        // [M4 #1] Adventure -> PreNewGame -> NewGame -> MakeNewBoard ->
-        // Board::InitLevel -> ShowSeedChooserScreen -> CutScene::StartLevelIntro.
-        // This whole chain depends on unported subsystems (Board game logic,
-        // SeedChooser UI, CutScene animation, plant/zombie reanimations).
-        // Calling PreNewGame crashes deep in Board::InitLevel because of NULL
-        // IMAGE_* / REANIM_* resources. Disable until M5 ports the gameplay.
-        GSLog(_L8("GS:Adventure (gameplay not yet ported -- M5)\n"));
+        GSLog(_L8("GS:Adventure (gameplay not yet ported -- Stage 2)\n"));
         break;
 
     case GameSelector_Survival:
-        // ShowChallengeScreen -> ChallengeScreen constructor needs IMAGE_*
-        // resources that are NULL. Crashes. Disable until ChallengeScreen
-        // is properly ported.
-        GSLog(_L8("GS:Survival (ChallengeScreen not yet ported -- M5)\n"));
+        GSLog(_L8("GS:Survival (ChallengeScreen not yet ported -- Stage 2)\n"));
         break;
 
     case GameSelector_Minigame:
-        GSLog(_L8("GS:Minigame (ChallengeScreen not yet ported -- M5)\n"));
+        GSLog(_L8("GS:Minigame (ChallengeScreen not yet ported -- Stage 2)\n"));
         break;
 
     case GameSelector_Puzzle:
-        GSLog(_L8("GS:Puzzle (ChallengeScreen not yet ported -- M5)\n"));
+        GSLog(_L8("GS:Puzzle (ChallengeScreen not yet ported -- Stage 2)\n"));
         break;
 
     case GameSelector_Store:
-        // ShowStoreScreen -> StoreScreen constructor (1187 lines upstream)
-        // needs many IMAGE_* resources that are NULL. Crashes. Disable.
-        GSLog(_L8("GS:Store (StoreScreen not yet ported -- M5)\n"));
+        GSLog(_L8("GS:Store (StoreScreen not yet ported -- Stage 3)\n"));
         break;
 
     case GameSelector_Almanac:
-        // DoAlmanacDialog -> AlmanacDialog constructor (718 lines upstream)
-        // needs IMAGE_ALMANAC_* resources that are NULL. Crashes. Disable.
-        GSLog(_L8("GS:Almanac (AlmanacDialog not yet ported -- M5)\n"));
+        GSLog(_L8("GS:Almanac (AlmanacDialog not yet ported -- Stage 3)\n"));
         break;
 
     case GameSelector_ZenGarden:
-        GSLog(_L8("GS:ZenGarden (not yet ported -- M5)\n"));
+        GSLog(_L8("GS:ZenGarden (not yet ported -- Stage 3)\n"));
         break;
 
     case GameSelector_Options:
-        // DoNewOptions has a NULL guard on IMAGE_OPTIONS_MENUBACK now, but
-        // NewOptionsDialog itself may still crash on other NULL resources.
-        // Try it -- if it crashes, we'll add more guards.
         GSLog(_L8("GS:Options (calling DoNewOptions)\n"));
-        mApp->DoNewOptions(true /* fromGameSelector */);
+        mApp->DoNewOptions(true);
         break;
 
     case GameSelector_Help:
@@ -470,9 +386,6 @@ void GameSelector::ButtonDepressed(int theId)
         break;
 
     case GameSelector_Quit:
-        // ConfirmQuit -> shows a yes/no dialog. Should be safe (Dialog base
-        // class is ported). If it crashes, the dialog's IMAGE_* refs need
-        // NULL guards.
         GSLog(_L8("GS:Quit (calling ConfirmQuit)\n"));
         mApp->ConfirmQuit();
         break;
@@ -482,36 +395,22 @@ void GameSelector::ButtonDepressed(int theId)
     }
 }
 
-void GameSelector::ButtonMouseEnter(int /*theId*/)
-{
-    // Could play a hover sound here once Music is wired.
-}
-
 // -------------------------------------------------------------------------
-// KeyDown -- ESC -> Quit confirmation, ENTER -> same as Adventure click.
-// Both are disabled for now (gameplay not ported -- see ButtonDepressed note).
+// KeyDown -- ESC -> Quit confirmation, ENTER -> Adventure.
 // -------------------------------------------------------------------------
 void GameSelector::KeyDown(KeyCode theKey)
 {
     if (!mApp) return;
     if (theKey == KEYCODE_ESCAPE)
     {
-        // ConfirmQuit may crash on dialog IMAGE_* refs -- log and try.
         GSLog(_L8("GS:KeyDown ESC (calling ConfirmQuit)\n"));
         mApp->ConfirmQuit();
     }
     else if (theKey == KEYCODE_RETURN)
     {
-        // Adventure -> PreNewGame crashes deep in Board::InitLevel.
-        // Log only -- see ButtonDepressed(GameSelector_Adventure) comment.
-        GSLog(_L8("GS:KeyDown ENTER (Adventure not yet ported -- M5)\n"));
+        GSLog(_L8("GS:KeyDown ENTER -> Adventure\n"));
+        ButtonDepressed(GameSelector_Adventure);
     }
-}
-
-void GameSelector::MouseDown(int /*x*/, int /*y*/, int /*theClickCount*/)
-{
-    // Clicks route through our child buttons (top-level in WidgetManager),
-    // not through the selector itself.
 }
 
 } // namespace Sexy

@@ -652,6 +652,7 @@ TBool ReanimPlayer::GetCurrentTransform(int aTrackIndex, ReanimTransform& aOut)
     // Image / font / text come from the active ("from") keyframe, matching
     // upstream Reanimator behaviour (discrete swaps happen on keyframes).
     aOut.mImage    = a.mImage;
+    aOut.mImageName = a.mImageName;  // [Session-6 fix] was missing — lazy-load in Draw needs the name
     aOut.mFontName = a.mFontName;
     aOut.mText     = a.mText;
     return ETrue;
