@@ -12,16 +12,17 @@
 - **Whisk3D (эталон EGL/Symbian)**: https://github.com/Dante-Leoncini/Whisk3D/tree/symbian
 
 ## Главная задача
-**Порт 1:1 всей игры PvZ** на Symbian S60 3rd FP1 (Nokia N95). Не аппроксимация, не "похоже" — точный порт. Сейчас сделано (session 4, commits 6a07bda / 3e3da24 / 201e47d):
+**Порт 1:1 всей игры PvZ** на Symbian S60 3rd FP1 (Nokia N95). Не аппроксимация, не "похоже" — точный порт. Сейчас сделано (session 5, commit f94ef93):
 - Engine boot (EGL/GLES, landscape, 30 FPS)
 - PAK VFS (3198 файлов, XOR 0xF7)
-- Loading screen (progress bar + Click to Start)
-- **ReanimLoader XML парсер ИСПРАВЛЕН** — FindTag переписан как FindElement, теперь парсит ВСЕ ~48 треков (был баг: `</track>` находился как `<track>`, парсилось только 1)
-- **ReanimPlayer runtime** — интерполяция трансформов между keyframe'ами + Draw, меню теперь АНИМИРУЕТСЯ (облака, цветы) вместо статичного кадра
-- **IMAGE_REANIM_* → reanim/ mapping** — ResourceManager strip'ит полный `IMAGE_REANIM_` prefix, спрайты меню теперь загружаются (было: strip только `IMAGE_` → `reanim_selectorscreen_bg` не матчило `reanim/SelectorScreen_BG.jpg`)
-- **SystemFont ')' glyph исправлен** — был дубликатом '(', теперь правильный mirror. Скобки `[...]` убраны из label'ов кнопок
-- Заглушечное меню (лужайка + 10 rect кнопок БЕЗ скобок теперь) — **всё ещё ЗАМЕНИТЬ на 1:1** (reanim рендерится ПОД кнопками)
-- GameSelector дампит ВСЕ track names в gs_log.txt (для маппинга кнопок на reanim tracks)
+- Loading screen (progress bar + Click to Start) — **progress bar рендерится криво (полоской), починить**
+- **ReanimLoader XML парсер ИСПРАВЛЕН** (session 4) — FindElement парсит ВСЕ ~48 треков
+- **ReanimPlayer runtime** (session 4) — интерполяция + Draw, меню анимируется
+- **IMAGE_REANIM_* mapping ИСПРАВЛЕН** (session 4) — спрайты меню грузятся
+- **SystemFont ')' glyph ИСПРАВЛЕН** (session 4)
+- **Purple screen + crash ИСПРАВЛЕНЫ** (session 5) — state machine re-entry + lazy image loading + TRAP + NULL checks. Было: LoadingCompleted() вызывался 36× (state=3 ставился ПОСЛЕ вызова, Leave на OOM → state не advancing → 35× GameSelector ctor → heap exhaustion → KERN-EXEC 3). Теперь: state=3 ДО вызова + TRAPD + images lazy-load в Draw вместо 14× ICL decode в ctor.
+- **Lawn bg always drawn** (session 5) — IMAGE_BACKGROUND1 рисуется ПЕРВЫМ, reanim поверх. Нет фиолетового экрана.
+- Заглушечное меню (лужайка + 10 rect кнопок) — **всё ещё ЗАМЕНИТЬ на 1:1** (reanim рендерится ПОД кнопками). gs_log.txt теперь содержит ВСЕ track names для маппинга.
 - miniz (zlib) + d-pad input (курсор + клики)
 
 ## Что нужно портировать (ВЕСЬ upstream движок):
@@ -78,12 +79,14 @@
 - `.reanim.compiled` файлы — НЕ ИСПОЛЬЗОВАТЬ (64-bit struct sizes, несовместимы с 32-bit ARM)
 - compiled/particles/*.xml.compiled — определения частиц (нужен Definition.cpp парсер)
 
-## Текущие блокеры (по приоритету) — обновлено session 4:
-1. ~~ReanimLoader XML парсит 1 трек вместо 48~~ — **ИСПРАВЛЕНО** (commit 6a07bda, FindElement)
-2. ~~Reanim images не загружаются~~ — **ИСПРАВЛЕНО** (commit 6a07bda, IMAGE_REANIM_ mapping)
-3. **Меню — 10 rect кнопок рисуются ПОВЕРХ reanim** — reanim теперь грузится и анимируется (ReanimPlayer), но stub GameButton'ы всё ещё сверху. Нужно: убрать rect кнопки, использовать reanim button-sprite track'и для hit-testing. **ПРЕДВАРИТЕЛЬНО**: gs_log.txt теперь содержит ВСЕ track names — прочитай их с устройства, замапь на кнопки (Adventure/Survival/.../Quit), позиционируй невидимые click-zone'ы по transform[0].mTransX/mTransY (×0.5) каждого track.
-4. ~~SystemFont глифы кривые~~ — **ИСПРАВЛЕНО** (commit 201e47d, ')' glyph + убраны скобки). Остальной текст рендерится OK (8x8 public-domain font). Полная замена на ImageFont — Stage 4.
-5. **Upstream код не портирован** — Reanimator.cpp (1501), Board.cpp (6364), Plant.cpp, Zombie.cpp, EffectSystem.cpp (541), TodParticle.cpp (1290), SeedChooserScreen.cpp (1158) и т.д. ReanimPlayer покрывает только базовую интерполяцию+Draw (без render groups/attachments/blend/filter/skew/alpha).
+## Текущие блокеры (по приоритету) — обновлено session 5:
+1. ~~ReanimLoader XML парсит 1 трек вместо 48~~ — **ИСПРАВЛЕНО** (session 4, FindElement)
+2. ~~Reanim images не загружаются~~ — **ИСПРАВЛЕНО** (session 4, IMAGE_REANIM_ mapping)
+3. **Меню — 10 rect кнопок рисуются ПОВЕРХ reanim** — reanim грузится+анимируется+lazy-load работает, но stub GameButton'ы всё ещё сверху. Нужно: убрать rect кнопки, использовать reanim button-sprite track'и для hit-testing. **ПРЕДВАРИТЕЛЬНО**: gs_log.txt содержит ВСЕ track names — прочитай их с устройства, замапь на кнопки.
+4. ~~SystemFont глифы кривые~~ — **ИСПРАВЛЕНО** (session 4, ')' glyph + скобки)
+5. **Loading bar рендерится криво (полоской)** — TitleScreen.cpp grass-bar clip/scale логика. Пользователь видит "кривое разворачивание поля как полоски загрузки". Нужно починить DrawImage с srcRect (сейчас stub) или использовать DrawImage scaled.
+6. ~~Purple screen + crash~~ — **ИСПРАВЛЕНО** (session 5, state machine + lazy image loading)
+7. **Upstream код не портирован** — Reanimator.cpp (1501), Board.cpp (6364), Plant.cpp, Zombie.cpp, EffectSystem.cpp (541), TodParticle.cpp (1290), SeedChooserScreen.cpp (1158) и т.д.
 
 ## Технические ограничения Symbian GCCE 3.4.3:
 - C++03 (NO auto, nullptr, range-for, constexpr, std::filesystem, std::atomic, char32_t)
