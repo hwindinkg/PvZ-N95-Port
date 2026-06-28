@@ -154,20 +154,29 @@ void CPvZAppUi::ConstructL()
     }
 
     // --- CRITICAL: drive resource loading (no loading thread on this port) ---
-    // [Session-12] DEFER LoadingThreadProc to the FIRST RenderTick, so the
-    // PopCap logo + loading screen appear IMMEDIATELY after boot (not after
-    // a 5-second black screen while resources load). The loading bar will
-    // animate during the logo intro (90 frames), then LoadingThreadProc runs
-    // on the first frame of phase 3, then the bar finishes.
+    // [Session-12] Run LoadingThreadProc synchronously HERE (before the
+    // heartbeat timer starts). This is the ONLY safe place — calling it
+    // from RenderTick (state 0) caused an infinite loop because
+    // LoadingThreadProc Leaves during CImageDecoder::Convert (via
+    // CDecodeWaiter's CActiveSchedulerWait), and that Leave can't be
+    // caught by TRAPD inside an active scheduler — the whole RenderTick
+    // re-enters state 0 every frame.
+    //
+    // Loading here blocks boot for ~3-5s (black screen), but it's safe.
+    // The loading bar animates afterward (state 1, 150 frames).
     if (iLawnApp)
     {
-        // Don't call LoadingThreadProc here — defer to RenderTick.
-        // Set iLoadingState=0 (not yet started) and iLoadingFrames=150.
-        // RenderTick will: if state==0, call LoadingThreadProc, then set
-        // state=1. If state==1, count down frames. If state==2, wait for click.
-        iLoadingState = 0;
+        Log(_L("step: LoadingThreadProc (sync) START"));
+        TRAPD(loadErr, iLawnApp->LoadingThreadProc());
+        if (loadErr != KErrNone)
+        {
+            TBuf<64> b; b.Format(_L("step: LoadingThreadProc LEAVED err=%d"), loadErr);
+            Log(b);
+        }
+        Log(_L("step: LoadingThreadProc DONE"));
+        iLoadingState = 1;
         iLoadingFrames = 150;
-        Log(_L("step: loading deferred to RenderTick (faster boot)"));
+        Log(_L("step: loading animation deferred to RenderTick (150 frames)"));
     }
 
     // Put the GL container on the control stack so it receives
@@ -200,30 +209,14 @@ void CPvZAppUi::RenderTick()
     }
 
     // [Session-12] Loading screen state machine.
-    // State 0: LoadingThreadProc not yet run. Run it on the first tick
-    //   AFTER the PopCap logo intro (phase 0-2 = 90 frames). This gives
-    //   the user an immediate visual (PopCap logo) while resources load.
-    //   Actually, run it immediately on the first tick so resources are
-    //   available when the loading screen (phase 3) appears.
     // State 1: progress bar animating. When iLoadingFrames hits 0, go to
     //   state 2 (wait for click).
     // State 2: "Click to Start" -- wait for user input.
     // State 3: menu active (LoadingCompleted already called).
-    if (iLoadingState == 0)
-    {
-        // [Session-12] Run LoadingThreadProc on the first RenderTick.
-        // This lets the PopCap logo render FIRST (immediate visual feedback),
-        // then resources load (blocking ~3-5s), then the loading bar animates.
-        Log(_L("step: LoadingThreadProc (deferred) START"));
-        TRAPD(loadErr, iLawnApp->LoadingThreadProc());
-        if (loadErr != KErrNone)
-        {
-            TBuf<64> b; b.Format(_L("step: LoadingThreadProc LEAVED err=%d"), loadErr);
-            Log(b);
-        }
-        Log(_L("step: LoadingThreadProc DONE"));
-        iLoadingState = 1;
-    }
+    // [Session-12] State 0 removed — LoadingThreadProc runs synchronously
+    // in ConstructL (calling it from RenderTick caused an infinite loop
+    // because Leaves from CImageDecoder::Convert can't be caught by TRAPD
+    // inside the active scheduler).
     if (iLoadingState == 1)
     {
         iLoadingFrames--;
