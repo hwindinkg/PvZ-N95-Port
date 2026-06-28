@@ -12,14 +12,17 @@
 - **Whisk3D (эталон EGL/Symbian)**: https://github.com/Dante-Leoncini/Whisk3D/tree/symbian
 
 ## Главная задача
-**Порт 1:1 всей игры PvZ** на Symbian S60 3rd FP1 (Nokia N95). Не аппроксимация, не "похоже" — точный порт. Сейчас сделано:
+**Порт 1:1 всей игры PvZ** на Symbian S60 3rd FP1 (Nokia N95). Не аппроксимация, не "похоже" — точный порт. Сейчас сделано (session 4, commits 6a07bda / 3e3da24 / 201e47d):
 - Engine boot (EGL/GLES, landscape, 30 FPS)
 - PAK VFS (3198 файлов, XOR 0xF7)
 - Loading screen (progress bar + Click to Start)
-- Заглушечное меню (лужайка + 10 rect кнопок) — **ЗАМЕНИТЬ на 1:1**
-- SystemFont (8x8 bitmap, текст кривой)
-- miniz (zlib) + ReanimLoader (XML парсер .reanim, **есть баг — парсит 1 трек вместо 48**)
-- d-pad input (курсор + клики)
+- **ReanimLoader XML парсер ИСПРАВЛЕН** — FindTag переписан как FindElement, теперь парсит ВСЕ ~48 треков (был баг: `</track>` находился как `<track>`, парсилось только 1)
+- **ReanimPlayer runtime** — интерполяция трансформов между keyframe'ами + Draw, меню теперь АНИМИРУЕТСЯ (облака, цветы) вместо статичного кадра
+- **IMAGE_REANIM_* → reanim/ mapping** — ResourceManager strip'ит полный `IMAGE_REANIM_` prefix, спрайты меню теперь загружаются (было: strip только `IMAGE_` → `reanim_selectorscreen_bg` не матчило `reanim/SelectorScreen_BG.jpg`)
+- **SystemFont ')' glyph исправлен** — был дубликатом '(', теперь правильный mirror. Скобки `[...]` убраны из label'ов кнопок
+- Заглушечное меню (лужайка + 10 rect кнопок БЕЗ скобок теперь) — **всё ещё ЗАМЕНИТЬ на 1:1** (reanim рендерится ПОД кнопками)
+- GameSelector дампит ВСЕ track names в gs_log.txt (для маппинга кнопок на reanim tracks)
+- miniz (zlib) + d-pad input (курсор + клики)
 
 ## Что нужно портировать (ВЕСЬ upstream движок):
 
@@ -75,12 +78,12 @@
 - `.reanim.compiled` файлы — НЕ ИСПОЛЬЗОВАТЬ (64-bit struct sizes, несовместимы с 32-bit ARM)
 - compiled/particles/*.xml.compiled — определения частиц (нужен Definition.cpp парсер)
 
-## Текущие блокеры (по приоритету):
-1. **ReanimLoader XML парсит 1 трек вместо 48** — FindTag bug (не отличает `</tag>` от `<tag>`)
-2. **Reanim images не загружаются** — следствие бага #1
-3. **Меню — заглушка** — lawn + 10 rect buttons вместо надгробия
-4. **SystemFont глифы кривые** — кодировка или offset в kGlyphs8x8
-5. **Upstream код не портирован** — всё упрощено
+## Текущие блокеры (по приоритету) — обновлено session 4:
+1. ~~ReanimLoader XML парсит 1 трек вместо 48~~ — **ИСПРАВЛЕНО** (commit 6a07bda, FindElement)
+2. ~~Reanim images не загружаются~~ — **ИСПРАВЛЕНО** (commit 6a07bda, IMAGE_REANIM_ mapping)
+3. **Меню — 10 rect кнопок рисуются ПОВЕРХ reanim** — reanim теперь грузится и анимируется (ReanimPlayer), но stub GameButton'ы всё ещё сверху. Нужно: убрать rect кнопки, использовать reanim button-sprite track'и для hit-testing. **ПРЕДВАРИТЕЛЬНО**: gs_log.txt теперь содержит ВСЕ track names — прочитай их с устройства, замапь на кнопки (Adventure/Survival/.../Quit), позиционируй невидимые click-zone'ы по transform[0].mTransX/mTransY (×0.5) каждого track.
+4. ~~SystemFont глифы кривые~~ — **ИСПРАВЛЕНО** (commit 201e47d, ')' glyph + убраны скобки). Остальной текст рендерится OK (8x8 public-domain font). Полная замена на ImageFont — Stage 4.
+5. **Upstream код не портирован** — Reanimator.cpp (1501), Board.cpp (6364), Plant.cpp, Zombie.cpp, EffectSystem.cpp (541), TodParticle.cpp (1290), SeedChooserScreen.cpp (1158) и т.д. ReanimPlayer покрывает только базовую интерполяцию+Draw (без render groups/attachments/blend/filter/skew/alpha).
 
 ## Технические ограничения Symbian GCCE 3.4.3:
 - C++03 (NO auto, nullptr, range-for, constexpr, std::filesystem, std::atomic, char32_t)
@@ -93,13 +96,13 @@
 - glTexSubImage2DOES broken on MBX — use full-POT glTexImage2D fallback
 
 ## Ключевые файлы порта:
-- `src/Sexy.TodLib/ReanimLoader.h/.cpp` — XML парсер .reanim (ПРИОРИТЕТ #1 — исправить)
-- `src/Lawn/Widget/GameSelector.h/.cpp` — меню (переписать на reanim)
-- `src/Lawn/Widget/GameButton.h/.cpp` — кнопки (переписать на sprite buttons)
-- `src/Lawn/Widget/TitleScreen.h/.cpp` — loading screen (порт 1:1)
+- `src/Sexy.TodLib/ReanimLoader.h/.cpp` — XML парсер .reanim + **ReanimPlayer runtime** (ИСПРАВЛЕНО session 4)
+- `src/Lawn/Widget/GameSelector.h/.cpp` — меню (reanim грузится+анимируется, но rect кнопки сверху — убрать)
+- `src/Lawn/Widget/GameButton.h/.cpp` — кнопки (переписать на sprite buttons с polygon hit-test)
+- `src/Lawn/Widget/TitleScreen.h/.cpp` — loading screen (порт 1:1 state machine)
 - `src/engine/Graphics.cpp` — DrawString → mFont->DrawString
-- `src/engine/SystemFont.h/.cpp` — 8x8 bitmap font (исправить глифы)
-- `src/engine/ResourceManager.cpp` — LoadImageByResName (ищет reanim/ prefix)
+- `src/engine/SystemFont.h/.cpp` — 8x8 bitmap font (')' glyph ИСПРАВЛЕН session 4)
+- `src/engine/ResourceManager.cpp` — LoadImageByResName (IMAGE_REANIM_ mapping ИСПРАВЛЕН session 4)
 - `src/engine/PvZVfs.cpp` — PAK reader (XOR 0xF7, case-insensitive)
 - `src/engine/clib_stubs.cpp` — malloc/free/realloc/strncpy/atof stubs
 - `src/engine/miniz.c + miniz_tinfl.c + miniz_tdef.c` — zlib
