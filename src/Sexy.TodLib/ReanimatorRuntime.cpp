@@ -267,7 +267,11 @@ void Reanimation::GetFrameTime(ReanimatorFrameTime* ft)
         aFrameCount = mFrameCount - 1;
 
     float aAnimPosition = mFrameStart + mAnimTime * (float)aFrameCount;
-    float aAnimFrameBefore = floorf(aAnimPosition);
+    // [Session-13] floorf is C99, not available in Symbian GCCE math.h.
+    // Use manual floor: cast to int (truncates toward zero), adjust for negatives.
+    float aAnimFrameBefore = (float)(int)aAnimPosition;
+    if (aAnimPosition < 0.0f && aAnimPosition != aAnimFrameBefore)
+        aAnimFrameBefore -= 1.0f;
     ft->mFraction = aAnimPosition - aAnimFrameBefore;
     ft->mAnimFrameBeforeInt = FloatRoundToInt(aAnimFrameBefore);
 
