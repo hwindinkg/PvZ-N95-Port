@@ -428,18 +428,44 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     TInt tBufLen = eLen;
                     ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
 
-                    // Defaults (ctor already set these, but be explicit so
-                    // missing fields are deterministic).
-                    t.mTransX = 0; t.mTransY = 0;
-                    t.mSkewX = 0;  t.mSkewY = 0;
-                    t.mScaleX = 1; t.mScaleY = 1;
-                    t.mFrame = -1.0f;  t.mAlpha = 255;  // mFrame=-1 = blank/hidden (upstream convention)
-                    t.mImage = NULL;
-                    t.mImageName = "";
-                    t.mFontName = "";
-                    t.mText = "";
+                    // [Session-13] INHERIT from previous transform. In the XML format,
+                    // each <t> only specifies CHANGED fields. Missing fields should
+                    // persist from the previous transform (not reset to default).
+                    // This is critical for animation: tf[0] has the initial position,
+                    // tf[1] might only change <x>, tf[2] might only change <y>, etc.
+                    // Without inheritance, tf[1+] would reset everything to 0.
+                    if (j > 0)
+                    {
+                        ReanimTransform& prev = outDefinition.mTracks[i].mTransforms[j - 1];
+                        t.mTransX = prev.mTransX;
+                        t.mTransY = prev.mTransY;
+                        t.mSkewX  = prev.mSkewX;
+                        t.mSkewY  = prev.mSkewY;
+                        t.mScaleX = prev.mScaleX;
+                        t.mScaleY = prev.mScaleY;
+                        t.mFrame  = prev.mFrame;
+                        t.mAlpha  = prev.mAlpha;
+                        // Image/name: inherited via ScanForImage at draw time,
+                        // but also copy here for non-animated tracks.
+                        t.mImage    = prev.mImage;
+                        t.mImageName = prev.mImageName;
+                        t.mFontName = prev.mFontName;
+                        t.mText     = prev.mText;
+                    }
+                    else
+                    {
+                        // First transform: use defaults
+                        t.mTransX = 0; t.mTransY = 0;
+                        t.mSkewX = 0;  t.mSkewY = 0;
+                        t.mScaleX = 1; t.mScaleY = 1;
+                        t.mFrame = -1.0f;  t.mAlpha = 255;
+                        t.mImage = NULL;
+                        t.mImageName = "";
+                        t.mFontName = "";
+                        t.mText = "";
+                    }
 
-                    // Floats
+                    // Override with parsed values (only fields present in this <t>)
                     float v;
                     v = ParseFloat(tBuf, tBufLen, "x");  if (v != KFieldNotFound) t.mTransX = v;
                     v = ParseFloat(tBuf, tBufLen, "y");  if (v != KFieldNotFound) t.mTransY = v;
@@ -450,39 +476,39 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     v = ParseFloat(tBuf, tBufLen, "f");  if (v != KFieldNotFound) t.mFrame = v;
                     v = ParseFloat(tBuf, tBufLen, "a");  if (v != KFieldNotFound) t.mAlpha = v;
 
-                    // Image: <i>NAME</i> -- [Session-5 fix] store the NAME only,
-                    // do NOT load the image during parsing. Previously, GetImage
-                    // was called for every <i> tag during the constructor, which
-                    // triggered 14+ ICL image decodes (each opening a CImageDecoder
-                    // + allocating CFbsBitmaps). This caused OOM → Symbian Leave
-                    // → LoadingCompleted never returned → state machine re-entered
-                    // 35× → cascading OOM + purple screen.
-                    //
-                    // Now the parser just stores the name string (owned by the
-                    // transform, freed by the dtor). ReanimPlayer::Draw lazily
-                    // resolves the name to an Image* via ResourceManager::GetImage
-                    // on first render — images load one-per-frame (spread across
-                    // many frames) and the ResourceManager cache prevents
-                    // re-decoding.
-                    const char* imgName = ParseString(tBuf, tBufLen, "i");
-                    if (imgName && imgName[0] != '\0' &&
-                        strcmp(imgName, "NULL") != 0)
+                    // Image: <i>NAME</i> -- only override if <i> tag is present.
+                    // [Session-13] If no <i> tag, keep the inherited image name
+                    // from the previous transform (set above in the inheritance block).
                     {
-                        t.mImageName = imgName; // transfer ownership of the char[]
-                        t.mImage = NULL;        // lazy-load in Draw
-                    }
-                    else
-                    {
-                        // It was "" (literal) or "NULL" -- free if allocated.
-                        if (imgName && imgName[0] != '\0')
-                            delete[] imgName; // "NULL" case
-                        t.mImageName = "";
-                        t.mImage = NULL;
+                        const char* imgName = ParseString(tBuf, tBufLen, "i");
+                        if (imgName && imgName[0] != '\0' &&
+                            strcmp(imgName, "NULL") != 0)
+                        {
+                            t.mImageName = imgName; // transfer ownership of the char[]
+                            t.mImage = NULL;        // lazy-load in Draw
+                        }
+                        else if (imgName && imgName[0] != '\0')
+                        {
+                            // It was "NULL" -- free and clear
+                            delete[] imgName;
+                            t.mImageName = "";
+                            t.mImage = NULL;
+                        }
+                        // else: imgName == "" (no <i> tag) — keep inherited value
                     }
 
-                    // Font + text (owned by the transform, freed by dtor).
-                    t.mFontName = ParseString(tBuf, tBufLen, "font");
-                    t.mText = ParseString(tBuf, tBufLen, "text");
+                    // Font + text: only override if tags are present.
+                    // ParseString returns "" if the tag is not found.
+                    {
+                        const char* fn = ParseString(tBuf, tBufLen, "font");
+                        if (fn && fn[0] != '\0') t.mFontName = fn;
+                        else if (fn) delete[] (char*)fn; // empty literal, nothing to free
+                    }
+                    {
+                        const char* tx = ParseString(tBuf, tBufLen, "text");
+                        if (tx && tx[0] != '\0') t.mText = tx;
+                        else if (tx) delete[] (char*)tx;
+                    }
                 }
             }
         }

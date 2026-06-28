@@ -421,6 +421,9 @@ void Reanim2::DrawRenderGroup(Sexy::Graphics* g, int renderGroup)
 
     for (int i = 0; i < mDefinition->mTrackCount; i++)
     {
+        // [Session-13] RENDER_GROUP_HIDDEN = -1: never draw these tracks.
+        // DrawRenderGroup(g, 0) should ONLY draw group 0 tracks, not -1.
+        // DrawRenderGroup(g, 1) draws BG (group 1).
         if (mTrackInstances && mTrackInstances[i].mRenderGroup == renderGroup)
         {
             DrawTrack(g, i);
