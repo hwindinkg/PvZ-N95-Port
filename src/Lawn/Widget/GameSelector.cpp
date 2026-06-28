@@ -186,7 +186,7 @@ GameSelector::GameSelector(LawnApp* theApp)
         // [Session-13] Create the full Reanimation runtime.
         GSLog(_L8("GS:creating Reanimation...\n"));
         mSelectorReanim = mReanimHolder.AllocReanimation(
-            400.0f, 300.0f, 0, &mReanimDef);
+            0.0f, 0.0f, 0, &mReanimDef);
         if (mSelectorReanim)
         {
             GSLog(_L8("GS:playing anim_open...\n"));
