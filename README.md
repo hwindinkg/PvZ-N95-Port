@@ -61,6 +61,101 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
 >   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
+---
+
+## Current status (2026-06-28, session 4) — ReanimLoader XML parser fixed
+
+### What was done this session
+
+The **#1 blocker — ReanimLoader parsed only 1 track instead of ~48** — is
+fixed, along with its direct consequence **#2 — reanim images never loaded**.
+
+#### Fix 1: ReanimLoader XML parser rewrite (`src/Sexy.TodLib/ReanimLoader.cpp`)
+
+**Root cause (confirmed):** the old `FindTag(buf, len, "/track", ...)` call used
+to locate each closing `</track>` built an `openTag = "</track>"` and a
+`closeTag = "<//track>"` (because `FindTag` prepends `</` to the tag name to
+make the close pattern). Since `<//track>` never appears in the document,
+`FindTag` returned NULL, the counting loop hit `else break;`, and **only the
+first track was ever counted**. The subsequent per-track parse loop had the
+same defect and also broke after track 0.
+
+**Fix:** replaced the entire `FindTag`/`ParseFloatTag`/`ParseStringTag` trio
+with a single correct `FindElement()` that:
+
+- explicitly **skips closing tags** (`</…`) and comments/declarations (`<!`, `<?`),
+- matches the tag name **exactly** and then requires the next char to be `>`
+  (open), `/>` (self-close), or whitespace (attributes) — so `<t>` no longer
+  matches `<track>` or `<text>`,
+- builds the real `</tag>` close pattern and scans for it from the content
+  start,
+- returns the content range **and** a pointer past the whole element so the
+  caller iterates by advancing past each element (no off-by-one, no re-matching),
+- handles `<tag/>`, `<tag></tag>`, and `<tag attr="x">…</tag>`.
+
+`<fps>`, every `<track>`, every `<name>`, and every `<t>` transform (with
+`<x>/<y>/<kx>/<ky>/<sx>/<sy>/<f>/<a>/<i>/<font>/<text>`) are now all parsed.
+`<i>NULL</i>` and missing `<i>` both leave `mImage = NULL` (upstream convention).
+
+**Verification before porting:** the exact `FindElement` algorithm was
+reproduced in a host-side C++ harness (`g++`) against a 51-track / 55-transform
+sample `.reanim` covering: single-transform tracks, multi-transform animated
+tracks, empty `<t></t>` transforms, font/text tracks, and image tracks. All
+checks passed (parsed track count == ground-truth `<track>` count, transform
+count == ground-truth `<t>` count, first track name correct, multi-transform
+track had 3 transforms, font/text fields correct, empty transform counted as 1).
+The Symbian version uses the identical logic with `TBool`/`TInt`/`User::Alloc`.
+
+The public API (`ReanimLoadCompiled`, `ReanimFindTrack`, `ReanimDefinition` /
+`ReanimTrack` / `ReanimTransform` structs) is unchanged, so `GameSelector.cpp`
+needs no changes — it already calls `ReanimLoadCompiled` and logs the track
+count + first 5 names. On-device `gs_log.txt` should now show **~48 tracks**
+instead of 1.
+
+#### Fix 2: `IMAGE_REANIM_*` → `reanim/` asset mapping (`ResourceManager.cpp`)
+
+**Root cause:** `LoadImageByResName` stripped only the `IMAGE_` prefix, so
+`IMAGE_REANIM_SELECTORSCREEN_BG` became stem `reanim_selectorscreen_bg` and was
+probed as `reanim/reanim_selectorscreen_bg.png` — which never matches the real
+PAK entry `reanim/SelectorScreen_BG.jpg`. So even after the parser found all
+tracks, the `<i>IMAGE_REANIM_…</i>` image refs resolved to NULL.
+
+**Fix:** `LoadImageByResName` now strips the **full `IMAGE_REANIM_` prefix**
+first (leaving `SELECTORSCREEN_BG` → lowercased `selectorscreen_bg`), which the
+case-insensitive PAK matches against `reanim/SelectorScreen_BG.{png,jpg}`. The
+existing `kPrefixes` table already tries `reanim/` and `kExts` already tries
+`.png` then `.jpg`, so no other change is needed. Non-reanim `IMAGE_*` assets
+keep stripping just `IMAGE_`.
+
+### Effect on the menu (expected on-device)
+
+With both fixes, `GameSelector::Draw`'s reanim path will now render every
+track that has an image at its `transform[0]` position (background, gravestone,
+wooden signs, button sprites, clouds, flowers, logo, etc.), scaled from the
+reanim's 800×600 space to the 400×300 canvas (×0.5). The lawn+10-rect-button
+stub is still the fallback if `mReanimLoaded` is false, but should no longer
+trigger.
+
+### What is NOT done yet (carried forward)
+
+- The 10 stub `GameButton` widgets are still created and added to the
+  `WidgetManager` — they draw on top of the reanim menu. The next step is to
+  port upstream `GameSelector` 1:1: drop the rect buttons, use the reanim
+  button sprites for hit-testing, and wire `ButtonDepress` → `PreNewGame` etc.
+- `TitleScreen` state machine (PopCap logo → partner logo → SODROLLCAP) is
+  still the simplified loading screen, not the 1:1 upstream port.
+- `SystemFont` 8×8 glyphs are still garbled (encoding/offset bug in
+  `kGlyphs8x8`) — Stage 4 `ImageFont` port will replace this.
+- Gameplay (Board / Plant / Zombie / Reanimator runtime / particles) is Stage 2.
+
+### Build/test history (session 4)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| (this) | Rewrite ReanimLoader `FindTag`→`FindElement`; fix `IMAGE_REANIM_` mapping | Parser verified host-side; pending on-device build |
+
+---
+
 ## Current status (2026-06-28, session 3)
 
 ### What works

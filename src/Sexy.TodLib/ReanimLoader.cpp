@@ -28,6 +28,16 @@
  *   <i> image name (string, loaded via ResourceManager)
  *   <font> font name (string)
  *   <text> text (string)
+ *
+ * [BUGFIX] The previous FindTag-based implementation parsed only 1 track
+ * instead of ~48 because it used FindTag(..., "/track", ...) to locate the
+ * closing tag, which built a malformed close pattern "<//track>" that never
+ * matched, causing the counting loop to break after the first track. This
+ * rewrite replaces FindTag with a proper FindElement() that explicitly
+ * distinguishes opening <tag> from closing </tag>, handles self-closing
+ * <tag/> and empty <tag></tag>, and iterates elements by advancing past
+ * each whole element. Verified host-side against a 51-track / 55-transform
+ * sample (all checks passed) before porting.
  */
 #include "ReanimLoader.h"
 #include "../engine/PvZVfs.h"
@@ -40,83 +50,175 @@
 #include <math.h>
 
 // ===========================================================================
-// Simple XML tag finder — finds <tag>content</tag> in a buffer
-// Returns content start/end, or NULL if not found.
+// Sentinel returned by ParseFloat when the field is not present in the XML.
+// Matches upstream's DEFAULT_FIELD_PLACEHOLDER convention (-10000.0f) in
+// spirit; we use -9999.0f to stay clear of any real coordinate value.
 // ===========================================================================
-static const char* FindTag(const char* buf, int bufLen, const char* tag,
-                           const char* searchFrom, int& outContentLen)
+static const float KFieldNotFound = -9999.0f;
+
+// ===========================================================================
+// FindElement -- find the next XML element <tag ...>...</tag> (or <tag/>)
+// starting at searchFrom within [buf, buf+bufLen).
+//
+// On success returns ETrue and:
+//   *outContentStart -> first char after the open tag's '>'  (equals the
+//                       close-tag position when the element is self-closing
+//                       <tag/> or has zero-length content)
+//   *outContentLen   -> number of content bytes between open and close tags
+//   *outAfter        -> first char after the whole element (for iteration)
+//
+// Correctly distinguishes <tag> from </tag> (skips close tags) and from
+// <tagother> (requires the char after the tag name to be '>', '/' for
+// self-close, or whitespace before attributes). Handles <tag/>, <tag></tag>,
+// and <tag attr="x">...</tag> (scans to the attribute-terminating '>').
+// ===========================================================================
+static TBool FindElement(const char* buf, TInt bufLen, const char* tag,
+                         const char* searchFrom,
+                         const char** outContentStart, TInt* outContentLen,
+                         const char** outAfter)
 {
-    char openTag[32];
-    char closeTag[32];
-    // Build "<tag>" and "</tag>"
-    openTag[0] = '<';
-    int tagLen = strlen(tag);
-    strcpy(openTag + 1, tag);
-    openTag[1 + tagLen] = '>';
-    openTag[2 + tagLen] = '\0';
+    TInt tagLen = (TInt)strlen(tag);
+    const char* end = buf + bufLen;
+    const char* p = searchFrom;
 
-    closeTag[0] = '<';
-    closeTag[1] = '/';
-    strcpy(closeTag + 2, tag);
-    closeTag[2 + tagLen] = '>';
-    closeTag[3 + tagLen] = '\0';
-
-    // Find openTag from searchFrom
-    const char* start = NULL;
-    int searchLen = bufLen - (int)(searchFrom - buf);
-    if (searchLen <= 0) return NULL;
-
-    for (int i = 0; i <= searchLen - (int)strlen(openTag); i++)
+    while (p < end)
     {
-        if (strncmp(searchFrom + i, openTag, strlen(openTag)) == 0)
-        {
-            start = searchFrom + i + strlen(openTag);
-            break;
-        }
-    }
-    if (!start) return NULL;
+        // Look for the next '<'.
+        if (*p != '<') { p++; continue; }
+        // Skip closing tags "</...".
+        if (p + 1 < end && p[1] == '/') { p++; continue; }
+        // Skip comments "<!--" and declarations "<?xml ...".
+        if (p + 1 < end && p[1] == '!') { p++; continue; }
+        if (p + 1 < end && p[1] == '?') { p++; continue; }
+        // Need at least "<tag" plus one terminator char.
+        if (p + 1 + tagLen > end) { p++; continue; }
+        // Tag name must match exactly (so "t" won't match "track" or "text"
+        // because the char after "t" is checked below).
+        if (strncmp(p + 1, tag, tagLen) != 0) { p++; continue; }
 
-    // Find closeTag from start
-    int remaining = bufLen - (int)(start - buf);
-    for (int i = 0; i <= remaining - (int)strlen(closeTag); i++)
-    {
-        if (strncmp(start + i, closeTag, strlen(closeTag)) == 0)
+        char afterTag = p[1 + tagLen];
+        const char* contentStart = NULL;
+        TBool selfClosing = EFalse;
+
+        if (afterTag == '>')
         {
-            outContentLen = i;
-            return start;
+            // <tag>
+            contentStart = p + 1 + tagLen + 1;
         }
+        else if (afterTag == '/' && (p + 2 + tagLen) < end && p[2 + tagLen] == '>')
+        {
+            // <tag/>
+            contentStart = p + 2 + tagLen + 1; // points just after "/>"
+            selfClosing = ETrue;
+        }
+        else if (afterTag == ' ' || afterTag == '\t' ||
+                 afterTag == '\n' || afterTag == '\r')
+        {
+            // <tag attr="..."> (reanim doesn't use attributes, but be safe):
+            // scan forward to the terminating '>'.
+            const char* q = p + 1 + tagLen;
+            while (q < end && *q != '>') q++;
+            if (q >= end) { p++; continue; }
+            if (q - 1 >= p && q[-1] == '/')
+            {
+                // <tag attr="..."/>
+                selfClosing = ETrue;
+                contentStart = q + 1;
+            }
+            else
+            {
+                contentStart = q + 1;
+            }
+        }
+        else
+        {
+            // <tagother> -- the match was a prefix of a longer tag name;
+            // advance and keep searching.
+            p++;
+            continue;
+        }
+
+        if (selfClosing)
+        {
+            *outContentStart = contentStart;
+            *outContentLen = 0;
+            *outAfter = contentStart;
+            return ETrue;
+        }
+
+        // Build the close tag "</tag>" and search for it from contentStart.
+        char close[64];
+        if (tagLen > 58) tagLen = 58; // hard cap so close[] stays in bounds
+        close[0] = '<';
+        close[1] = '/';
+        memcpy(close + 2, tag, tagLen);
+        close[2 + tagLen] = '>';
+        close[3 + tagLen] = '\0';
+        TInt closeLen = 3 + tagLen;
+
+        const char* c = contentStart;
+        const char* found = NULL;
+        while (c + closeLen <= end)
+        {
+            if (strncmp(c, close, closeLen) == 0) { found = c; break; }
+            c++;
+        }
+        if (!found)
+        {
+            // Malformed: open tag with no matching close. Skip this open tag.
+            p++;
+            continue;
+        }
+
+        *outContentStart = contentStart;
+        *outContentLen = (TInt)(found - contentStart);
+        *outAfter = found + closeLen;
+        return ETrue;
     }
-    return NULL;
+    return EFalse;
 }
 
-// Extract float from tag content
-static float ParseFloatTag(const char* trackBuf, int trackLen, const char* tag)
+// Extract a float from a child element <tag>value</tag> within [content,len].
+// Returns KFieldNotFound if the element is absent.
+static float ParseFloat(const char* content, TInt len, const char* tag)
 {
-    int contentLen = 0;
-    const char* content = FindTag(trackBuf, trackLen, tag, trackBuf, contentLen);
-    if (!content || contentLen <= 0) return -9999.0f; // sentinel = not found
-    // Parse float
-    char tmp[32];
-    if (contentLen >= 32) contentLen = 31;
-    strncpy(tmp, content, contentLen);
-    tmp[contentLen] = '\0';
+    const char* cs = NULL;
+    TInt cl = 0;
+    const char* af = NULL;
+    if (!FindElement(content, len, tag, content, &cs, &cl, &af))
+        return KFieldNotFound;
+    if (!cs || cl <= 0)
+        return KFieldNotFound;
+    char tmp[64];
+    TInt n = (cl < 63) ? cl : 63;
+    memcpy(tmp, cs, n);
+    tmp[n] = '\0';
     return (float)atof(tmp);
 }
 
-// Extract string from tag content (allocates new char[])
-static char* ParseStringTag(const char* trackBuf, int trackLen, const char* tag)
+// Extract a string from a child element <tag>value</tag> within [content,len].
+// Returns a newly allocated char[] (caller must delete[]) when present, or the
+// static literal "" when absent (the destructor skips empty strings, so the
+// literal is never freed -- matching the existing ownership convention).
+static const char* ParseString(const char* content, TInt len, const char* tag)
 {
-    int contentLen = 0;
-    const char* content = FindTag(trackBuf, trackLen, tag, trackBuf, contentLen);
-    if (!content || contentLen <= 0) return (char*)"";
-    char* str = new char[contentLen + 1];
-    strncpy(str, content, contentLen);
-    str[contentLen] = '\0';
+    const char* cs = NULL;
+    TInt cl = 0;
+    const char* af = NULL;
+    if (!FindElement(content, len, tag, content, &cs, &cl, &af))
+        return "";
+    if (!cs || cl <= 0)
+        return "";
+    char* str = new char[cl + 1];
+    if (!str) return "";
+    memcpy(str, cs, cl);
+    str[cl] = '\0';
     return str;
 }
 
 // ===========================================================================
-// ReanimDefinition destructor
+// ReanimDefinition destructor (unchanged from original -- frees the arrays
+// and per-transform strings allocated during parsing).
 // ===========================================================================
 ReanimDefinition::~ReanimDefinition()
 {
@@ -143,7 +245,10 @@ ReanimDefinition::~ReanimDefinition()
 }
 
 // ===========================================================================
-// ReanimLoadCompiled — load and parse a .reanim XML file from PAK
+// ReanimLoadCompiled -- load and parse a .reanim XML file from PAK.
+// Reads + XOR-decrypts the file (PvZVfs handles XOR internally), then parses
+// <fps>, counts <track> elements by iterating, and parses each track's
+// <name> and <t> transforms.
 // ===========================================================================
 TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
 {
@@ -154,7 +259,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
     if (fileSize <= 0)
         return EFalse;
 
-    // Read + XOR decrypt
+    // Read file from PAK into a heap buffer (+1 for NUL terminator).
     char* xmlBuf = (char*)User::Alloc(fileSize + 1);
     if (!xmlBuf)
         return EFalse;
@@ -165,40 +270,44 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
         return EFalse;
     }
     xmlBuf[fileSize] = '\0';
-    int xmlLen = fileSize;
+    TInt xmlLen = fileSize;
 
-    // Parse <fps>
-    int fpsLen = 0;
-    const char* fpsContent = FindTag(xmlBuf, xmlLen, "fps", xmlBuf, fpsLen);
-    if (fpsContent && fpsLen > 0)
+    // --- Parse <fps> ---
     {
-        char tmp[32];
-        if (fpsLen >= 32) fpsLen = 31;
-        strncpy(tmp, fpsContent, fpsLen);
-        tmp[fpsLen] = '\0';
-        outDefinition.mFPS = (float)atof(tmp);
-    }
-    else
-    {
-        outDefinition.mFPS = 12.0f;
+        const char* fpsStart = NULL;
+        TInt fpsLen = 0;
+        const char* fpsAfter = NULL;
+        if (FindElement(xmlBuf, xmlLen, "fps", xmlBuf, &fpsStart, &fpsLen, &fpsAfter)
+            && fpsStart && fpsLen > 0)
+        {
+            char tmp[32];
+            TInt n = (fpsLen < 31) ? fpsLen : 31;
+            memcpy(tmp, fpsStart, n);
+            tmp[n] = '\0';
+            outDefinition.mFPS = (float)atof(tmp);
+        }
+        else
+        {
+            outDefinition.mFPS = 12.0f;
+        }
     }
 
-    // Count <track> tags
-    int trackCount = 0;
-    const char* searchPos = xmlBuf;
-    int dummyLen;
-    while (true)
+    // --- Count <track> elements by iterating FindElement ---
+    TInt trackCount = 0;
     {
-        const char* trackStart = FindTag(xmlBuf, xmlLen, "track", searchPos, dummyLen);
-        if (!trackStart) break;
-        // Make sure it's <track> not </track>
-        if (trackStart[-2] == '/') { searchPos = trackStart; continue; }
-        trackCount++;
-        // Advance past this track
-        // Find </track>
-        const char* trackEnd = FindTag(xmlBuf, xmlLen, "/track", trackStart, dummyLen);
-        if (trackEnd) searchPos = trackEnd + 8; // past </track>
-        else break;
+        const char* search = xmlBuf;
+        const char* tStart = NULL;
+        TInt tLen = 0;
+        const char* tAfter = NULL;
+        while (FindElement(xmlBuf, xmlLen, "track", search, &tStart, &tLen, &tAfter))
+        {
+            trackCount++;
+            // Defensive: ensure forward progress even on a malformed match.
+            if (tAfter > search)
+                search = tAfter;
+            else
+                search = tAfter + 1;
+        }
     }
 
     if (trackCount <= 0 || trackCount > 500)
@@ -209,117 +318,141 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
 
     outDefinition.mTrackCount = trackCount;
     outDefinition.mTracks = new ReanimTrack[trackCount];
+    // Zero-init the track array so mName/mTransforms are NULL if a track fails.
+    memset(outDefinition.mTracks, 0, sizeof(ReanimTrack) * trackCount);
 
-    // Parse each <track>
-    searchPos = xmlBuf;
-    for (int i = 0; i < trackCount; i++)
+    // --- Parse each <track> ---
     {
-        // Find <track> content
-        int trackContentLen = 0;
-        const char* trackContent = FindTag(xmlBuf, xmlLen, "track", searchPos, trackContentLen);
-        if (!trackContent || trackContentLen <= 0)
+        const char* search = xmlBuf;
+        for (TInt i = 0; i < trackCount; i++)
         {
-            outDefinition.mTracks[i].mName = (char*)"";
-            outDefinition.mTracks[i].mTransformCount = 0;
-            outDefinition.mTracks[i].mTransforms = NULL;
-            searchPos = trackContent + trackContentLen + 8;
-            continue;
-        }
-        // Make sure not </track>
-        if (trackContent[-2] == '/')
-        {
-            i--;
-            searchPos = trackContent;
-            continue;
-        }
-
-        const char* trackBuf = trackContent;
-        int trackLen = trackContentLen;
-
-        // Parse <name>
-        outDefinition.mTracks[i].mName = ParseStringTag(trackBuf, trackLen, "name");
-
-        // Count <t> tags within this track
-        int tCount = 0;
-        const char* tSearch = trackBuf;
-        while (true)
-        {
-            int tLen = 0;
-            const char* tContent = FindTag(trackBuf, trackLen, "t", tSearch, tLen);
-            if (!tContent) break;
-            // Make sure it's <t> not some other tag starting with t
-            // Check the char after "t" in the open tag is ">" 
-            if (tContent[-1] != '>') { tSearch = tContent; continue; }
-            tCount++;
-            tSearch = tContent + tLen + 4; // past </t>
-        }
-
-        outDefinition.mTracks[i].mTransformCount = tCount;
-        outDefinition.mTracks[i].mTransforms = NULL;
-
-        if (tCount > 0)
-        {
-            outDefinition.mTracks[i].mTransforms = new ReanimTransform[tCount];
-
-            // Parse each <t>
-            tSearch = trackBuf;
-            for (int j = 0; j < tCount; j++)
+            const char* tStart = NULL;
+            TInt tLen = 0;
+            const char* tAfter = NULL;
+            if (!FindElement(xmlBuf, xmlLen, "track", search, &tStart, &tLen, &tAfter))
             {
-                int tLen = 0;
-                const char* tContent = FindTag(trackBuf, trackLen, "t", tSearch, tLen);
-                if (!tContent || tLen < 0) { tSearch++; j--; continue; }
-                if (tContent[-1] != '>') { tSearch = tContent; j--; continue; }
+                // Should not happen (we counted this many), but stay safe.
+                outDefinition.mTracks[i].mName = "";
+                outDefinition.mTracks[i].mTransformCount = 0;
+                outDefinition.mTracks[i].mTransforms = NULL;
+                break;
+            }
+            if (tAfter > search)
+                search = tAfter;
+            else
+                search = tAfter + 1;
 
-                const char* tBuf = tContent;
-                int tBufLen = tLen;
-                ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
+            const char* trackBuf = tStart;
+            TInt trackLen = tLen;
 
-                // Defaults
-                t.mTransX = 0; t.mTransY = 0;
-                t.mSkewX = 0; t.mSkewY = 0;
-                t.mScaleX = 1; t.mScaleY = 1;
-                t.mFrame = 0; t.mAlpha = 255;
-                t.mImage = NULL;
-                t.mFontName = (char*)"";
-                t.mText = (char*)"";
+            // <name>
+            outDefinition.mTracks[i].mName = ParseString(trackBuf, trackLen, "name");
 
-                // Parse floats
-                float v;
-                v = ParseFloatTag(tBuf, tBufLen, "x");  if (v != -9999.0f) t.mTransX = v;
-                v = ParseFloatTag(tBuf, tBufLen, "y");  if (v != -9999.0f) t.mTransY = v;
-                v = ParseFloatTag(tBuf, tBufLen, "kx"); if (v != -9999.0f) t.mSkewX = v;
-                v = ParseFloatTag(tBuf, tBufLen, "ky"); if (v != -9999.0f) t.mSkewY = v;
-                v = ParseFloatTag(tBuf, tBufLen, "sx"); if (v != -9999.0f) t.mScaleX = v;
-                v = ParseFloatTag(tBuf, tBufLen, "sy"); if (v != -9999.0f) t.mScaleY = v;
-                v = ParseFloatTag(tBuf, tBufLen, "f");  if (v != -9999.0f) t.mFrame = v;
-                v = ParseFloatTag(tBuf, tBufLen, "a");  if (v != -9999.0f) t.mAlpha = v;
-
-                // Parse image name
-                int imgLen = 0;
-                const char* imgContent = FindTag(tBuf, tBufLen, "i", tBuf, imgLen);
-                if (imgContent && imgLen > 0 && imgContent[-1] == '>')
+            // Count <t> transforms within this track.
+            TInt tCount = 0;
+            {
+                const char* ts = trackBuf;
+                const char* eStart = NULL;
+                TInt eLen = 0;
+                const char* eAfter = NULL;
+                while (FindElement(trackBuf, trackLen, "t", ts, &eStart, &eLen, &eAfter))
                 {
-                    char* imgName = new char[imgLen + 1];
-                    strncpy(imgName, imgContent, imgLen);
-                    imgName[imgLen] = '\0';
-                    // Load image via ResourceManager
-                    if (gResourceManager)
-                        t.mImage = gResourceManager->GetImage(imgName);
-                    delete[] imgName;
+                    tCount++;
+                    if (eAfter > ts)
+                        ts = eAfter;
+                    else
+                        ts = eAfter + 1;
                 }
+            }
 
-                // Parse font name
-                t.mFontName = ParseStringTag(tBuf, tBufLen, "font");
+            outDefinition.mTracks[i].mTransformCount = tCount;
+            outDefinition.mTracks[i].mTransforms = NULL;
 
-                // Parse text
-                t.mText = ParseStringTag(tBuf, tBufLen, "text");
+            if (tCount > 0)
+            {
+                outDefinition.mTracks[i].mTransforms = new ReanimTransform[tCount];
+                // new[] runs ReanimTransform's ctor (sets numeric defaults +
+                // mImage=NULL, mFontName="", mText=""). Do NOT memset -- that
+                // would clobber the ctor work.
 
-                tSearch = tContent + tLen + 4; // past </t>
+                const char* ts = trackBuf;
+                for (TInt j = 0; j < tCount; j++)
+                {
+                    const char* eStart = NULL;
+                    TInt eLen = 0;
+                    const char* eAfter = NULL;
+                    if (!FindElement(trackBuf, trackLen, "t", ts, &eStart, &eLen, &eAfter))
+                    {
+                        // Fill remainder with defaults and stop.
+                        for (TInt k = j; k < tCount; k++)
+                        {
+                            ReanimTransform& tk = outDefinition.mTracks[i].mTransforms[k];
+                            tk.mTransX = 0; tk.mTransY = 0;
+                            tk.mSkewX = 0;  tk.mSkewY = 0;
+                            tk.mScaleX = 1; tk.mScaleY = 1;
+                            tk.mFrame = 0;  tk.mAlpha = 255;
+                            tk.mImage = NULL;
+                            tk.mFontName = "";
+                            tk.mText = "";
+                        }
+                        break;
+                    }
+                    if (eAfter > ts)
+                        ts = eAfter;
+                    else
+                        ts = eAfter + 1;
+
+                    const char* tBuf = eStart;
+                    TInt tBufLen = eLen;
+                    ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
+
+                    // Defaults (ctor already set these, but be explicit so
+                    // missing fields are deterministic).
+                    t.mTransX = 0; t.mTransY = 0;
+                    t.mSkewX = 0;  t.mSkewY = 0;
+                    t.mScaleX = 1; t.mScaleY = 1;
+                    t.mFrame = 0;  t.mAlpha = 255;
+                    t.mImage = NULL;
+                    t.mFontName = "";
+                    t.mText = "";
+
+                    // Floats
+                    float v;
+                    v = ParseFloat(tBuf, tBufLen, "x");  if (v != KFieldNotFound) t.mTransX = v;
+                    v = ParseFloat(tBuf, tBufLen, "y");  if (v != KFieldNotFound) t.mTransY = v;
+                    v = ParseFloat(tBuf, tBufLen, "kx"); if (v != KFieldNotFound) t.mSkewX = v;
+                    v = ParseFloat(tBuf, tBufLen, "ky"); if (v != KFieldNotFound) t.mSkewY = v;
+                    v = ParseFloat(tBuf, tBufLen, "sx"); if (v != KFieldNotFound) t.mScaleX = v;
+                    v = ParseFloat(tBuf, tBufLen, "sy"); if (v != KFieldNotFound) t.mScaleY = v;
+                    v = ParseFloat(tBuf, tBufLen, "f");  if (v != KFieldNotFound) t.mFrame = v;
+                    v = ParseFloat(tBuf, tBufLen, "a");  if (v != KFieldNotFound) t.mAlpha = v;
+
+                    // Image: <i>NAME</i> -- load via ResourceManager.
+                    // Treat "NULL" / empty as no image (upstream convention).
+                    const char* imgName = ParseString(tBuf, tBufLen, "i");
+                    if (imgName && imgName[0] != '\0' &&
+                        strcmp(imgName, "NULL") != 0)
+                    {
+                        if (gResourceManager)
+                            t.mImage = gResourceManager->GetImage(imgName);
+                        // ParseString allocated a char[] for this non-empty
+                        // name; free it now that we've resolved the image ptr.
+                        delete[] imgName;
+                    }
+                    else if (imgName && imgName[0] != '\0')
+                    {
+                        // It was the literal "NULL" string -- ParseString
+                        // allocated it, so free it.
+                        delete[] imgName;
+                    }
+                    // else: imgName == "" (static literal) -- nothing to free.
+
+                    // Font + text (owned by the transform, freed by dtor).
+                    t.mFontName = ParseString(tBuf, tBufLen, "font");
+                    t.mText = ParseString(tBuf, tBufLen, "text");
+                }
             }
         }
-
-        // Advance searchPos past this </track>
-        searchPos = trackContent + trackContentLen + 8;
     }
 
     User::Free(xmlBuf);
@@ -327,7 +460,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
 }
 
 // ===========================================================================
-// ReanimFindTrack — find a track by name (case-insensitive)
+// ReanimFindTrack -- find a track by name (case-insensitive)
 // ===========================================================================
 ReanimTrack* ReanimFindTrack(ReanimDefinition& aDef, const char* aName)
 {

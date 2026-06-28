@@ -111,13 +111,26 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
     Log("LoadImageByResName: ");
     Log(aResName);
 
-    // Build a lowercase stem from the resource name. "IMAGE_TITLESCREEN" -> "titlescreen".
-    // If the name has no IMAGE_ prefix, use the whole (lowercased) name as the stem.
-    const char* prefix = "IMAGE_";
-    int prefixLen = (int)strlen(prefix);
+    // Build a lowercase stem from the resource name.
+    //
+    // [Stage-1 fix] IMAGE_REANIM_* assets live in the PAK under
+    // "reanim/<CamelCase>.png|jpg" -- e.g. IMAGE_REANIM_SELECTORSCREEN_BG ->
+    // reanim/SelectorScreen_BG.jpg. Stripping only "IMAGE_" would leave the
+    // stem "REANIM_SELECTORSCREEN_BG" -> "reanim_selectorscreen_bg", which
+    // never matches the real "SelectorScreen_BG" filename. So strip the full
+    // "IMAGE_REANIM_" prefix first, leaving "SELECTORSCREEN_BG" ->
+    // "selectorscreen_bg", which the case-insensitive PAK matches against
+    // "reanim/SelectorScreen_BG.jpg". Other IMAGE_* assets still strip just
+    // "IMAGE_".
     const char* stemSrc = aResName;
-    if (strncmp(aResName, prefix, prefixLen) == 0)
-        stemSrc = aResName + prefixLen;
+    static const char* kReanimPrefix = "IMAGE_REANIM_";
+    int reanimPrefixLen = (int)strlen(kReanimPrefix);
+    static const char* kImgPrefix = "IMAGE_";
+    int imgPrefixLen = (int)strlen(kImgPrefix);
+    if (strncmp(aResName, kReanimPrefix, reanimPrefixLen) == 0)
+        stemSrc = aResName + reanimPrefixLen;
+    else if (strncmp(aResName, kImgPrefix, imgPrefixLen) == 0)
+        stemSrc = aResName + imgPrefixLen;
     if (!*stemSrc)
         return NULL;
 

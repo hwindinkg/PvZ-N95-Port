@@ -1,14 +1,18 @@
 /*
- * ReanimLoader.h -- minimal .reanim.compiled file loader for Symbian port.
+ * ReanimLoader.h -- .reanim XML file loader for Symbian port.
  *
- * Parses PopCap compiled reanimation binary format:
- *   1. Read from PAK (XOR 0xF7 decrypted)
- *   2. zlib decompress (cookie 0xDEADFED4 header)
- *   3. Binary parse: ReanimatorDefinition → tracks → transforms
+ * Parses the architecture-independent XML version of PopCap reanimation
+ * files from PAK (NOT the .reanim.compiled binary, whose 64-bit struct
+ * sizes from the PC build are incompatible with the N95's 32-bit ARM).
  *
- * This is a MINIMAL port of upstream Definition.cpp (1445 lines) — only
- * implements ReanimatorDefinition parsing, not the full DefMap/DefField system.
- * No XML parsing, no particle/trail/emitter definitions.
+ *   1. Read XML from PAK (PvZVfs handles XOR 0xF7 decryption)
+ *   2. Hand-rolled XML scan (FindElement) -> ReanimDefinition -> tracks
+ *      -> transforms, loading <i> image refs via ResourceManager.
+ *
+ * This is a focused port of the reanimation-XML subset of upstream
+ * Definition.cpp (1445 lines) / DefinitionLoadXML. It does NOT implement
+ * the full DefMap/DefField system, particle/trail/emitter definitions, or
+ * the compiled-binary reader. Those arrive with the Stage 2/4 ports.
  */
 #ifndef __REANIMLOADER_H__
 #define __REANIMLOADER_H__
