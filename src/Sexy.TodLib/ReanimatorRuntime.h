@@ -6,7 +6,7 @@
  * adapted to the port's infrastructure (ReanimLoader.h's ReanimDefinition,
  * Graphics, MemoryImage). It implements:
  *   - Reanimation class (plays an animation, interpolates transforms)
- *   - ReanimationHolder (EffectSystem — manages active Reanimations)
+ *   - class ReanimHolder2 (EffectSystem — manages active Reanimations)
  *   - DrawTrack / DrawRenderGroup / Draw (render with render groups)
  *   - GetCurrentTransform / GetTransformAtTime / GetFrameTime
  *   - PlayReanim / GetFramesForLayer / SetFramesForLayer
@@ -42,9 +42,9 @@ struct ReanimatorFrameTime
 };
 
 // ===========================================================================
-// ReanimatorTrackInstance — per-track runtime state (from upstream)
+// ReanimTrackInst — per-track runtime state (from upstream)
 // ===========================================================================
-struct ReanimatorTrackInstance
+struct ReanimTrackInst
 {
     int   mRenderGroup;        // which render group this track belongs to
     float mShakeX;
@@ -52,7 +52,7 @@ struct ReanimatorTrackInstance
     Sexy::Image* mImageOverride;
     bool  mIgnoreClipRect;
 
-    ReanimatorTrackInstance()
+    ReanimTrackInst()
         : mRenderGroup(0), mShakeX(0), mShakeY(0),
           mImageOverride(NULL), mIgnoreClipRect(false) {}
 };
@@ -60,7 +60,7 @@ struct ReanimatorTrackInstance
 // ===========================================================================
 // Reanimation — a playing animation instance (port of upstream Reanimation)
 // ===========================================================================
-class Reanimation
+class Reanim2
 {
 public:
     ReanimDefinition*       mDefinition;
@@ -76,7 +76,7 @@ public:
     int                     mLoopCount;
     int                     mRenderOrder;
     float                   mAlpha;         // global alpha multiplier
-    ReanimatorTrackInstance* mTrackInstances; // per-track runtime state
+    ReanimTrackInst* mTrackInstances; // per-track runtime state
     float                   mLastFrameTime;
 
     Reanimation();
@@ -115,40 +115,40 @@ public:
 };
 
 // ===========================================================================
-// ReanimationHolder — manages active Reanimations (port of EffectSystem)
+// class ReanimHolder2 — manages active Reanimations (port of EffectSystem)
 // ===========================================================================
-class ReanimationHolder
+ReanimHolder2
 {
 public:
     static const int MAX_REANIMATIONS = 64;
 
-    ReanimationHolder();
-    ~ReanimationHolder();
+    ReanimHolder2();
+    ~ReanimHolder2();
 
-    Reanimation* AllocReanimation(float x, float y, int renderOrder,
+    Reanim2* AllocReanimation(float x, float y, int renderOrder,
                                   ReanimDefinition* def);
-    void         RemoveReanimation(Reanimation* r);
-    Reanimation* GetReanimation(int idx);
+    void         RemoveReanimation(Reanim2* r);
+    Reanim2* GetReanimation(int idx);
     void         UpdateAll();
     void         DrawAll(Sexy::Graphics* g);
     void         DrawAllRenderGroup(Sexy::Graphics* g, int renderGroup);
     void         Clear();
 
 private:
-    Reanimation* mReanimations[MAX_REANIMATIONS];
+    Reanim2* mReanimations[MAX_REANIMATIONS];
     int          mCount;
 };
 
 // ===========================================================================
 // EffectSystem — the global reanimation + particle manager
 // ===========================================================================
-class EffectSystem
+class EffectSystem2
 {
 public:
     EffectSystem();
     ~EffectSystem();
 
-    ReanimationHolder* mReanimationHolder;
+    ReanimHolder2* mReanimHolder2;
 
     void EffectSystemInitialize();
     void EffectSystemDispose();
@@ -156,6 +156,6 @@ public:
     void Draw(Sexy::Graphics* g);
 };
 
-extern EffectSystem* gEffectSystem;
+extern EffectSystem2* gEffectSystem2;
 
 #endif // __REANIMATORRUNTIME_H__

@@ -83,8 +83,8 @@ public:
 
     // [Session-13] Full Reanimation runtime (after state fields to fix
     // member initialization order — GCCE warns if init order != decl order)
-    Reanimation*      mSelectorReanim;
-    ReanimationHolder mReanimHolder;
+    Reanim2*      mSelectorReanim;
+    ReanimHolder2 mReanimHolder;
 
     // -- Construction ----------------------------------------------------
     GameSelector(LawnApp* theApp);

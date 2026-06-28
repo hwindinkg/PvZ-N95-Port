@@ -43,7 +43,7 @@ static int FloatRoundToInt(float f) { return (int)(f >= 0 ? f + 0.5f : f - 0.5f)
 // ===========================================================================
 // Reanimation
 // ===========================================================================
-Reanimation::Reanimation()
+Reanim2::Reanimation()
     : mDefinition(NULL)
     , mAnimTime(0.0f)
     , mAnimRate(0.0f)
@@ -62,13 +62,13 @@ Reanimation::Reanimation()
 {
 }
 
-Reanimation::~Reanimation()
+Reanim2::~Reanimation()
 {
     if (mTrackInstances)
         delete[] mTrackInstances;
 }
 
-void Reanimation::ReanimationInitialize(float x, float y, ReanimDefinition* def)
+void Reanim2::ReanimationInitialize(float x, float y, ReanimDefinition* def)
 {
     mDefinition = def;
     mX = x;
@@ -86,9 +86,9 @@ void Reanimation::ReanimationInitialize(float x, float y, ReanimDefinition* def)
     if (def && def->mTrackCount > 0)
     {
         mFrameCount = def->mTracks[0].mTransformCount;
-        mTrackInstances = new ReanimatorTrackInstance[def->mTrackCount];
+        mTrackInstances = new ReanimTrackInst[def->mTrackCount];
         for (int i = 0; i < def->mTrackCount; i++)
-            mTrackInstances[i] = ReanimatorTrackInstance();
+            mTrackInstances[i] = ReanimTrackInst();
     }
     else
     {
@@ -100,7 +100,7 @@ void Reanimation::ReanimationInitialize(float x, float y, ReanimDefinition* def)
 // ===========================================================================
 // Playback
 // ===========================================================================
-int Reanimation::FindTrackIndex(const char* trackName)
+int Reanim2::FindTrackIndex(const char* trackName)
 {
     if (!mDefinition || !trackName)
         return 0;
@@ -113,7 +113,7 @@ int Reanimation::FindTrackIndex(const char* trackName)
     return 0; // upstream returns 0 on miss (with a trace)
 }
 
-bool Reanimation::TrackExists(const char* trackName)
+bool Reanim2::TrackExists(const char* trackName)
 {
     if (!mDefinition || !trackName)
         return false;
@@ -126,7 +126,7 @@ bool Reanimation::TrackExists(const char* trackName)
     return false;
 }
 
-void Reanimation::GetFramesForLayer(const char* trackName, int& frameStart, int& frameCount)
+void Reanim2::GetFramesForLayer(const char* trackName, int& frameStart, int& frameCount)
 {
     frameStart = 0;
     frameCount = 1;
@@ -158,7 +158,7 @@ void Reanimation::GetFramesForLayer(const char* trackName, int& frameStart, int&
     }
 }
 
-void Reanimation::SetFramesForLayer(const char* trackName)
+void Reanim2::SetFramesForLayer(const char* trackName)
 {
     if (mAnimRate >= 0)
         mAnimTime = 0.0f;
@@ -168,7 +168,7 @@ void Reanimation::SetFramesForLayer(const char* trackName)
     GetFramesForLayer(trackName, mFrameStart, mFrameCount);
 }
 
-void Reanimation::PlayReanim(const char* trackName, ReanimLoopType loopType,
+void Reanim2::PlayReanim(const char* trackName, ReanimLoopType loopType,
                               int blendTime, float animRate)
 {
     if (animRate != 0.0f)
@@ -181,7 +181,7 @@ void Reanimation::PlayReanim(const char* trackName, ReanimLoopType loopType,
 // ===========================================================================
 // Update
 // ===========================================================================
-void Reanimation::Update()
+void Reanim2::Update()
 {
     if (mFrameCount == 0 || mDead)
         return;
@@ -256,7 +256,7 @@ void Reanimation::Update()
 // ===========================================================================
 // Frame time + transform
 // ===========================================================================
-void Reanimation::GetFrameTime(ReanimatorFrameTime* ft)
+void Reanim2::GetFrameTime(ReanimatorFrameTime* ft)
 {
     int aFrameCount;
     if (mLoopType == REANIM_PLAY_ONCE_FULL_LAST_FRAME ||
@@ -309,7 +309,7 @@ static void ScanForImage(ReanimTrack& track, int fromIdx, ReanimTransform* t)
     }
 }
 
-void Reanimation::GetTransformAtTime(int trackIndex, ReanimTransform* t,
+void Reanim2::GetTransformAtTime(int trackIndex, ReanimTransform* t,
                                       ReanimatorFrameTime* ft)
 {
     if (!mDefinition || trackIndex < 0 || trackIndex >= mDefinition->mTrackCount)
@@ -345,7 +345,7 @@ void Reanimation::GetTransformAtTime(int trackIndex, ReanimTransform* t,
     ScanForImage(track, before, t);
 }
 
-void Reanimation::GetCurrentTransform(int trackIndex, ReanimTransform* t)
+void Reanim2::GetCurrentTransform(int trackIndex, ReanimTransform* t)
 {
     ReanimatorFrameTime ft;
     GetFrameTime(&ft);
@@ -355,7 +355,7 @@ void Reanimation::GetCurrentTransform(int trackIndex, ReanimTransform* t)
 // ===========================================================================
 // Rendering
 // ===========================================================================
-bool Reanimation::DrawTrack(Sexy::Graphics* g, int trackIndex)
+bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
 {
     if (!mDefinition || !g)
         return false;
@@ -414,7 +414,7 @@ bool Reanimation::DrawTrack(Sexy::Graphics* g, int trackIndex)
     return true;
 }
 
-void Reanimation::DrawRenderGroup(Sexy::Graphics* g, int renderGroup)
+void Reanim2::DrawRenderGroup(Sexy::Graphics* g, int renderGroup)
 {
     if (mDead || !mDefinition || !g)
         return;
@@ -428,7 +428,7 @@ void Reanimation::DrawRenderGroup(Sexy::Graphics* g, int renderGroup)
     }
 }
 
-void Reanimation::Draw(Sexy::Graphics* g)
+void Reanim2::Draw(Sexy::Graphics* g)
 {
     DrawRenderGroup(g, 0); // RENDER_GROUP_NORMAL = 0
 }
@@ -436,14 +436,14 @@ void Reanimation::Draw(Sexy::Graphics* g)
 // ===========================================================================
 // Utility
 // ===========================================================================
-void Reanimation::AssignRenderGroupToTrack(const char* trackName, int group)
+void Reanim2::AssignRenderGroupToTrack(const char* trackName, int group)
 {
     int idx = FindTrackIndex(trackName);
     if (mTrackInstances && idx >= 0 && idx < mDefinition->mTrackCount)
         mTrackInstances[idx].mRenderGroup = group;
 }
 
-void Reanimation::AssignRenderGroupToPrefix(const char* prefix, int group)
+void Reanim2::AssignRenderGroupToPrefix(const char* prefix, int group)
 {
     if (!mDefinition || !prefix || !mTrackInstances)
         return;
@@ -461,7 +461,7 @@ void Reanimation::AssignRenderGroupToPrefix(const char* prefix, int group)
     }
 }
 
-void Reanimation::SetImageOverride(const char* trackName, Sexy::Image* img)
+void Reanim2::SetImageOverride(const char* trackName, Sexy::Image* img)
 {
     int idx = FindTrackIndex(trackName);
     if (mTrackInstances && idx >= 0 && idx < mDefinition->mTrackCount)
@@ -469,28 +469,28 @@ void Reanimation::SetImageOverride(const char* trackName, Sexy::Image* img)
 }
 
 // ===========================================================================
-// ReanimationHolder (EffectSystem)
+// class ReanimHolder2 (EffectSystem)
 // ===========================================================================
-ReanimationHolder::ReanimationHolder()
+ReanimHolder2::ReanimHolder2()
     : mCount(0)
 {
     for (int i = 0; i < MAX_REANIMATIONS; i++)
         mReanimations[i] = NULL;
 }
 
-ReanimationHolder::~ReanimationHolder()
+ReanimHolder2::~ReanimHolder2()
 {
     Clear();
 }
 
-Reanimation* ReanimationHolder::AllocReanimation(float x, float y, int renderOrder,
+Reanim2* ReanimHolder2::AllocReanimation(float x, float y, int renderOrder,
                                                    ReanimDefinition* def)
 {
     for (int i = 0; i < MAX_REANIMATIONS; i++)
     {
         if (mReanimations[i] == NULL)
         {
-            Reanimation* r = new Reanimation();
+            Reanim2* r = new Reanimation();
             if (!r) return NULL;
             r->ReanimationInitialize(x, y, def);
             r->mRenderOrder = renderOrder;
@@ -502,7 +502,7 @@ Reanimation* ReanimationHolder::AllocReanimation(float x, float y, int renderOrd
     return NULL; // no free slot
 }
 
-void ReanimationHolder::RemoveReanimation(Reanimation* r)
+void ReanimHolder2::RemoveReanimation(Reanim2* r)
 {
     if (!r) return;
     for (int i = 0; i < MAX_REANIMATIONS; i++)
@@ -516,14 +516,14 @@ void ReanimationHolder::RemoveReanimation(Reanimation* r)
     }
 }
 
-Reanimation* ReanimationHolder::GetReanimation(int idx)
+Reanim2* ReanimHolder2::GetReanimation(int idx)
 {
     if (idx < 0 || idx >= MAX_REANIMATIONS)
         return NULL;
     return mReanimations[idx];
 }
 
-void ReanimationHolder::UpdateAll()
+void ReanimHolder2::UpdateAll()
 {
     for (int i = 0; i < MAX_REANIMATIONS; i++)
     {
@@ -532,12 +532,12 @@ void ReanimationHolder::UpdateAll()
     }
 }
 
-void ReanimationHolder::DrawAll(Sexy::Graphics* g)
+void ReanimHolder2::DrawAll(Sexy::Graphics* g)
 {
     DrawAllRenderGroup(g, 0);
 }
 
-void ReanimationHolder::DrawAllRenderGroup(Sexy::Graphics* g, int renderGroup)
+void ReanimHolder2::DrawAllRenderGroup(Sexy::Graphics* g, int renderGroup)
 {
     for (int i = 0; i < MAX_REANIMATIONS; i++)
     {
@@ -546,7 +546,7 @@ void ReanimationHolder::DrawAllRenderGroup(Sexy::Graphics* g, int renderGroup)
     }
 }
 
-void ReanimationHolder::Clear()
+void ReanimHolder2::Clear()
 {
     for (int i = 0; i < MAX_REANIMATIONS; i++)
     {
@@ -562,41 +562,41 @@ void ReanimationHolder::Clear()
 // ===========================================================================
 // EffectSystem
 // ===========================================================================
-EffectSystem* gEffectSystem = NULL;
+EffectSystem2* gEffectSystem2 = NULL;
 
-EffectSystem::EffectSystem()
-    : mReanimationHolder(NULL)
+EffectSystem2::EffectSystem()
+    : mReanimHolder2(NULL)
 {
 }
 
-EffectSystem::~EffectSystem()
+EffectSystem2::~EffectSystem()
 {
     EffectSystemDispose();
 }
 
-void EffectSystem::EffectSystemInitialize()
+void EffectSystem2::EffectSystemInitialize()
 {
-    mReanimationHolder = new ReanimationHolder();
+    mReanimHolder2 = new ReanimHolder2();
 }
 
-void EffectSystem::EffectSystemDispose()
+void EffectSystem2::EffectSystemDispose()
 {
-    if (mReanimationHolder)
+    if (mReanimHolder2)
     {
-        mReanimationHolder->Clear();
-        delete mReanimationHolder;
-        mReanimationHolder = NULL;
+        mReanimHolder2->Clear();
+        delete mReanimHolder2;
+        mReanimHolder2 = NULL;
     }
 }
 
-void EffectSystem::Update()
+void EffectSystem2::Update()
 {
-    if (mReanimationHolder)
-        mReanimationHolder->UpdateAll();
+    if (mReanimHolder2)
+        mReanimHolder2->UpdateAll();
 }
 
-void EffectSystem::Draw(Sexy::Graphics* g)
+void EffectSystem2::Draw(Sexy::Graphics* g)
 {
-    if (mReanimationHolder)
-        mReanimationHolder->DrawAll(g);
+    if (mReanimHolder2)
+        mReanimHolder2->DrawAll(g);
 }
