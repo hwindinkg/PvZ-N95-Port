@@ -141,21 +141,13 @@ void Reanim2::GetFramesForLayer(const char* trackName, int& frameStart, int& fra
     if (track.mTransformCount == 0)
         return;
 
-    // Find first non-blank transform (mFrame >= 0)
-    for (int i = 0; i < track.mTransformCount; i++)
-    {
-        if (track.mTransforms[i].mFrame >= 0.0f)
-        {
-            frameStart = i;
-            break;
-        }
-    }
-    // Find last non-blank transform
-    for (int j = frameStart; j < track.mTransformCount; j++)
-    {
-        if (track.mTransforms[j].mFrame >= 0.0f)
-            frameCount = j - frameStart + 1;
-    }
+    // [Session-13] In the XML format, mFrame is -1 by default (no <f> tag).
+    // But transforms with images are NOT blank. Use the full transform range
+    // [0, mTransformCount) as the animation window. The marker tracks
+    // (anim_open, anim_sign) don't have meaningful <f> values in XML —
+    // the animation plays across ALL transforms.
+    frameStart = 0;
+    frameCount = track.mTransformCount;
 }
 
 void Reanim2::SetFramesForLayer(const char* trackName)
@@ -365,10 +357,12 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     ReanimTransform t;
     GetCurrentTransform(trackIndex, &t);
 
-    // Check if this frame is blank (mFrame < 0 means hidden)
-    if (t.mFrame < 0.0f)
-        return false;
-
+    // [Session-13] In the XML format, mFrame is -1 by default (no <f> tag).
+    // But that doesn't mean the track is hidden — the IMAGE is what matters.
+    // Only skip if there's no image AND no image name.
+    // (Upstream's compiled format has mFrame=-1 for truly blank frames, but
+    // our XML format just doesn't have <f> tags for most transforms.)
+    //
     // Apply image override
     if (mTrackInstances && mTrackInstances[trackIndex].mImageOverride)
         t.mImage = mTrackInstances[trackIndex].mImageOverride;
