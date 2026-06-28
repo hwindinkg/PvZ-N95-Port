@@ -69,7 +69,8 @@ SOURCE          miniz_tdef.c           // [M4 reanim] deflate (compression) impl
 SOURCEPATH      ..\src\Sexy.TodLib
 SOURCE          TodCommon.cpp
 SOURCE          TodDebug.cpp
-SOURCE          ReanimLoader.cpp     // [M4 reanim] .reanim.compiled parser (zlib + binary format)
+SOURCE          ReanimLoader.cpp     // [M4 reanim] .reanim XML parser (FindElement)
+SOURCE          ReanimatorRuntime.cpp // [Session-13] full Reanimation runtime (port of Reanimator.cpp)
 
 // === Resources ===
 SOURCEPATH      ..\src

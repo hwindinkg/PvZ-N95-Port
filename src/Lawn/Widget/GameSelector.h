@@ -31,6 +31,7 @@
 #include "../../engine/ButtonListener.h"
 #include "../../ConstEnums.h"
 #include "../../Sexy.TodLib/ReanimLoader.h"
+#include "../../Sexy.TodLib/ReanimatorRuntime.h"
 
 namespace Sexy { class LawnApp; }
 
@@ -61,7 +62,9 @@ public:
 
     // -- Reanim data ------------------------------------------------------
     ReanimDefinition mReanimDef;   // parsed SelectorScreen.reanim
-    ReanimPlayer    mReanimPlayer; // runtime that renders mReanimDef
+    ReanimPlayer    mReanimPlayer; // legacy lightweight player (unused now)
+    Reanimation*    mSelectorReanim; // [Session-13] full Reanimation runtime
+    ReanimationHolder mReanimHolder;  // [Session-13] owns the Reanimation
     bool            mReanimLoaded;
 
     // -- State -----------------------------------------------------------

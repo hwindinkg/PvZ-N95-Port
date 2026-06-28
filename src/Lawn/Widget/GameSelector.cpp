@@ -88,6 +88,7 @@ GameSelector::GameSelector(LawnApp* theApp)
     , mSlideCounter(0)
     , mStartX(0), mStartY(0)
     , mDestX(0),  mDestY(0)
+    , mSelectorReanim(NULL)
 {
     mVisible = true;
     mMouseVisible = true;    // [Session-6] receive clicks directly for hit-testing
@@ -96,7 +97,7 @@ GameSelector::GameSelector(LawnApp* theApp)
     mWantsFocus = true;
     mReanimLoaded = false;
 
-    GSLog(_L8("GS:ctor (reanim menu, no stub buttons)\n"));
+    GSLog(_L8("GS:ctor (Reanimation runtime)\n"));
 
     // [Stage-1] Load SelectorScreen.reanim (XML version) for 1:1 menu.
     mReanimLoaded = EFalse;
@@ -181,6 +182,28 @@ GameSelector::GameSelector(LawnApp* theApp)
         TBuf8<80> pl;
         pl.Format(_L8("GS:preloaded %d reanim images\n"), preloadedCount);
         GSLog(pl);
+
+        // [Session-13] Create the full Reanimation runtime (1:1 upstream).
+        // AllocReanimation creates a Reanimation bound to mReanimDef, then
+        // we PlayReanim("anim_open") to play the menu open animation.
+        mSelectorReanim = mReanimHolder.AllocReanimation(
+            400.0f, 300.0f, 0, &mReanimDef);
+        if (mSelectorReanim)
+        {
+            // Play the open animation once and hold on the last frame.
+            mSelectorReanim->PlayReanim("anim_open",
+                REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+            // BG in render group 1 (drawn first)
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG", 1);
+            // Hide flower/leaf decoration (upstream hides them initially)
+            mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
+            mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);
+            GSLog(_L8("GS:Reanimation created, playing anim_open\n"));
+        }
+        else
+        {
+            GSLog(_L8("GS:AllocReanimation FAILED\n"));
+        }
     }
     else
     {
@@ -190,8 +213,8 @@ GameSelector::GameSelector(LawnApp* theApp)
 
 GameSelector::~GameSelector()
 {
-    // No stub buttons to tear down -- the reanim definition is freed by its
-    // own destructor when mReanimDef goes out of scope.
+    // mReanimHolder owns the Reanimation; its destructor will free it.
+    mSelectorReanim = NULL;
 }
 
 // -------------------------------------------------------------------------
@@ -219,22 +242,20 @@ void GameSelector::UpdateTooltip()
 void GameSelector::Update()
 {
     Widget::Update();
-    // [Session-11] Don't advance the reanim player (mAnimRate=0). The menu
-    // shows the last frame (transform[705]) statically.
-    // if (mReanimLoaded)
-    //     mReanimPlayer.Update(1.0f / 30.0f);
+    // [Session-13] Advance the Reanimation runtime.
+    // The port's heartbeat timer calls Update at ~30fps. The Reanimation
+    // uses SECONDS_PER_UPDATE=0.01 internally, so we call Update 3× per
+    // frame to approximate 30fps (3 × 0.01 = 0.033s ≈ 1/30s).
+    mReanimHolder.UpdateAll();
+    mReanimHolder.UpdateAll();
+    mReanimHolder.UpdateAll();
 }
 
 // -------------------------------------------------------------------------
-// Draw -- render the SelectorScreen menu.
-// [Session-13] Render ONLY the SelectorScreen_BG track directly (not all 48
-// tracks). The upstream uses render groups: DrawRenderGroup(g, 1) for BG,
-// then clouds, then DrawRenderGroup(g, 0) for buttons. But our ReanimPlayer
-// doesn't have render groups, and rendering all 48 tracks creates a mess
-// (animation helper tracks, overlapping BG parts, off-screen buttons).
-// So we render ONLY the BG track (100×75 at 8× scale = 800×600 → 400×300
-// canvas) for a clean background. Buttons need the full Reanimator runtime
-// (anim_open slides them into view) — Stage 2.
+// Draw -- render the SelectorScreen menu via the full Reanimation runtime.
+// [Session-13] 1:1 upstream: DrawRenderGroup(g, 1) for BG, then
+// DrawRenderGroup(g, 0) for buttons/shadows. The anim_open animation
+// slides buttons into view.
 // -------------------------------------------------------------------------
 void GameSelector::Draw(Graphics* g)
 {
@@ -242,11 +263,19 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
+    if (mSelectorReanim)
+    {
+        // [Session-13] 1:1 upstream GameSelector::Draw:
+        // 1. Draw BG render group (group 1 = SelectorScreen_BG)
+        // 2. Draw normal render group (group 0 = buttons, shadows, etc.)
+        mSelectorReanim->DrawRenderGroup(g, 1);  // BG
+        mSelectorReanim->DrawRenderGroup(g, 0);  // buttons + shadows
+        return;
+    }
+
+    // Fallback: direct BG draw (if Reanimation failed)
     if (mReanimLoaded && mReanimDef.mTrackCount > 0)
     {
-        // [Session-13] Render ONLY the SelectorScreen_BG track.
-        // Find it by name, get its transform[0] (frame 0 = initial state),
-        // and draw the image at the correct position/scale.
         int bgIdx = mReanimPlayer.FindTrackIndex("SelectorScreen_BG");
         if (bgIdx >= 0 && bgIdx < mReanimDef.mTrackCount)
         {
@@ -254,15 +283,6 @@ void GameSelector::Draw(Graphics* g)
             if (track.mTransformCount > 0 && track.mTransforms[0].mImage)
             {
                 ReanimTransform& t = track.mTransforms[0];
-                // BG: 100×75 image at scale 8×8 = 800×600 in reanim space.
-                // Center-based positioning: posX = transX - scaleX * imgW * 0.5
-                // transX=0, transY=0, sx=8, sy=8, imgW=100, imgH=75
-                // posX = 0 - 8*100*0.5 = -400
-                // posY = 0 - 8*75*0.5 = -300
-                // size = 8*100 = 800, 8*75 = 600
-                // In reanim space: (-400,-300) to (400,300) = 800×600 centered at origin
-                // With mX=400, mY=300 offset: (0,0) to (800,600) = top-left origin
-                // Scaled to canvas (×0.5): (0,0) to (400,300) = fills canvas
                 float imgW = t.mImage->GetWidth();
                 float imgH = t.mImage->GetHeight();
                 float scaledW = imgW * t.mScaleX;
@@ -271,28 +291,15 @@ void GameSelector::Draw(Graphics* g)
                 float cy = (300.0f + t.mTransY - scaledH * 0.5f) * 0.5f;
                 float cw = scaledW * 0.5f;
                 float ch = scaledH * 0.5f;
-
                 g->SetColor(Color(255, 255, 255, 255));
                 MemoryImage* mem = static_cast<MemoryImage*>(t.mImage);
                 g->DrawImage(mem, (int)cx, (int)cy, (int)cw, (int)ch);
-            }
-            else
-            {
-                // BG image not preloaded — dark fill
-                g->SetColor(Color(30, 25, 20, 255));
-                g->FillRect(0, 0, mWidth, mHeight);
+                return;
             }
         }
-        else
-        {
-            // BG track not found — dark fill
-            g->SetColor(Color(30, 25, 20, 255));
-            g->FillRect(0, 0, mWidth, mHeight);
-        }
-        return;
     }
 
-    // Reanim failed to load — dark background + error text.
+    // Reanim failed — dark background
     g->SetColor(Color(30, 25, 20, 255));
     g->FillRect(0, 0, mWidth, mHeight);
     g->SetColor(Color(255, 100, 100, 255));
