@@ -159,10 +159,13 @@ GameSelector::GameSelector(LawnApp* theApp)
 
     GSLog(_L8("GS:ctor buttons created and added to WidgetManager\n"));
 
-    // [M4 reanim] Load SelectorScreen.reanim.compiled for 1:1 menu rendering.
-    // The reanim loader now has proper bounds checking + struct-aware parsing.
+    // [M4 reanim] Load SelectorScreen.reanim (XML version) for 1:1 menu.
+    // Uses XML instead of .compiled because the compiled binary format has
+    // architecture-dependent struct sizes (64-bit pointers from PC build
+    // are incompatible with N95's 32-bit ARM). The XML is 328KB but
+    // architecture-independent.
     mReanimLoaded = ReanimLoadCompiled(
-        "compiled/reanim/SelectorScreen.reanim.compiled", mReanimDef);
+        "reanim/SelectorScreen.reanim", mReanimDef);
     if (mReanimLoaded)
     {
         TBuf8<80> b;

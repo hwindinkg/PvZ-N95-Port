@@ -1,105 +1,118 @@
 /*
- * ReanimLoader.cpp -- .reanim.compiled file loader for Symbian port.
+ * ReanimLoader.cpp -- .reanim XML file loader for Symbian port.
  *
- * Parses PopCap compiled reanimation binary format.
- * Based on upstream Definition.cpp DefMapReadFromCache logic.
+ * Parses the XML version of reanimation files from PAK (not the compiled
+ * binary format, which is architecture-dependent: 64-bit struct sizes
+ * differ from 32-bit, making the compiled files from PvZ-Portable's PC
+ * build incompatible with the N95's 32-bit ARM).
  *
- * Binary format (reverse-engineered from Definition.cpp):
- * 1. Raw ReanimatorDefinition struct (16 bytes on 32-bit):
- *    - [0] mTracks.tracks (ptr, 4 bytes, ignored)
- *    - [4] mTracks.count (int, 4 bytes) = track count
- *    - [8] mFPS (float, 4 bytes)
- *    - [12] mReanimAtlas (ptr, 4 bytes, NULL)
- * 2. Track array fixup:
- *    a. int defSize (sizeof(ReanimatorTrack) on desktop, ~12 bytes)
- *    b. Raw track data: defSize * trackCount bytes
- *       Per track (offsets within raw data):
- *       - [0] mName (ptr, 4 bytes, ignored)
- *       - [4] mTransforms.mTransforms (ptr, 4 bytes, ignored)
- *       - [8] mTransforms.count (int, 4 bytes) = transform count
- *    c. Per track fixup:
- *       - DT_STRING "name": int len + chars
- *       - DT_ARRAY "t" (transforms):
- *         i.  int transDefSize (sizeof(ReanimatorTransform) on desktop)
- *         ii. Raw transform data: transDefSize * transformCount bytes
- *             Per transform (first 32 bytes are floats):
- *             - [0]  mTransX (float)
- *             - [4]  mTransY (float)
- *             - [8]  mSkewX (float)
- *             - [12] mSkewY (float)
- *             - [16] mScaleX (float)
- *             - [20] mScaleY (float)
- *             - [24] mFrame (float)
- *             - [28] mAlpha (float)
- *         iii. Per transform fixup:
- *              - DT_IMAGE "i": int len + chars (image name)
- *              - DT_FONT "font": int len + chars (font name)
- *              - DT_STRING "text": int len + chars (text)
+ * XML format:
+ * <fps>20</fps>
+ * <track>
+ *   <name>SelectorScreen_BG</name>
+ *   <t><x>0</x><y>0</y><sx>1</sx><sy>1</sy><i>IMAGE_REANIM_SELECTORSCREEN_BG</i></t>
+ *   <t></t>
+ *   ...
+ * </track>
+ * <track>...</track>
+ *
+ * Each <t> is a transform with:
+ *   <x> mTransX (float, default 0)
+ *   <y> mTransY (float, default 0)
+ *   <kx> mSkewX (float, default 0)
+ *   <ky> mSkewY (float, default 0)
+ *   <sx> mScaleX (float, default 1)
+ *   <sy> mScaleY (float, default 1)
+ *   <f> mFrame (float, default 0)
+ *   <a> mAlpha (float, default 255)
+ *   <i> image name (string, loaded via ResourceManager)
+ *   <font> font name (string)
+ *   <text> text (string)
  */
 #include "ReanimLoader.h"
 #include "../engine/PvZVfs.h"
 #include "../engine/PakInterface.h"
 #include "../engine/Image.h"
-#include "../engine/MemoryImage.h"
 #include "../engine/ResourceManager.h"
-
-#define MINIZ_NO_STDIO
-#define MINIZ_NO_ARCHIVE_APIS
-#define MINIZ_NO_ARCHIVE_WRITING_APIS
-extern "C" {
-#include "miniz.h"
-}
 
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 // ===========================================================================
-// SMemR — read raw bytes from buffer, advance pointer (matches upstream)
+// Simple XML tag finder — finds <tag>content</tag> in a buffer
+// Returns content start/end, or NULL if not found.
 // ===========================================================================
-static inline void SMemR(void*& aSrc, void* aDst, int aSize)
+static const char* FindTag(const char* buf, int bufLen, const char* tag,
+                           const char* searchFrom, int& outContentLen)
 {
-    memcpy(aDst, aSrc, aSize);
-    aSrc = (void*)((unsigned char*)aSrc + aSize);
+    char openTag[32];
+    char closeTag[32];
+    // Build "<tag>" and "</tag>"
+    openTag[0] = '<';
+    int tagLen = strlen(tag);
+    strcpy(openTag + 1, tag);
+    openTag[1 + tagLen] = '>';
+    openTag[2 + tagLen] = '\0';
+
+    closeTag[0] = '<';
+    closeTag[1] = '/';
+    strcpy(closeTag + 2, tag);
+    closeTag[2 + tagLen] = '>';
+    closeTag[3 + tagLen] = '\0';
+
+    // Find openTag from searchFrom
+    const char* start = NULL;
+    int searchLen = bufLen - (int)(searchFrom - buf);
+    if (searchLen <= 0) return NULL;
+
+    for (int i = 0; i <= searchLen - (int)strlen(openTag); i++)
+    {
+        if (strncmp(searchFrom + i, openTag, strlen(openTag)) == 0)
+        {
+            start = searchFrom + i + strlen(openTag);
+            break;
+        }
+    }
+    if (!start) return NULL;
+
+    // Find closeTag from start
+    int remaining = bufLen - (int)(start - buf);
+    for (int i = 0; i <= remaining - (int)strlen(closeTag); i++)
+    {
+        if (strncmp(start + i, closeTag, strlen(closeTag)) == 0)
+        {
+            outContentLen = i;
+            return start;
+        }
+    }
+    return NULL;
 }
 
-// Read a length-prefixed string from the fixup stream
-static char* ReadFixupString(void*& aPtr, void* aEnd)
+// Extract float from tag content
+static float ParseFloatTag(const char* trackBuf, int trackLen, const char* tag)
 {
-    if ((unsigned char*)aPtr + 4 > (unsigned char*)aEnd)
-        return (char*)"";
-    int len = 0;
-    SMemR(aPtr, &len, 4);
-    if (len <= 0)
-        return (char*)"";
-    if ((unsigned char*)aPtr + len > (unsigned char*)aEnd)
-        return (char*)"";
-    char* str = new char[len + 1];
-    SMemR(aPtr, str, len);
-    str[len] = '\0';
+    int contentLen = 0;
+    const char* content = FindTag(trackBuf, trackLen, tag, trackBuf, contentLen);
+    if (!content || contentLen <= 0) return -9999.0f; // sentinel = not found
+    // Parse float
+    char tmp[32];
+    if (contentLen >= 32) contentLen = 31;
+    strncpy(tmp, content, contentLen);
+    tmp[contentLen] = '\0';
+    return (float)atof(tmp);
+}
+
+// Extract string from tag content (allocates new char[])
+static char* ParseStringTag(const char* trackBuf, int trackLen, const char* tag)
+{
+    int contentLen = 0;
+    const char* content = FindTag(trackBuf, trackLen, tag, trackBuf, contentLen);
+    if (!content || contentLen <= 0) return (char*)"";
+    char* str = new char[contentLen + 1];
+    strncpy(str, content, contentLen);
+    str[contentLen] = '\0';
     return str;
-}
-
-// Read image name from fixup stream and load the image
-static Sexy::Image* ReadFixupImage(void*& aPtr, void* aEnd)
-{
-    if ((unsigned char*)aPtr + 4 > (unsigned char*)aEnd)
-        return NULL;
-    int len = 0;
-    SMemR(aPtr, &len, 4);
-    if (len <= 0)
-        return NULL;
-    if ((unsigned char*)aPtr + len > (unsigned char*)aEnd)
-        return NULL;
-    char* name = new char[len + 1];
-    SMemR(aPtr, name, len);
-    name[len] = '\0';
-
-    Sexy::Image* img = NULL;
-    if (gResourceManager)
-        img = gResourceManager->GetImage(name);
-
-    delete[] name;
-    return img;
 }
 
 // ===========================================================================
@@ -130,7 +143,7 @@ ReanimDefinition::~ReanimDefinition()
 }
 
 // ===========================================================================
-// ReanimLoadCompiled — load and parse a .reanim.compiled file from PAK
+// ReanimLoadCompiled — load and parse a .reanim XML file from PAK
 // ===========================================================================
 TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
 {
@@ -142,169 +155,174 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
         return EFalse;
 
     // Read + XOR decrypt
-    unsigned char* compressed = (unsigned char*)User::Alloc(fileSize);
-    if (!compressed)
+    char* xmlBuf = (char*)User::Alloc(fileSize + 1);
+    if (!xmlBuf)
         return EFalse;
-    TPtr8 buf(compressed, fileSize);
+    TPtr8 buf((unsigned char*)xmlBuf, fileSize);
     if (!gPak->ReadFile(aPakPath, buf))
     {
-        User::Free(compressed);
+        User::Free(xmlBuf);
+        return EFalse;
+    }
+    xmlBuf[fileSize] = '\0';
+    int xmlLen = fileSize;
+
+    // Parse <fps>
+    int fpsLen = 0;
+    const char* fpsContent = FindTag(xmlBuf, xmlLen, "fps", xmlBuf, fpsLen);
+    if (fpsContent && fpsLen > 0)
+    {
+        char tmp[32];
+        if (fpsLen >= 32) fpsLen = 31;
+        strncpy(tmp, fpsContent, fpsLen);
+        tmp[fpsLen] = '\0';
+        outDefinition.mFPS = (float)atof(tmp);
+    }
+    else
+    {
+        outDefinition.mFPS = 12.0f;
+    }
+
+    // Count <track> tags
+    int trackCount = 0;
+    const char* searchPos = xmlBuf;
+    int dummyLen;
+    while (true)
+    {
+        const char* trackStart = FindTag(xmlBuf, xmlLen, "track", searchPos, dummyLen);
+        if (!trackStart) break;
+        // Make sure it's <track> not </track>
+        if (trackStart[-2] == '/') { searchPos = trackStart; continue; }
+        trackCount++;
+        // Advance past this track
+        // Find </track>
+        const char* trackEnd = FindTag(xmlBuf, xmlLen, "/track", trackStart, dummyLen);
+        if (trackEnd) searchPos = trackEnd + 8; // past </track>
+        else break;
+    }
+
+    if (trackCount <= 0 || trackCount > 500)
+    {
+        User::Free(xmlBuf);
         return EFalse;
     }
 
-    // Check header
-    if (fileSize < 8)
-    {
-        User::Free(compressed);
-        return EFalse;
-    }
-    TUint32 cookie = compressed[0] | (compressed[1] << 8) |
-                     (compressed[2] << 16) | (compressed[3] << 24);
-    if (cookie != 0xDEADFED4)
-    {
-        User::Free(compressed);
-        return EFalse;
-    }
-    TUint32 uncSize = compressed[4] | (compressed[5] << 8) |
-                      (compressed[6] << 16) | (compressed[7] << 24);
+    outDefinition.mTrackCount = trackCount;
+    outDefinition.mTracks = new ReanimTrack[trackCount];
 
-    // zlib decompress
-    unsigned char* decompressed = (unsigned char*)User::Alloc(uncSize);
-    if (!decompressed)
+    // Parse each <track>
+    searchPos = xmlBuf;
+    for (int i = 0; i < trackCount; i++)
     {
-        User::Free(compressed);
-        return EFalse;
-    }
-    mz_ulong uncLen = uncSize;
-    int result = mz_uncompress(decompressed, &uncLen,
-                               compressed + 8, fileSize - 8);
-    User::Free(compressed);
-    if (result != MZ_OK)
-    {
-        User::Free(decompressed);
-        return EFalse;
-    }
+        // Find <track> content
+        int trackContentLen = 0;
+        const char* trackContent = FindTag(xmlBuf, xmlLen, "track", searchPos, trackContentLen);
+        if (!trackContent || trackContentLen <= 0)
+        {
+            outDefinition.mTracks[i].mName = (char*)"";
+            outDefinition.mTracks[i].mTransformCount = 0;
+            outDefinition.mTracks[i].mTransforms = NULL;
+            searchPos = trackContent + trackContentLen + 8;
+            continue;
+        }
+        // Make sure not </track>
+        if (trackContent[-2] == '/')
+        {
+            i--;
+            searchPos = trackContent;
+            continue;
+        }
 
-    void* readPtr = decompressed;
-    void* endPtr = decompressed + uncSize;
+        const char* trackBuf = trackContent;
+        int trackLen = trackContentLen;
 
-    // Step 1: Read raw ReanimatorDefinition struct (16 bytes on 32-bit)
-    // [0:3]  mTracks.tracks (ptr, ignored)
-    // [4:7]  mTracks.count (int) = track count
-    // [8:11] mFPS (float)
-    // [12:15] mReanimAtlas (ptr, ignored)
-    if ((unsigned char*)readPtr + 16 > (unsigned char*)endPtr)
-    {
-        User::Free(decompressed);
-        return EFalse;
-    }
-    int dummyPtr;
-    SMemR(readPtr, &dummyPtr, 4);       // mTracks.tracks ptr
-    SMemR(readPtr, &outDefinition.mTrackCount, 4);  // mTracks.count
-    SMemR(readPtr, &outDefinition.mFPS, 4);         // mFPS
-    SMemR(readPtr, &dummyPtr, 4);       // mReanimAtlas ptr
+        // Parse <name>
+        outDefinition.mTracks[i].mName = ParseStringTag(trackBuf, trackLen, "name");
 
-    if (outDefinition.mTrackCount <= 0 || outDefinition.mTrackCount > 500)
-    {
-        User::Free(decompressed);
-        return EFalse;
-    }
+        // Count <t> tags within this track
+        int tCount = 0;
+        const char* tSearch = trackBuf;
+        while (true)
+        {
+            int tLen = 0;
+            const char* tContent = FindTag(trackBuf, trackLen, "t", tSearch, tLen);
+            if (!tContent) break;
+            // Make sure it's <t> not some other tag starting with t
+            // Check the char after "t" in the open tag is ">" 
+            if (tContent[-1] != '>') { tSearch = tContent; continue; }
+            tCount++;
+            tSearch = tContent + tLen + 4; // past </t>
+        }
 
-    // Step 2: Read track array fixup
-    // a. int defSize (sizeof(ReanimatorTrack) on desktop)
-    if ((unsigned char*)readPtr + 4 > (unsigned char*)endPtr)
-    {
-        User::Free(decompressed);
-        return EFalse;
-    }
-    int trackDefSize = 0;
-    SMemR(readPtr, &trackDefSize, 4);
-    if (trackDefSize < 12 || trackDefSize > 100)
-    {
-        User::Free(decompressed);
-        return EFalse;
-    }
-
-    // b. Bulk read raw track data: defSize * trackCount bytes
-    int trackDataSize = trackDefSize * outDefinition.mTrackCount;
-    if ((unsigned char*)readPtr + trackDataSize > (unsigned char*)endPtr)
-    {
-        User::Free(decompressed);
-        return EFalse;
-    }
-    unsigned char* trackRawData = (unsigned char*)readPtr;
-    readPtr = (unsigned char*)readPtr + trackDataSize;
-
-    // Allocate tracks
-    outDefinition.mTracks = new ReanimTrack[outDefinition.mTrackCount];
-
-    // c. Per-track fixup
-    for (int i = 0; i < outDefinition.mTrackCount; i++)
-    {
-        unsigned char* trackRaw = trackRawData + i * trackDefSize;
-
-        // Extract transform count from raw data at offset 8
-        // (mName ptr [0:3], mTransforms.mTransforms ptr [4:7], mTransforms.count [8:11])
-        int transformCount = *(int*)(trackRaw + 8);
-        outDefinition.mTracks[i].mTransformCount = transformCount;
+        outDefinition.mTracks[i].mTransformCount = tCount;
         outDefinition.mTracks[i].mTransforms = NULL;
 
-        if (transformCount < 0 || transformCount > 1000)
-            transformCount = 0;
-
-        // Fixup: DT_STRING "name"
-        outDefinition.mTracks[i].mName = ReadFixupString(readPtr, endPtr);
-
-        // Fixup: DT_ARRAY "t" (transforms)
-        if (transformCount > 0)
+        if (tCount > 0)
         {
-            // Read transform defSize
-            if ((unsigned char*)readPtr + 4 > (unsigned char*)endPtr)
-                break;
-            int transDefSize = 0;
-            SMemR(readPtr, &transDefSize, 4);
-            if (transDefSize < 32 || transDefSize > 200)
-                break;
+            outDefinition.mTracks[i].mTransforms = new ReanimTransform[tCount];
 
-            // Bulk read raw transform data
-            int transDataSize = transDefSize * transformCount;
-            if ((unsigned char*)readPtr + transDataSize > (unsigned char*)endPtr)
-                break;
-            unsigned char* transRawData = (unsigned char*)readPtr;
-            readPtr = (unsigned char*)readPtr + transDataSize;
-
-            // Allocate transforms
-            outDefinition.mTracks[i].mTransforms = new ReanimTransform[transformCount];
-
-            // Per-transform fixup
-            for (int j = 0; j < transformCount; j++)
+            // Parse each <t>
+            tSearch = trackBuf;
+            for (int j = 0; j < tCount; j++)
             {
-                unsigned char* transRaw = transRawData + j * transDefSize;
+                int tLen = 0;
+                const char* tContent = FindTag(trackBuf, trackLen, "t", tSearch, tLen);
+                if (!tContent || tLen < 0) { tSearch++; j--; continue; }
+                if (tContent[-1] != '>') { tSearch = tContent; j--; continue; }
 
-                // Extract 8 floats from raw data (first 32 bytes)
+                const char* tBuf = tContent;
+                int tBufLen = tLen;
                 ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
-                t.mTransX = *(float*)(transRaw + 0);
-                t.mTransY = *(float*)(transRaw + 4);
-                t.mSkewX  = *(float*)(transRaw + 8);
-                t.mSkewY  = *(float*)(transRaw + 12);
-                t.mScaleX = *(float*)(transRaw + 16);
-                t.mScaleY = *(float*)(transRaw + 20);
-                t.mFrame  = *(float*)(transRaw + 24);
-                t.mAlpha  = *(float*)(transRaw + 28);
 
-                // Fixup: DT_IMAGE "i"
-                t.mImage = ReadFixupImage(readPtr, endPtr);
+                // Defaults
+                t.mTransX = 0; t.mTransY = 0;
+                t.mSkewX = 0; t.mSkewY = 0;
+                t.mScaleX = 1; t.mScaleY = 1;
+                t.mFrame = 0; t.mAlpha = 255;
+                t.mImage = NULL;
+                t.mFontName = (char*)"";
+                t.mText = (char*)"";
 
-                // Fixup: DT_FONT "font"
-                t.mFontName = ReadFixupString(readPtr, endPtr);
+                // Parse floats
+                float v;
+                v = ParseFloatTag(tBuf, tBufLen, "x");  if (v != -9999.0f) t.mTransX = v;
+                v = ParseFloatTag(tBuf, tBufLen, "y");  if (v != -9999.0f) t.mTransY = v;
+                v = ParseFloatTag(tBuf, tBufLen, "kx"); if (v != -9999.0f) t.mSkewX = v;
+                v = ParseFloatTag(tBuf, tBufLen, "ky"); if (v != -9999.0f) t.mSkewY = v;
+                v = ParseFloatTag(tBuf, tBufLen, "sx"); if (v != -9999.0f) t.mScaleX = v;
+                v = ParseFloatTag(tBuf, tBufLen, "sy"); if (v != -9999.0f) t.mScaleY = v;
+                v = ParseFloatTag(tBuf, tBufLen, "f");  if (v != -9999.0f) t.mFrame = v;
+                v = ParseFloatTag(tBuf, tBufLen, "a");  if (v != -9999.0f) t.mAlpha = v;
 
-                // Fixup: DT_STRING "text"
-                t.mText = ReadFixupString(readPtr, endPtr);
+                // Parse image name
+                int imgLen = 0;
+                const char* imgContent = FindTag(tBuf, tBufLen, "i", tBuf, imgLen);
+                if (imgContent && imgLen > 0 && imgContent[-1] == '>')
+                {
+                    char* imgName = new char[imgLen + 1];
+                    strncpy(imgName, imgContent, imgLen);
+                    imgName[imgLen] = '\0';
+                    // Load image via ResourceManager
+                    if (gResourceManager)
+                        t.mImage = gResourceManager->GetImage(imgName);
+                    delete[] imgName;
+                }
+
+                // Parse font name
+                t.mFontName = ParseStringTag(tBuf, tBufLen, "font");
+
+                // Parse text
+                t.mText = ParseStringTag(tBuf, tBufLen, "text");
+
+                tSearch = tContent + tLen + 4; // past </t>
             }
         }
+
+        // Advance searchPos past this </track>
+        searchPos = trackContent + trackContentLen + 8;
     }
 
-    User::Free(decompressed);
+    User::Free(xmlBuf);
     return ETrue;
 }
 
