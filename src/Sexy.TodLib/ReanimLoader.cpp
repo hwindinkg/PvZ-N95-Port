@@ -479,38 +479,34 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     v = ParseFloat(tBuf, tBufLen, "f");  if (v != KFieldNotFound) t.mFrame = v;
                     v = ParseFloat(tBuf, tBufLen, "a");  if (v != KFieldNotFound) t.mAlpha = v;
 
-                    // Image: <i>NAME</i> -- only override if <i> tag is present.
-                    // [Session-13] If no <i> tag, keep the inherited image name
-                    // from the previous transform (set above in the inheritance block).
+                    // Image: <i>NAME</i> — store name only, don't load during parse.
                     {
                         const char* imgName = ParseString(tBuf, tBufLen, "i");
                         if (imgName && imgName[0] != '\0' &&
                             strcmp(imgName, "NULL") != 0)
                         {
-                            t.mImageName = imgName; // transfer ownership of the char[]
-                            t.mImage = NULL;        // lazy-load in Draw
+                            t.mImageName = imgName;
+                            t.mImage = NULL;
                         }
                         else if (imgName && imgName[0] != '\0')
                         {
-                            // It was "NULL" -- free and clear
-                            delete[] imgName;
+                            delete[] imgName; // "NULL" case — allocated by ParseString
                             t.mImageName = "";
                             t.mImage = NULL;
                         }
-                        // else: imgName == "" (no <i> tag) — keep inherited value
+                        // else: no <i> tag — keep default ""
                     }
 
-                    // Font + text: only override if tags are present.
-                    // ParseString returns "" if the tag is not found.
+                    // Font + text: use ParseString, but only assign if non-empty.
+                    // ParseString returns "" (static literal) if tag not found —
+                    // do NOT delete[] it (would crash).
                     {
                         const char* fn = ParseString(tBuf, tBufLen, "font");
                         if (fn && fn[0] != '\0') t.mFontName = fn;
-                        else if (fn) delete[] (char*)fn; // empty literal, nothing to free
                     }
                     {
                         const char* tx = ParseString(tBuf, tBufLen, "text");
                         if (tx && tx[0] != '\0') t.mText = tx;
-                        else if (tx) delete[] (char*)tx;
                     }
                 }
             }
