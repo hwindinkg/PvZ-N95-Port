@@ -211,38 +211,15 @@ void TitleScreen::Draw(Graphics* g)
         // Scale dirt to bar size (full bar width).
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: [Session-11] Use DrawImage with srcRect to show only the
-        // left portion (curW / barW ratio) of the grass, drawn at full bar
-        // height. This "unrolls" the grass from left to right without
-        // stretching it. The srcRect crops the grass image, the dest keeps
-        // full barW × barH.
+        // Grass: [Session-12] Simple stretch approach. The grass image is
+        // drawn scaled to (curW, barH). This stretches horizontally but is
+        // the most reliable — glScissor doesn't work on MBX, and the overlay
+        // approach looked like a filling bar. The stretch is visually close
+        // to the original (the grass texture tiles horizontally anyway).
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            // Source rect: left portion of the grass image
-            int srcW = (grassImg->GetWidth() * curW) / barW;
-            if (srcW < 1) srcW = 1;
-            if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
-            Rect srcRect(0, 0, srcW, grassImg->GetHeight());
-            // Dest: draw at (barX, barY) with the src rect
-            // DrawImage(img, x, y, srcRect) draws the sub-rect at native size.
-            // But we need it scaled to barH. Use the scaled variant with
-            // adjusted srcRect.
-            //
-            // Actually, the port's DrawImage(img, x, y, srcRect) is a stub
-            // (does nothing). And DrawImage(img, x, y, w, h) stretches.
-            // The best we can do without a working srcRect draw is:
-            // draw the grass at full barW but overlay a dark rect on the
-            // right portion to "hide" it — simulating a crop.
-            g->DrawImage(grassMem, barX, barY, barW, barH);
-            // Cover the right portion (from barX+curW to barX+barW) with
-            // the dirt color to hide the grass that hasn't "grown" yet.
-            if (curW < barW)
-            {
-                g->SetColor(Color(80, 50, 25, 255));  // dark dirt brown
-                g->FillRect(barX + curW, barY, barW - curW, barH);
-                g->SetColor(Color(255, 255, 255, 255));
-            }
+            g->DrawImage(grassMem, barX, barY, curW, barH);
         }
     }
     else

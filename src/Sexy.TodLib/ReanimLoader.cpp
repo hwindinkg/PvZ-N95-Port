@@ -650,12 +650,32 @@ TBool ReanimPlayer::GetCurrentTransform(int aTrackIndex, ReanimTransform& aOut)
     aOut.mScaleY = ReanimLerp(a.mScaleY, b.mScaleY, t);
     aOut.mAlpha  = ReanimLerp(a.mAlpha,  b.mAlpha,  t);
     aOut.mFrame  = frame;
-    // Image / font / text come from the active ("from") keyframe, matching
-    // upstream Reanimator behaviour (discrete swaps happen on keyframes).
-    aOut.mImage    = a.mImage;
-    aOut.mImageName = a.mImageName;  // [Session-6 fix] was missing — lazy-load in Draw needs the name
-    aOut.mFontName = a.mFontName;
-    aOut.mText     = a.mText;
+    // [Session-12] Image/font/text: scan BACKWARDS from the active keyframe
+    // to find the nearest transform that HAS an image. In the XML format,
+    // only transform[0] has the <i> image tag; subsequent transforms only
+    // update position/scale/alpha. The image PERSISTS from the last keyframe
+    // that set it (this is how upstream's compiled format works — every
+    // transform stores the full image pointer, but our XML parser only
+    // stores it where <i> appears).
+    //
+    // Without this scan, showing the last frame (mAnimTime=9999) returns
+    // transform[705] which has mImage=NULL → nothing draws.
+    aOut.mImage    = NULL;
+    aOut.mImageName = "";
+    aOut.mFontName = "";
+    aOut.mText     = "";
+    for (int k = i; k >= 0; k--)
+    {
+        ReanimTransform& scan = track.mTransforms[k];
+        if (scan.mImage || (scan.mImageName && scan.mImageName[0] != '\0'))
+        {
+            aOut.mImage    = scan.mImage;
+            aOut.mImageName = scan.mImageName;
+            aOut.mFontName = scan.mFontName;
+            aOut.mText     = scan.mText;
+            break;
+        }
+    }
     return ETrue;
 }
 

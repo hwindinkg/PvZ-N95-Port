@@ -194,11 +194,16 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
                 if (img)
                 {
                     // [M4 fix] Apply colorkey for logo images stored as JPEG
-                    // (no alpha channel). IMAGE_PVZ_LOGO / IMAGE_POPCAP_LOGO /
-                    // IMAGE_PARTNER_LOGO are JPEGs in the PAK -- their black
-                    // background should be transparent. Make black pixels
-                    // (tolerance 8 for JPEG compression artifacts) transparent.
-                    if (strstr(aResName, "LOGO") != NULL)
+                    // (no alpha channel). IMAGE_PVZ_LOGO / IMAGE_PARTNER_LOGO
+                    // are JPEGs with black backgrounds that should be transparent.
+                    // [Session-12] DON'T apply colorkey to IMAGE_POPCAP_LOGO —
+                    // it's displayed on a BLACK background, so making black
+                    // transparent would make the entire logo invisible.
+                    // PopCap logo is black bg + white text → on black bg it
+                    // needs to stay opaque (or use white colorkey, but that
+                    // would make the text transparent).
+                    if (strstr(aResName, "LOGO") != NULL &&
+                        strstr(aResName, "POPCAP") == NULL)
                     {
                         Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(img);
                         mem->ApplyColorKey(0x00000000, 8);
