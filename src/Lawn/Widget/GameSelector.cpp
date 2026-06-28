@@ -151,30 +151,12 @@ GameSelector::GameSelector(LawnApp* theApp)
     GSLog(_L8("GS:ctor buttons created and added to WidgetManager\n"));
 
     // [M4 reanim] Load SelectorScreen.reanim.compiled for 1:1 menu rendering.
-    // PAK path: compiled/reanim/SelectorScreen.reanim.compiled
-    // Wrap in TRAP to catch OOM/leave — reanim decompresses 1.9MB which
-    // may exceed available heap on N95. If it fails, fall back to
-    // IMAGE_BACKGROUND1 menu (still functional, just not 1:1).
-    TRAPD(reanimErr, mReanimLoaded = ReanimLoadCompiled(
-        "compiled/reanim/SelectorScreen.reanim.compiled", mReanimDef));
-    if (reanimErr != KErrNone)
-    {
-        TBuf8<80> b;
-        b.Format(_L8("GS:reanim TRAP err=%d\n"), reanimErr);
-        GSLog(b);
-        mReanimLoaded = EFalse;
-    }
-    if (mReanimLoaded)
-    {
-        TBuf8<80> b;
-        b.Format(_L8("GS:reanim loaded: %d tracks, FPS=%.1f\n"),
-                 mReanimDef.mTrackCount, mReanimDef.mFPS);
-        GSLog(b);
-    }
-    else
-    {
-        GSLog(_L8("GS:reanim FAILED — falling back to IMAGE_BACKGROUND1 menu\n"));
-    }
+    // DISABLED for now — causes crash (OOM or binary parse error).
+    // The reanim file decompresses to 1.9MB which may exceed N95 heap.
+    // Will re-enable once we have streaming/incremental parsing.
+    // For now, fall back to IMAGE_BACKGROUND1 menu.
+    mReanimLoaded = EFalse;
+    GSLog(_L8("GS:reanim DISABLED (causes crash) — using IMAGE_BACKGROUND1 fallback\n"));
 }
 
 GameSelector::~GameSelector()
