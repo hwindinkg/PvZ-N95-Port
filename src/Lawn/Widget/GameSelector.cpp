@@ -186,8 +186,11 @@ GameSelector::GameSelector(LawnApp* theApp)
         // [Session-13] Create the full Reanimation runtime (1:1 upstream).
         // AllocReanimation creates a Reanimation bound to mReanimDef, then
         // we PlayReanim("anim_open") to play the menu open animation.
+        // [Session-13] mX=400, mY=300 = center of 800×600 screen (matches
+        // upstream AddReanimation(0.5f, 0.5f, ...)). The reanim uses
+        // center-origin coordinates: (0,0) = screen center.
         mSelectorReanim = mReanimHolder.AllocReanimation(
-            0.0f, 0.0f, 0, &mReanimDef);
+            400.0f, 300.0f, 0, &mReanimDef);
         if (mSelectorReanim)
         {
             // Play the open animation once and hold on the last frame.

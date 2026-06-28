@@ -384,17 +384,15 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     if (aImageAlpha > 255) aImageAlpha = 255;
     if (aImageAlpha <= 0) return false;
 
-    // Center-based positioning (matches upstream ReanimBltMatrix fast path):
-    //   posX = transX - scaleX * imageWidth * 0.5
-    //   posY = transY - scaleY * imageHeight * 0.5
+    // [Session-13] Center-based positioning (matches upstream ReanimBltMatrix).
+    // The reanim uses CENTER-ORIGIN coordinates: (0,0) = center of 800×600.
+    // Upstream AddReanimation(0.5f, 0.5f, ...) sets mX=400, mY=300 (screen center).
     float imgW = t.mImage->GetWidth();
     float imgH = t.mImage->GetHeight();
     float scaledW = imgW * t.mScaleX * mScaleX;
     float scaledH = imgH * t.mScaleY * mScaleY;
 
-    // [Session-13] Position in reanim space (800×600, top-left origin).
-    // mX/mY is the position offset (0,0 by default). The reanim transforms
-    // use top-left origin coordinates (0,0 = top-left of screen).
+    // posX = mX + transX - scaledW/2  (top-left in reanim space)
     float posX = mX + t.mTransX - scaledW * 0.5f;
     float posY = mY + t.mTransY - scaledH * 0.5f;
 
@@ -405,6 +403,13 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     float ch = scaledH * 0.5f;
 
     if (cw < 1.0f || ch < 1.0f)
+        return false;
+
+    // [Session-13] Skip tracks that are completely off-screen. During
+    // anim_open, buttons start off-screen (y>600 in reanim space) and
+    // slide into view. Don't draw them until they're at least partially
+    // visible on the 400×300 canvas.
+    if (cx + cw < 0 || cx > 400 || cy + ch < 0 || cy > 300)
         return false;
 
     // Set white color for texture (GL_MODULATE)
