@@ -379,10 +379,10 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     if (aImageAlpha <= 0) return false;
 
     // [Session-13] Position = (mX + transX, mY + transY) — NO center offset.
-    // Upstream ReanimBltMatrix: pivot(celW/2) * transform(scale, trans) * overlay
-    // = [sx 0 tx+sx*celW/2; 0 sy ty+sy*celH/2]
-    // Then: aPosX = m02 - sx*srcW*0.5 = tx + sx*celW/2 - sx*srcW/0.5 = tx
-    // (since celW = srcW for non-atlas images). So position = (transX, transY).
+    float imgW = t.mImage->GetWidth();
+    float imgH = t.mImage->GetHeight();
+    float scaledW = imgW * t.mScaleX * mScaleX;
+    float scaledH = imgH * t.mScaleY * mScaleY;
     float posX = mX + t.mTransX;
     float posY = mY + t.mTransY;
 
