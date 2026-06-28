@@ -412,7 +412,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                             tk.mTransX = 0; tk.mTransY = 0;
                             tk.mSkewX = 0;  tk.mSkewY = 0;
                             tk.mScaleX = 1; tk.mScaleY = 1;
-                            tk.mFrame = 0;  tk.mAlpha = 255;
+                            tk.mFrame = -1.0f;  tk.mAlpha = 255;
                             tk.mImage = NULL;
                             tk.mFontName = "";
                             tk.mText = "";
@@ -433,7 +433,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     t.mTransX = 0; t.mTransY = 0;
                     t.mSkewX = 0;  t.mSkewY = 0;
                     t.mScaleX = 1; t.mScaleY = 1;
-                    t.mFrame = 0;  t.mAlpha = 255;
+                    t.mFrame = -1.0f;  t.mAlpha = 255;  // mFrame=-1 = blank/hidden (upstream convention)
                     t.mImage = NULL;
                     t.mImageName = "";
                     t.mFontName = "";

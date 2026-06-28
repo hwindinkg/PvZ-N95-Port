@@ -242,7 +242,7 @@ void TitleScreen::Draw(Graphics* g)
         g->SetColor(Color(255, 255, 255, 255));  // white for texture
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: [Session-12] Use DrawImageScaledSrcRect to "unroll" the grass.
+        // Grass: [Session-13] Use DrawImageScaledSrcRect to "unroll" the grass.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
@@ -250,7 +250,7 @@ void TitleScreen::Draw(Graphics* g)
             if (srcW < 1) srcW = 1;
             if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
             Rect srcRect(0, 0, srcW, grassImg->GetHeight());
-            // Dest: draw at (barX, barY) scaled to (curW, barH)
+            g->SetColor(Color(255, 255, 255, 255));  // white for texture
             g->DrawImageScaledSrcRect(grassMem, barX, barY, curW, barH, srcRect);
         }
     }
