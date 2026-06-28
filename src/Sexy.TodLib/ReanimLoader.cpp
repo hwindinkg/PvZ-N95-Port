@@ -43,6 +43,8 @@
 #include "../engine/PvZVfs.h"
 #include "../engine/PakInterface.h"
 #include "../engine/Image.h"
+#include "../engine/MemoryImage.h"
+#include "../engine/Graphics.h"
 #include "../engine/ResourceManager.h"
 
 #include <string.h>
@@ -485,3 +487,200 @@ ReanimTrack* ReanimFindTrack(ReanimDefinition& aDef, const char* aName)
     }
     return NULL;
 }
+
+// ===========================================================================
+// ReanimPlayer — lightweight reanimation runtime implementation.
+//
+// Interpolation logic verified host-side (test_interp.cpp, all checks
+// passed) before porting: linear lerp between surrounding keyframes, clamp
+// at both ends, single-transform tracks return that transform, empty tracks
+// return EFalse.
+// ===========================================================================
+
+static float ReanimLerp(float a, float b, float t) { return a + (b - a) * t; }
+
+ReanimPlayer::ReanimPlayer()
+    : mDefinition(NULL)
+    , mAnimTime(0.0f)
+    , mAnimRate(1.0f)
+    , mLoopType(LOOP_OFF)
+    , mDead(EFalse)
+    , mX(0.0f), mY(0.0f)
+    , mScaleX(1.0f), mScaleY(1.0f)
+    , mCoordScale(0.5f)
+    , mAlpha(255.0f)
+{
+}
+
+void ReanimPlayer::SetDefinition(ReanimDefinition* aDef)
+{
+    mDefinition = aDef;
+    mAnimTime = 0.0f;
+    mDead = EFalse;
+}
+
+float ReanimPlayer::GetDuration()
+{
+    if (!mDefinition || mDefinition->mTrackCount <= 0 ||
+        mDefinition->mFPS <= 0.0001f)
+        return 0.0f;
+    float maxFrame = 0.0f;
+    for (int i = 0; i < mDefinition->mTrackCount; i++)
+    {
+        ReanimTrack& tr = mDefinition->mTracks[i];
+        for (int j = 0; j < tr.mTransformCount; j++)
+        {
+            if (tr.mTransforms[j].mFrame > maxFrame)
+                maxFrame = tr.mTransforms[j].mFrame;
+        }
+    }
+    return maxFrame / mDefinition->mFPS;
+}
+
+void ReanimPlayer::Update(float aDtSeconds)
+{
+    if (!mDefinition || mDead)
+        return;
+    mAnimTime += aDtSeconds * mAnimRate;
+    float dur = GetDuration();
+    if (dur > 0.0001f)
+    {
+        if (mLoopType == LOOP_ON)
+        {
+            // Wrap into [0, dur). Handles both forward and negative rates.
+            while (mAnimTime >= dur) mAnimTime -= dur;
+            while (mAnimTime < 0.0f) mAnimTime += dur;
+        }
+        else
+        {
+            if (mAnimTime >= dur)
+            {
+                mAnimTime = dur;
+                mDead = ETrue;
+            }
+            else if (mAnimTime < 0.0f)
+            {
+                mAnimTime = 0.0f;
+                mDead = ETrue;
+            }
+        }
+    }
+}
+
+TBool ReanimPlayer::GetCurrentTransform(int aTrackIndex, ReanimTransform& aOut)
+{
+    if (!mDefinition || aTrackIndex < 0 ||
+        aTrackIndex >= mDefinition->mTrackCount)
+        return EFalse;
+    ReanimTrack& track = mDefinition->mTracks[aTrackIndex];
+    int n = track.mTransformCount;
+    if (n <= 0 || !track.mTransforms)
+        return EFalse;
+    if (n == 1)
+    {
+        aOut = track.mTransforms[0];
+        return ETrue;
+    }
+
+    float frame = mAnimTime * mDefinition->mFPS;
+
+    // Clamp to the first / last keyframe.
+    if (frame <= track.mTransforms[0].mFrame)
+    {
+        aOut = track.mTransforms[0];
+        return ETrue;
+    }
+    if (frame >= track.mTransforms[n - 1].mFrame)
+    {
+        aOut = track.mTransforms[n - 1];
+        return ETrue;
+    }
+
+    // Find the surrounding keyframe pair.
+    int i = 0;
+    for (i = 0; i < n - 1; i++)
+    {
+        if (frame >= track.mTransforms[i].mFrame &&
+            frame < track.mTransforms[i + 1].mFrame)
+            break;
+    }
+    ReanimTransform& a = track.mTransforms[i];
+    ReanimTransform& b = track.mTransforms[i + 1];
+    float span = b.mFrame - a.mFrame;
+    float t = (span > 0.0001f) ? (frame - a.mFrame) / span : 0.0f;
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+
+    aOut.mTransX = ReanimLerp(a.mTransX, b.mTransX, t);
+    aOut.mTransY = ReanimLerp(a.mTransY, b.mTransY, t);
+    aOut.mSkewX  = ReanimLerp(a.mSkewX,  b.mSkewX,  t);
+    aOut.mSkewY  = ReanimLerp(a.mSkewY,  b.mSkewY,  t);
+    aOut.mScaleX = ReanimLerp(a.mScaleX, b.mScaleX, t);
+    aOut.mScaleY = ReanimLerp(a.mScaleY, b.mScaleY, t);
+    aOut.mAlpha  = ReanimLerp(a.mAlpha,  b.mAlpha,  t);
+    aOut.mFrame  = frame;
+    // Image / font / text come from the active ("from") keyframe, matching
+    // upstream Reanimator behaviour (discrete swaps happen on keyframes).
+    aOut.mImage    = a.mImage;
+    aOut.mFontName = a.mFontName;
+    aOut.mText     = a.mText;
+    return ETrue;
+}
+
+int ReanimPlayer::FindTrackIndex(const char* aName)
+{
+    if (!mDefinition || !aName)
+        return -1;
+    for (int i = 0; i < mDefinition->mTrackCount; i++)
+    {
+        const char* s1 = mDefinition->mTracks[i].mName;
+        const char* s2 = aName;
+        if (!s1) continue;
+        TBool match = ETrue;
+        while (*s1 && *s2)
+        {
+            char c1 = *s1; if (c1 >= 'A' && c1 <= 'Z') c1 += 32;
+            char c2 = *s2; if (c2 >= 'A' && c2 <= 'Z') c2 += 32;
+            if (c1 != c2) { match = EFalse; break; }
+            s1++; s2++;
+        }
+        if (match && *s1 == '\0' && *s2 == '\0')
+            return i;
+    }
+    return -1;
+}
+
+void ReanimPlayer::Draw(Sexy::Graphics* g)
+{
+    if (!mDefinition || !g)
+        return;
+    // Reanim coordinate space is 800x600; mCoordScale (default 0.5) maps to
+    // the port's 400x300 logical canvas. Per-track trans/scale are applied in
+    // reanim space, then the whole thing is scaled to screen.
+    for (int i = 0; i < mDefinition->mTrackCount; i++)
+    {
+        ReanimTrack& track = mDefinition->mTracks[i];
+        if (track.mTransformCount <= 0)
+            continue;
+        ReanimTransform t;
+        if (!GetCurrentTransform(i, t))
+            continue;
+        if (!t.mImage)
+            continue;
+
+        float sx = (mX + t.mTransX) * mCoordScale;
+        float sy = (mY + t.mTransY) * mCoordScale;
+        float sw = t.mImage->GetWidth()  * t.mScaleX * mScaleX * mCoordScale;
+        float sh = t.mImage->GetHeight() * t.mScaleY * mScaleY * mCoordScale;
+        if (sw < 1.0f || sh < 1.0f)
+            continue;
+
+        // NOTE: per-image alpha modulation (t.mAlpha) is not applied here --
+        // the port's Graphics::SetColorizeImages is a stub and there is no
+        // per-draw alpha API. Most menu elements are opaque, so this only
+        // affects fade transitions. Revisit when Graphics gains alpha support.
+        Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(t.mImage);
+        g->DrawImage(mem, (int)sx, (int)sy, (int)sw, (int)sh);
+    }
+}
+

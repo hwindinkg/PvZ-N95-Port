@@ -73,7 +73,8 @@ public:
     GameButton*     mZenGardenButton;
     GameButton*     mChangeUserButton;
     ToolTipWidget*  mToolTip;
-    ReanimDefinition mReanimDef;   // parsed SelectorScreen.reanim.compiled
+    ReanimDefinition mReanimDef;   // parsed SelectorScreen.reanim
+    ReanimPlayer    mReanimPlayer; // runtime that animates mReanimDef
     bool            mReanimLoaded;
 
     // -- State -----------------------------------------------------------

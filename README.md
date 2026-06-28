@@ -127,32 +127,73 @@ existing `kPrefixes` table already tries `reanim/` and `kExts` already tries
 `.png` then `.jpg`, so no other change is needed. Non-reanim `IMAGE_*` assets
 keep stripping just `IMAGE_`.
 
+#### Add: `ReanimPlayer` lightweight reanimation runtime (`ReanimLoader.h/.cpp`)
+
+The port's `Reanimator.h` `Reanimation` class is fully stubbed (`Draw`/`Update`
+are no-ops), and its `ReanimatorDefinition`/`ReanimatorTransform` structs are
+incompatible with the real parsed data in `ReanimLoader.h`. Rather than attempt
+a blind 1501-line port of upstream `Reanimator.cpp` (risky without on-device
+compilation), a focused `ReanimPlayer` class was added that operates on the
+now-correctly-parsed `ReanimDefinition`:
+
+- `SetDefinition(ReanimDefinition*)` — bind + reset playback.
+- `Update(float dtSeconds)` — advance `mAnimTime`, loop or clamp at end.
+- `GetCurrentTransform(trackIndex, &out)` — linear interpolation between the
+  two surrounding keyframes (frame = `mAnimTime * mFPS`); clamps at both ends;
+  single-transform tracks return that transform; image/font/text come from the
+  active ("from") keyframe (upstream behaviour — discrete swaps on keyframes).
+- `Draw(Graphics*)` — renders every track's image at the interpolated
+  trans/scale, mapped from reanim's 800×600 space to the 400×300 canvas via
+  `mCoordScale` (default 0.5).
+- `FindTrackIndex(name)` — case-insensitive, returns -1 if absent.
+
+**Interpolation logic verified host-side** (`test_interp.cpp`): 2-transform
+track lerps correctly at frame 0/2.5/5/10 and clamps before/after; single-
+transform and empty tracks handled; `animTime * FPS` → frame conversion
+confirmed. All checks passed before porting.
+
+**Wired into `GameSelector`:** the constructor binds `mReanimPlayer` to
+`&mReanimDef` with `LOOP_ON`; `Update()` advances it by `1/30 s` per frame;
+`Draw()` calls `mReanimPlayer.Draw(g)` instead of the old static `transform[0]`
+loop. So the menu now **animates** (clouds drift, flowers sway) rather than
+showing a frozen frame-0 snapshot.
+
+**Not yet implemented (deliberate scope):** render groups, attachments, blend
+layers, color override, filter effects, skew matrices, TodTriangleGroup
+textured-triangle rendering, and per-draw alpha modulation (the port's
+`Graphics::SetColorizeImages` is a stub). These arrive with the full
+`Reanimator.cpp` / `EffectSystem.cpp` Stage-2 ports.
+
 ### Effect on the menu (expected on-device)
 
-With both fixes, `GameSelector::Draw`'s reanim path will now render every
-track that has an image at its `transform[0]` position (background, gravestone,
-wooden signs, button sprites, clouds, flowers, logo, etc.), scaled from the
-reanim's 800×600 space to the 400×300 canvas (×0.5). The lawn+10-rect-button
-stub is still the fallback if `mReanimLoaded` is false, but should no longer
-trigger.
+With both fixes + ReanimPlayer, `GameSelector::Draw` now renders every track
+that has an image at its interpolated position (background, gravestone, wooden
+signs, button sprites, clouds, flowers, logo, etc.), scaled from the reanim's
+800×600 space to the 400×300 canvas, and **animates** over time. The
+lawn+10-rect-button stub is still the fallback if `mReanimLoaded` is false, but
+should no longer trigger.
 
 ### What is NOT done yet (carried forward)
 
 - The 10 stub `GameButton` widgets are still created and added to the
   `WidgetManager` — they draw on top of the reanim menu. The next step is to
   port upstream `GameSelector` 1:1: drop the rect buttons, use the reanim
-  button sprites for hit-testing, and wire `ButtonDepress` → `PreNewGame` etc.
+  button sprites (with their polygon hit-shapes) for hit-testing, and wire
+  `ButtonDepress` → `PreNewGame` etc. (needs the button track names, which
+  `gs_log` will now dump correctly once the parser runs on-device).
 - `TitleScreen` state machine (PopCap logo → partner logo → SODROLLCAP) is
   still the simplified loading screen, not the 1:1 upstream port.
 - `SystemFont` 8×8 glyphs are still garbled (encoding/offset bug in
   `kGlyphs8x8`) — Stage 4 `ImageFont` port will replace this.
-- Gameplay (Board / Plant / Zombie / Reanimator runtime / particles) is Stage 2.
+- Gameplay (Board / Plant / Zombie / full Reanimator runtime / particles) is
+  Stage 2.
 
 ### Build/test history (session 4)
 
 | Commit | Description | Result |
 |--------|-------------|--------|
-| (this) | Rewrite ReanimLoader `FindTag`→`FindElement`; fix `IMAGE_REANIM_` mapping | Parser verified host-side; pending on-device build |
+| `6a07bda` | Rewrite ReanimLoader `FindTag`→`FindElement`; fix `IMAGE_REANIM_` mapping | Parser verified host-side; pending on-device build |
+| (this) | Add `ReanimPlayer` runtime (interpolation+Draw); wire into GameSelector | Interpolation verified host-side; menu now animates |
 
 ---
 

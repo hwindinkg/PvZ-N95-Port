@@ -181,6 +181,19 @@ GameSelector::GameSelector(LawnApp* theApp)
                       mReanimDef.mTracks[i].mTransformCount);
             GSLog(tb);
         }
+
+        // [Stage-1] Wire the ReanimPlayer runtime so the menu animates from
+        // the parsed tracks instead of rendering a static frame-0 snapshot.
+        // The SelectorScreen reanim loops (clouds drift, flowers sway), so
+        // play it on loop at native rate. mCoordScale defaults to 0.5
+        // (800x600 reanim space -> 400x300 canvas).
+        mReanimPlayer.SetDefinition(&mReanimDef);
+        mReanimPlayer.mLoopType = ReanimPlayer::LOOP_ON;
+        mReanimPlayer.mAnimRate = 1.0f;
+        TBuf8<96> pb;
+        pb.Format(_L8("GS:ReanimPlayer bound, duration=%.2fs\n"),
+                  mReanimPlayer.GetDuration());
+        GSLog(pb);
     }
     else
     {
@@ -303,9 +316,11 @@ void GameSelector::Update()
 {
     Widget::Update();
     UpdateTooltip();
-    // mStartingGame / mStartingGameCounter are kept for future use (e.g.
-    // transition animations before launching a game) but currently unused --
-    // ButtonDepressed calls LawnApp flow methods directly.
+    // Advance the reanim player. The port runs at 30 FPS, so each Update
+    // call represents ~1/30 s of wall-clock time. This drives cloud drift,
+    // flower sway, and any other animated SelectorScreen tracks.
+    if (mReanimLoaded)
+        mReanimPlayer.Update(1.0f / 30.0f);
 }
 
 // -------------------------------------------------------------------------
@@ -318,45 +333,14 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [M4 reanim] If SelectorScreen.reanim.compiled loaded, render static frame
-    // from track transforms. Each track has transforms with image refs + positions.
-    // We render transform[0] (frame 0) of each track — a static snapshot of the
-    // menu scene (background, wooden signs, clouds, flowers, etc.).
+    // [Stage-1] If SelectorScreen.reanim loaded, render the animated menu via
+    // ReanimPlayer. This draws every track (background, gravestone, wooden
+    // signs, button sprites, clouds, flowers, logo, etc.) at the interpolated
+    // transform for the current mAnimTime, scaled from the reanim's 800x600
+    // space to the 400x300 canvas (ReanimPlayer::mCoordScale = 0.5).
     if (mReanimLoaded && mReanimDef.mTrackCount > 0)
     {
-        for (int i = 0; i < mReanimDef.mTrackCount; i++)
-        {
-            ReanimTrack& track = mReanimDef.mTracks[i];
-            if (track.mTransformCount <= 0 || !track.mTransforms)
-                continue;
-
-            // Use transform[0] (first frame)
-            ReanimTransform& t = track.mTransforms[0];
-            if (!t.mImage)
-                continue;
-
-            // Draw image at transform position, scaled by transform scale.
-            // Upstream coordinates are in 800x600 space; our canvas is 400x300.
-            // Scale: x*0.5, y*0.5.
-            int drawX = (int)(t.mTransX * 0.5f);
-            int drawY = (int)(t.mTransY * 0.5f);
-            MemoryImage* mem = static_cast<MemoryImage*>(t.mImage);
-            if (t.mScaleX != 1.0f || t.mScaleY != 1.0f)
-            {
-                int w = (int)(t.mImage->GetWidth() * t.mScaleX * 0.5f);
-                int h = (int)(t.mImage->GetHeight() * t.mScaleY * 0.5f);
-                if (w > 0 && h > 0)
-                    g->DrawImage(mem, drawX, drawY, w, h);
-            }
-            else
-            {
-                // Draw at half size (800x600 -> 400x300)
-                int w = t.mImage->GetWidth() / 2;
-                int h = t.mImage->GetHeight() / 2;
-                if (w > 0 && h > 0)
-                    g->DrawImage(mem, drawX, drawY, w, h);
-            }
-        }
+        mReanimPlayer.Draw(g);
         return;  // reanim rendered, skip fallback
     }
 
