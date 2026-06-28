@@ -123,6 +123,33 @@ GameSelector::GameSelector(LawnApp* theApp)
         pb.Format(_L8("GS:ReanimPlayer bound, duration=%.2fs\n"),
                   mReanimPlayer.GetDuration());
         GSLog(pb);
+
+        // [Session-8] Preload all reanim images NOW (in the constructor, not
+        // in Draw). The lazy-load in ReanimPlayer::Draw was not firing on-
+        // device (gs_log showed RP:track lines but ZERO RP:load lines).
+        // Preloading here is simpler and more reliable: iterate every track,
+        // find transforms with image names, call GetImage to resolve them.
+        // Most images are already in the ResourceManager cache from
+        // LoadingThreadProc, so GetImage returns instantly.
+        int preloadedCount = 0;
+        for (int i = 0; i < mReanimDef.mTrackCount; i++)
+        {
+            ReanimTrack& tr = mReanimDef.mTracks[i];
+            for (int j = 0; j < tr.mTransformCount; j++)
+            {
+                ReanimTransform& xf = tr.mTransforms[j];
+                if (!xf.mImage && xf.mImageName && xf.mImageName[0] != '\0')
+                {
+                    if (gResourceManager)
+                        xf.mImage = gResourceManager->GetImage(xf.mImageName);
+                    if (xf.mImage)
+                        preloadedCount++;
+                }
+            }
+        }
+        TBuf8<80> pl;
+        pl.Format(_L8("GS:preloaded %d reanim images\n"), preloadedCount);
+        GSLog(pl);
     }
     else
     {
