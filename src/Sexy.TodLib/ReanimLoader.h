@@ -41,7 +41,7 @@ struct ReanimTransform
     const char*  mText;     // text string (or "")
 
     ReanimTransform() : mTransX(0), mTransY(0), mSkewX(0), mSkewY(0),
-        mScaleX(1), mScaleY(1), mFrame(-1.0f), mAlpha(255),
+        mScaleX(1), mScaleY(1), mFrame(0), mAlpha(255),
         mImage(NULL), mImageName(""), mFontName(""), mText("") {}
 };
 
