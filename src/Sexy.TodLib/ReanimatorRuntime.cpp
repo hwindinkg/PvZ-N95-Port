@@ -399,12 +399,10 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     if (cw < 1.0f || ch < 1.0f)
         return false;
 
-    // [Session-13] Skip tracks that are completely off-screen. During
-    // anim_open, buttons start off-screen (y>600 in reanim space) and
-    // slide into view. Don't draw them until they're at least partially
-    // visible on the 400×300 canvas.
-    if (cx + cw < 0 || cx > 400 || cy + ch < 0 || cy > 300)
-        return false;
+    // [Session-13] Removed off-screen culling — GL clips automatically.
+    // Buttons at y=624+ are off-screen at frame 0 but slide into view
+    // during anim_open. Culling prevented them from being drawn even
+    // when partially visible.
 
     // Set white color for texture (GL_MODULATE)
     g->SetColor(Sexy::Color(255, 255, 255, 255));

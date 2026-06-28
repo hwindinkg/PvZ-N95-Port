@@ -428,16 +428,17 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     TInt tBufLen = eLen;
                     ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
 
-                    // [Session-13] INHERIT from previous transform.
-                    // Disabled for now — causes crash. Use defaults for all
-                    // transforms. ScanForImage at draw time handles image
-                    // persistence. Position/scale inheritance is handled by
-                    // GetTransformAtTime's interpolation (it lerps between
-                    // before/after transforms, and if after has default 0,0,
-                    // the lerp goes toward 0,0 — but for static menus this
-                    // is OK since mAnimTime=0 means we're at the 'before'
-                    // transform which has the real data).
-                    /*
+                    // [Session-13] INHERIT numeric fields from previous transform.
+                    // In the XML format, each <t> only specifies CHANGED fields.
+                    // Missing fields should PERSIST from the previous transform.
+                    // This is critical for animation: tf[0] has the initial
+                    // position/scale, tf[1+] only override changed fields.
+                    //
+                    // IMPORTANT: do NOT copy mImageName/mFontName/mText pointers
+                    // (would double-free in destructor). Set to "" (literal).
+                    // ScanForImage at draw time scans backwards to find the
+                    // transform with the image name. mImage pointer IS safe to
+                    // copy (not freed by destructor — it's a cache pointer).
                     if (j > 0 && outDefinition.mTracks[i].mTransforms)
                     {
                         ReanimTransform& prev = outDefinition.mTracks[i].mTransforms[j - 1];
@@ -455,9 +456,8 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                         t.mText     = "";
                     }
                     else
-                    */
                     {
-                        // Use defaults for ALL transforms
+                        // First transform: use defaults
                         t.mTransX = 0; t.mTransY = 0;
                         t.mSkewX = 0;  t.mSkewY = 0;
                         t.mScaleX = 1; t.mScaleY = 1;
