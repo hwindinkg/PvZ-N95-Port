@@ -63,6 +63,120 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ---
 
+## Current status (2026-06-28, session 10) — upstream analysis + diagnostic logging
+
+### User feedback (session 10)
+
+1. PopCap logo not showing on empty screen
+2. Loading bar grass still stretching (not "unrolling")
+3. After click: purple screen, then menu BG + (wrongly) PvZ logo
+4. Should have: tombstone with buttons, tree, vase-buttons, achievement pot
+5. Quit click crashes
+
+### Upstream loading flow analysis
+
+The original PvZ (PvZ-Portable) loads resources like this:
+
+```
+LawnApp::StartLoadingThread()
+  └─ LoadingThreadProc() [background thread]
+       ├─ ExtractLoaderBarResources()  // loadbar dirt+grass, pvz logo
+       ├─ TodStringListLoad("LawnStrings.txt")
+       ├─ LoadProperties("default.xml")
+       ├─ LoadGroup("LoadingImages", 9)      // ~50 images
+       ├─ LoadGroup("LoadingFonts", 54)      // font .dat files
+       ├─ ExtractResourcesByName("DelayLoad_Background1")  // lawn
+       ├─ mMusic->MusicInit()
+       ├─ TrailLoadDefinitions()
+       ├─ TodParticleLoadDefinitions()
+       └─ PreloadForUser()
+     // thread completes → mLoadingThreadCompleted = true
+     // TitleScreen shows progress bar based on mCompletedLoadingThreadTasks
+     // user clicks → LoadingCompleted() → ShowGameSelector()
+
+GameSelector::GameSelector()
+  ├─ AddReanimation(REANIM_SELECTOR_SCREEN)  // creates Reanimation runtime
+  ├─ PlayReanim("anim_open")                  // plays the open animation
+  ├─ AssignRenderGroupToTrack("SelectorScreen_BG", 1)  // BG = group 1
+  ├─ AddReanimation × 6 (clouds)
+  ├─ AddReanimation × 3 (flowers)
+  ├─ AddReanimation × 1 (leaves)
+  └─ MakeNewButton × N (with sprite images)
+
+GameSelector::Draw(g)
+  ├─ aSelectorReanim->DrawRenderGroup(g, 1)     // draw BG group
+  ├─ for each cloud: cloudReanim->Draw(g)
+  ├─ aSelectorReanim->DrawRenderGroup(g, 0)     // draw rest
+  └─ (buttons draw themselves via WidgetManager)
+```
+
+### Key insight: upstream uses Reanimation runtime, NOT static images
+
+The upstream menu is ANIMATED:
+- `anim_open` plays when the menu appears (tombstone rolls in)
+- `anim_cloud1-7` play on loop (clouds drift across)
+- `anim_flower1-3` play on loop (flowers sway)
+- `anim_grass` plays on loop (leaves rustle)
+
+The Reanimation runtime (`Reanimator.cpp`, 1501 lines) interpolates
+transforms between keyframes and draws each track with a matrix transform
+(`ReanimBltMatrix` — uses `TodTriangleGroup` for textured triangles).
+
+### What the port has vs what it needs
+
+| Component | Upstream | Port | Gap |
+|-----------|----------|------|-----|
+| ReanimLoader | Definition.cpp | ✅ Works (48 tracks) | — |
+| Reanimation runtime | Reanimator.cpp (1501) | ❌ Stub (ReanimPlayer is partial) | Need full port |
+| ReanimBltMatrix | Matrix transform draw | ❌ Not ported | Need TodTriangleGroup |
+| AddReanimation | EffectSystem.cpp (541) | ❌ Not ported | Need EffectSystem |
+| PlayReanim | Reanimation::PlayReanim | ❌ Not ported | Need layer/frame system |
+| DrawRenderGroup | Reanimation::DrawRenderGroup | ❌ Not ported | Need render groups |
+| GameSelector buttons | NewLawnButton + sprites | ❌ Not ported | Need DialogButton |
+
+### Session 10 fixes
+
+1. **Load PopCap logo + loadbar early** (in PvZAppUi::ConstructL, before
+   LoadingThreadProc) so the intro + loading bar render on the first frame.
+2. **Remove PvZ logo from menu** (user: "should not be there"). The menu
+   should show the reanim BG (tombstone scene), not a logo overlay.
+3. **Diagnostic logging in GetOrCreateTexture** — log first 10 texture
+   creations to gl_log.txt. The old logging cutoff was 3, so we couldn't
+   see if SelectorScreen_BG got a texture.
+4. **Diagnostic logging in GameSelector::Draw** — log BG image dimensions
+   + bits pointer to gs_log.txt.
+
+### What we need to find out from the next on-device test
+
+The `gl_log.txt` will now show `GOT: WxH bits=PTR pot=POTWxPOTH` for the
+first 10 textures. This tells us:
+- Is `GetOrCreateTexture` even called for SelectorScreen_BG?
+- Are the image bits valid (non-NULL)?
+- What POT size is being allocated?
+
+The `gs_log.txt` will show `GS:Draw BG WxH bits=PTR` — confirming the BG
+image pointer and dimensions.
+
+### The real path forward: port Reanimator.cpp
+
+The menu will NEVER look right without the full Reanimation runtime. The
+upstream menu is an animated reanim, not a static image. The port needs:
+
+1. **Reanimator.cpp** (1501 lines) — the runtime that plays animations
+2. **EffectSystem.cpp** (541 lines) — AddReanimation/ReanimationGet
+3. **TodTriangleGroup** — textured triangle rendering for matrix transforms
+4. **ReanimationLawn.cpp** (438 lines) — PvZ-specific reanim setup
+
+Without these, the menu is a static BG image at best.
+
+### Build/test history (session 10)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| (this) | Early PopCap/loadbar load + remove logo from menu + diagnostics | Pending on-device build |
+
+---
+
 ## Current status (2026-06-28, session 9) — direct image draw + PopCap logo + plan
 
 ### What was done this session

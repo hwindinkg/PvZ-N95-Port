@@ -285,10 +285,34 @@ GLuint Graphics::GetOrCreateTexture(MemoryImage* img)
     if (w <= 0 || h <= 0)
         return 0;
 
+    // [Session-10] Diagnostic: log texture creation for first 10 images.
+    // gl_log only showed 3 textures (the logging cutoff was 3). Increase
+    // to 10 so we can see if SelectorScreen_BG gets a texture or not.
+    static TInt sTexDiagCount = 0;
+    if (sTexDiagCount < 10)
+    {
+        sTexDiagCount++;
+        RFs fs; RFile f;
+        if (fs.Connect() == KErrNone)
+        {
+            fs.MkDirAll(_L("C:\\Data\\PvZ"));
+            if (f.Open(fs, _L("C:\\Data\\PvZ\\gl_log.txt"),
+                       EFileWrite | EFileShareAny) == KErrNone)
+            {
+                TInt pos = 0; f.Seek(ESeekEnd, pos);
+                TBuf8<128> b;
+                b.Format(_L8("GOT: %dx%d bits=%08x pot=%dx%d\n"),
+                         w, h, (TUint)img->GetBits(),
+                         (int)NextPow2(w), (int)NextPow2(h));
+                f.Write(b);
+                f.Flush();
+                f.Close();
+            }
+            fs.Close();
+        }
+    }
+
     // PowerVR MBX (N95, GLES 1.1) supports ONLY power-of-two textures.
-    // Uploading an NPOT image (e.g. 800x600 titlescreen) and sampling it
-    // reads out of bounds -> KERN-EXEC 3 on the first draw. Allocate a POT
-    // texture, sub-upload the image top-left, map texcoords to w/potW, h/potH.
     TInt potW = NextPow2(w);
     TInt potH = NextPow2(h);
 

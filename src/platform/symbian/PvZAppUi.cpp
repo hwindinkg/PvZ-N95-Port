@@ -127,17 +127,9 @@ void CPvZAppUi::ConstructL()
     Log(_L("step: GL wired"));
 
     // ===== M1: prove the asset pipeline end-to-end with ONE real image =====
-    // TodLoadResources() is still a stub (returns true, loads nothing), so the
-    // bulk LoadingThreadProc() below populates NOTHING and every IMAGE_* stays
-    // NULL -> the title screen has nothing to draw. Here we BYPASS the stub and
-    // pull a single asset through the REAL path to prove each stage works:
-    //   gResourceManager->GetImage("IMAGE_TITLESCREEN")
-    //     -> LoadImageByResName -> "images/titlescreen.png" in main.pak
-    //     -> ICL CImageDecoder -> MemoryImage(ARGB).
-    // TitleScreen::Draw then does g->DrawImage(IMAGE_TITLESCREEN,0,0), and
-    // Graphics uploads a GL texture lazily from the bits (sTexCache). If the PvZ
-    // title screen renders on device, the pipeline is proven and M2 scales this
-    // up to all resource groups (restore Resources.cpp / un-stub TodLoadResources).
+    // [Session-10] Also load PopCap logo + loadbar images early so the
+    // PopCap intro + loading bar can render on the FIRST frame (before
+    // LoadingThreadProc loads the bulk resources).
     if (gResourceManager)
     {
         Log(_L("M1: GetImage IMAGE_TITLESCREEN ..."));
@@ -152,6 +144,13 @@ void CPvZAppUi::ConstructL()
         {
             Log(_L("M1: TITLESCREEN NULL (pak miss / decode fail)"));
         }
+
+        // [Session-10] Load PopCap logo + loadbar images early for the intro.
+        IMAGE_POPCAP_LOGO = gResourceManager->GetImage("IMAGE_POPCAP_LOGO");
+        IMAGE_LOADBAR_DIRT = gResourceManager->GetImage("IMAGE_LOADBAR_DIRT");
+        IMAGE_LOADBAR_GRASS = gResourceManager->GetImage("IMAGE_LOADBAR_GRASS");
+        IMAGE_PVZ_LOGO = gResourceManager->GetImage("IMAGE_PVZ_LOGO");
+        Log(_L("M1: PopCap+loadbar+logo loaded"));
     }
 
     // --- CRITICAL: drive resource loading (no loading thread on this port) ---

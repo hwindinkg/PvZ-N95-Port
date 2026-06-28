@@ -241,6 +241,29 @@ void GameSelector::Draw(Graphics* g)
     if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
     {
         MemoryImage* mem = static_cast<MemoryImage*>(bg);
+        // [Session-10] Diagnostic: log BG image state (one-time)
+        static bool sLoggedBg = false;
+        if (!sLoggedBg)
+        {
+            sLoggedBg = true;
+            RFs fs; RFile f;
+            if (fs.Connect() == KErrNone)
+            {
+                if (f.Open(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
+                           EFileWrite | EFileShareAny) == KErrNone)
+                {
+                    TInt pos = 0; f.Seek(ESeekEnd, pos);
+                    TBuf8<160> line;
+                    line.Format(_L8("GS:Draw BG %dx%d bits=%08x\n"),
+                                bg->GetWidth(), bg->GetHeight(),
+                                (TUint)mem->GetBits());
+                    f.Write(line);
+                    f.Flush();
+                    f.Close();
+                }
+                fs.Close();
+            }
+        }
         g->DrawImage(mem, 0, 0, mWidth, mHeight);
     }
     else
@@ -254,16 +277,9 @@ void GameSelector::Draw(Graphics* g)
         g->SetColor(Color(255, 255, 255, 255));
     }
 
-    // Draw the PvZ logo on top (use global, NOT GetImage)
-    if (IMAGE_PVZ_LOGO && IMAGE_PVZ_LOGO->GetWidth() > 0)
-    {
-        MemoryImage* logoMem = static_cast<MemoryImage*>(IMAGE_PVZ_LOGO);
-        int lw = IMAGE_PVZ_LOGO->GetWidth() / 3;
-        int lh = IMAGE_PVZ_LOGO->GetHeight() / 3;
-        int lx = (mWidth - lw) / 2;
-        int ly = 15;
-        g->DrawImage(logoMem, lx, ly, lw, lh);
-    }
+    // [Session-10] NO PvZ logo on the menu (user: "should not be there").
+    // The original menu has: tombstone with buttons, tree, vase-buttons,
+    // achievement pot-button. Those come from the reanim tracks, not a logo.
 
     // Draw "Click to Begin" text
     SystemFont* font = SystemFont::Get();
