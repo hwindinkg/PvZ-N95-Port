@@ -446,11 +446,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     v = ParseFloat(tBuf, tBufLen, "ky"); if (v != KFieldNotFound) t.mSkewY = v;
                     v = ParseFloat(tBuf, tBufLen, "sx"); if (v != KFieldNotFound) t.mScaleX = v;
                     v = ParseFloat(tBuf, tBufLen, "sy"); if (v != KFieldNotFound) t.mScaleY = v;
-                    v = ParseFloat(tBuf, tBufLen, "f");
-                    if (v != KFieldNotFound)
-                        t.mFrame = v;
-                    else
-                        t.mFrame = (float)j; // [Session-6] fallback: array index = frame number
+                    v = ParseFloat(tBuf, tBufLen, "f");  if (v != KFieldNotFound) t.mFrame = v;
                     v = ParseFloat(tBuf, tBufLen, "a");  if (v != KFieldNotFound) t.mAlpha = v;
 
                     // Image: <i>NAME</i> -- [Session-5 fix] store the NAME only,
@@ -692,6 +688,13 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
     // Reanim coordinate space is 800x600; mCoordScale (default 0.5) maps to
     // the port's 400x300 logical canvas. Per-track trans/scale are applied in
     // reanim space, then the whole thing is scaled to screen.
+    //
+    // [Session-7] Limit lazy-loading to 1 image per frame. The N95 has ~8MB
+    // of GL video memory; loading 18 menu images at once (each needing a 4MB
+    // POT buffer during upload) exhausts the heap and GL texture creation
+    // starts returning 0. By loading only 1 image per frame, the images
+    // appear progressively over ~18 frames (0.6s at 30fps) without OOM.
+    int imagesLoadedThisFrame = 0;
     for (int i = 0; i < mDefinition->mTrackCount; i++)
     {
         ReanimTrack& track = mDefinition->mTracks[i];
@@ -703,30 +706,35 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
 
         // [Session-5] Lazy-load the image on first render. During parsing we
         // only stored the image NAME (to avoid 14+ ICL decodes during the
-        // constructor → OOM). Now, once per unique name, resolve it via the
+        // constructor -> OOM). Now, once per unique name, resolve it via the
         // ResourceManager cache. If the decode fails, GetImage returns NULL
         // and we cache the NULL in mTransforms[active].mImage so we don't
         // retry the failed decode every frame.
         if (!t.mImage && t.mImageName && t.mImageName[0] != '\0')
         {
+            // [Session-7] Only load 1 image per frame to avoid OOM.
+            if (imagesLoadedThisFrame >= 1)
+                continue;
             if (gResourceManager)
                 t.mImage = gResourceManager->GetImage(t.mImageName);
+            imagesLoadedThisFrame++;
             // Write the resolved pointer back into the active keyframe so
-            // subsequent frames skip the GetImage call. (The active keyframe
-            // is the one GetCurrentTransform copied image/font/text from.)
-            ReanimTransform* activeXf = NULL;
+            // subsequent frames skip the GetImage call.
             int n = track.mTransformCount;
             float frame = mAnimTime * mDefinition->mFPS;
             int activeIdx = 0;
-            if (frame <= track.mTransforms[0].mFrame)
-                activeIdx = 0;
-            else if (frame >= track.mTransforms[n - 1].mFrame)
-                activeIdx = n - 1;
-            else
+            if (n > 1)
             {
-                for (activeIdx = 0; activeIdx < n - 1; activeIdx++)
-                    if (frame < track.mTransforms[activeIdx + 1].mFrame)
-                        break;
+                if (frame <= track.mTransforms[0].mFrame)
+                    activeIdx = 0;
+                else if (frame >= track.mTransforms[n - 1].mFrame)
+                    activeIdx = n - 1;
+                else
+                {
+                    for (activeIdx = 0; activeIdx < n - 1; activeIdx++)
+                        if (frame < track.mTransforms[activeIdx + 1].mFrame)
+                            break;
+                }
             }
             track.mTransforms[activeIdx].mImage = t.mImage;
         }

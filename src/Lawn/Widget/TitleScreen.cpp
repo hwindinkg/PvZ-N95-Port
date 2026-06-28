@@ -140,25 +140,21 @@ void TitleScreen::Draw(Graphics* g)
 
     if (dirtImg && grassImg && dirtImg->GetWidth() > 0 && grassImg->GetWidth() > 0)
     {
-        // Real loading bar: dirt strip + clipped grass.
+        // Real loading bar: dirt strip + grass overlay.
         MemoryImage* dirtMem = static_cast<MemoryImage*>(dirtImg);
         MemoryImage* grassMem = static_cast<MemoryImage*>(grassImg);
 
         // Scale dirt to bar size (full bar width).
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: clip to mCurBarWidth. [Session-6 fix] Previously the grass
-        // was stretched to (curW, barH) which distorted it into a "strip".
-        // Now we use SetClipRect so the grass keeps its native aspect and
-        // only the left portion up to mCurBarWidth is visible.
-        // DrawImage/FillRect apply the clip rect (GL_SCISSOR_TEST) internally
-        // via ApplyClipRect() and disable it after — so we just set the clip
-        // rect, draw, then clear it.
+        // Grass: [Session-7] Use SetClipRect to clip the grass to mCurBarWidth.
+        // The grass keeps its native aspect (drawn at full barW) and the clip
+        // rect hides the right portion. SetClipRect/ClearClipRect are public;
+        // DrawImage applies the scissor test internally via ApplyClipRect().
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
             g->SetClipRect(Rect(barX, barY, curW, barH));
-            // Draw grass at full bar width (the clip rect hides the right part).
             g->DrawImage(grassMem, barX, barY, barW, barH);
             g->ClearClipRect();
         }

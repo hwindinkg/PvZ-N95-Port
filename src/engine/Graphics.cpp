@@ -46,7 +46,12 @@ static TInt NextPow2(TInt v)
     return p;
 }
 
-static const TInt KMaxTexCache = 512;
+// [Session-7] Reduced from 512 to 64. The PowerVR MBX on the N95 has limited
+// video memory (~8MB). Each POT texture for an 800x600 image is 1024x1024x4 =
+// 4MB. With 512 cache slots the driver would try to allocate 2GB of GL memory
+// before evicting. 64 is enough for the menu (18 sprites) + some headroom,
+// and eviction now properly deletes GL textures (see AddCachedTexture).
+static const TInt KMaxTexCache = 64;
 
 static TexCacheEntry sTexCache[KMaxTexCache];
 static TInt          sTexCount = 0;
@@ -80,7 +85,15 @@ void AddCachedTexture(const Sexy::MemoryImage* img, GLuint texID, float uMax, fl
 {
     if (sTexCount >= KMaxTexCache)
     {
-        // Cache full -- evict the oldest entry
+        // Cache full -- evict the oldest entry. [Session-7 fix] MUST delete
+        // the GL texture too, otherwise GL video memory leaks and after ~20
+        // textures the PowerVR MBX driver refuses to create more (silently
+        // returns 0 -> GetOrCreateTexture returns 0 -> DrawImage falls back
+        // to white FillRect -> purple screen with white flashes).
+        if (sTexCache[0].mTexID)
+        {
+            glDeleteTextures(1, &sTexCache[0].mTexID);
+        }
         --sTexCount;
         // Shift remaining entries (simple FIFO eviction)
         for (TInt i = 0; i < sTexCount; ++i)
