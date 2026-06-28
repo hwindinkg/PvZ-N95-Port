@@ -264,8 +264,8 @@ TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode a
         TRAPD(err, iLawnApp->LoadingCompleted());
         if (err != KErrNone)
         {
-            TBuf8<80> b;
-            b.Format(_L8("step: LoadingCompleted LEAVED err=%d\n"), err);
+            TBuf<64> b;
+            b.Format(_L("step: LoadingCompleted LEAVED err=%d"), err);
             Log(b);
         }
         else
