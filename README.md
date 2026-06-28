@@ -61,64 +61,138 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 > - *"Wallpaper renders vertically / squished"* → portrait window vs 4:3 canvas.
 >   Fixed with `SetOrientationL(Landscape)` in `PvZAppUi` (NOT in the view).
 
-## Current status (2026-06-28, session 2)
+## Current status (2026-06-28, session 3)
 
-### Progress this session
+### What works
 
-- **Colorkey for JPEG logos**: `MemoryImage::ApplyColorKey` makes black pixels
-  transparent. Applied to any resource with "LOGO" in name. Fixes IMAGE_PVZ_LOGO
-  black background — logo now renders with transparent background. ✓ verified
-- **SystemFont fallback**: 8x8 bitmap font with hardcoded ASCII 32-127 glyphs.
-  `GetFontThrow` returns SystemFont instead of NULL. All FONT_* globals now
-  point to a real Font*. Text rendering pipeline works end-to-end. ✓ initialized
-- **_Font type unified**: `typedef Sexy::Font _Font` across all headers.
-  Removed all `class _Font` forward-decls and `#define IMAGE_*/FONT_*` macros
-  from Stubs.h that conflicted with Resources.h extern declarations.
-- **Click-to-Continue**: loading state machine waits for user input after bar
-  fills. "Click to Start" text rendered via SystemFont (blinking). ✓ works
+- **Build**: GCCE 3.4.3 compiles & links, SIS produced. miniz (zlib) integrated.
+- **Boot**: EGL/GLES 1.1 context, landscape 320x240, 30 FPS stable.
+- **PAK VFS**: main.pak (45MB, 3198 files) loaded, XOR 0xF7 decrypted.
+  Case-insensitive + path-separator-normalised file lookup.
+- **Loading screen**: IMAGE_TITLESCREEN bg + IMAGE_PVZ_LOGO (transparent via
+  colorkey) + IMAGE_LOADBAR_DIRT/GRASS progress bar + "Click to Start" text.
+  State machine: 60-frame animation → wait for click → LoadingCompleted.
+- **Main menu**: 10 GameButton widgets + tooltip. d-pad cursor (32px/press).
+  All 10 buttons clickable (gs_log confirms all ButtonDepress IDs 100-114).
+  Text renders via SystemFont (8x8 pixel-rect glyphs).
+- **Fonts**: SystemFont (hardcoded 8x8 ASCII bitmap). GetFontThrow returns
+  SystemFont::Get() for all FONT_* globals. Graphics::DrawString dispatches
+  to mFont->DrawString. Text is visible but glyphs are wrong (encoding issue:
+  labels show mirrored-L prefix + garbled chars — likely a char mapping bug
+  in SystemFont or GameButton passing wrong string).
+- **ReanimLoader**: XML parser for .reanim files. Successfully loads
+  reanim/SelectorScreen.reanim (328KB XML). Parsed 1 track (anim_open, 706
+  transforms) — BUT the XML parser has a bug: it counts <track> tags wrong
+  (finds </track> as a separate track, so only gets 1 real track instead
+  of ~48). Also no reanim images loaded (image name tags not found because
+  parser only checks track[0]).
+- **Colorkey**: MemoryImage::ApplyColorKey for JPEG logos (black→transparent).
+- **IMAGE_BACKGROUND1**: loaded from images/background1.jpg (171KB in PAK).
+- **_Font typedef**: `typedef Sexy::Font _Font` unified across all headers.
 
 ### Current blockers (blocking 1:1 menu)
 
-1. **CRITICAL: MENU ASSETS NOT IN PAK**:
-   rmgr_log.txt confirms ALL `IMAGE_REANIM_SELECTORSCREEN_*` (15 entries including
-   `_BG` the menu background, `_ADVENTURE_BUTTON`, `_SURVIVAL_BUTTON`, etc.) are
-   "not found in PAK". `IMAGE_BACKGROUND1` (lawn) is never even attempted.
-   The original PvZ menu is drawn via `Reanimation(REANIM_SELECTOR_SCREEN)` which
-   uses `IMAGE_REANIM_SELECTORSCREEN_BG` as the background sprite — this asset is
-   MISSING from the PAK on device.
-   **Without these assets, a 1:1 visual port of the menu is IMPOSSIBLE.**
-   This is an asset pipeline issue, not a code issue. The PAK file on device
-   must be rebuilt with these assets, OR we must find them under different names.
+1. **REANIM XML PARSER BUG** — only finds 1 track instead of ~48.
+   The FindTag function matches `</track>` as a `<track>` tag because it
+   doesn't exclude tags starting with `/`. Also, the parser's `<t>` counting
+   is fragile — it needs to properly handle nested tags and self-closing
+   tags. The `track[-2] == '/'` check is wrong (should check the open tag
+   string itself, not the character before content).
+   **Fix**: rewrite FindTag to properly distinguish `<track>` from `</track>`.
+   Or use a different parsing approach (scan for `<track>` and `</track>`
+   literally, not via generic FindTag).
 
-2. **TEXT NOT RENDERING**:
-   `gfx_log.txt` shows only "SetColor called" — `SystemFont::DrawString` is never
-   reached. `Graphics::DrawString(text, x, y)` is a placeholder that draws a
-   white rect, NOT a call to `mFont->DrawString`. The port's Graphics::DrawString
-   does NOT dispatch to the Font's DrawString method. Fix: either make
-   Graphics::DrawString call mFont->DrawString, OR have callers call
-   mFont->DrawString directly.
+2. **REANIM IMAGES NOT LOADED** — gl_log shows only 3 textures (titlescreen
+   + 2 loadbar). No IMAGE_REANIM_SELECTORSCREEN_* loaded. This is because:
+   (a) the parser only found 1 track (anim_open) which has no `<i>` image tags,
+   (b) even for tracks with images, the `<i>` tag search may not work because
+   FindTag doesn't handle the `i` tag correctly (matches `<i>` inside other
+   tags like `<img>`).
+   **Fix**: once the parser finds all 48 tracks, tracks like
+   `SelectorScreen_BG` will have `<i>IMAGE_REANIM_SELECTORSCREEN_BG</i>`
+   tags that load the background image.
 
-3. **MENU LAYOUT NOT 1:1**:
-   Current menu = titlescreen background + 10 beige rect buttons in a grid.
-   Original PvZ menu = Reanimation-based scene with:
-   - `IMAGE_REANIM_SELECTORSCREEN_BG` (animated lawn background)
-   - Wooden signs with button sprites (`IMAGE_REANIM_SELECTORSCREEN_*_BUTTON`)
-   - Clouds, flowers, leaf Reanimations
-   - Buttons positioned via Reanimation track transforms (not hardcoded x,y)
-   Even with assets, requires porting Reanimation system (Reanimator.cpp +
-   TodParticle, ~5000 lines upstream).
+3. **MENU STILL SHOWS LAWN+BUTTONS** — because reanim only parsed 1 track
+   with no images, GameSelector::Draw reanim path draws nothing, falls through
+   to IMAGE_BACKGROUND1 (lawn) fallback. The purple tint is from the GL clear
+   color (0.15, 0.05, 0.20) showing through when no background image is drawn.
 
-### 1:1 port roadmap (next priorities)
+4. **TEXT GLYPHS WRONG** — labels show garbled characters. SystemFont uses
+   hardcoded 8x8 bitmap glyphs, but the char mapping may be offset (the `L`
+   prefix suggests the `[` bracket char (ASCII 91) is being rendered instead
+   of the first letter, or the label string has a `[` prefix from
+   GameButton::SetLabel which passes `"[Adventure]"` including brackets).
 
-1. ✅ **Fix text rendering** — SystemFont pixel-rect rendering implemented
-2. ✅ **Find/restore missing assets** — PAK analysis confirmed all 31
-   IMAGE_REANIM_SELECTORSCREEN_* assets present under `reanim/` prefix
-3. ✅ **Add zlib** — miniz (single-file zlib) added to build
-4. ✅ **ReanimLoader** — minimal .reanim.compiled parser (zlib + binary format)
-5. **Port Reanimation engine** — Reanimator.cpp (animation playback)
-6. **Port EffectSystem** — reanimation holder/manager
-7. **Port upstream GameSelector.cpp 1:1** — with real Reanimation + assets
-8. **Port upstream TitleScreen.cpp** — SODROLLCAP animation on loading bar
+5. **UPSTREAM CODE NOT PORTED 1:1** — the current GameSelector/GameButton/
+   TitleScreen are simplified approximations, NOT 1:1 ports from upstream
+   PvZ-Portable. The upstream GameSelector uses Reanimation for background +
+   button sprites, with track transforms for positioning. The port needs to
+   either:
+   (a) Port the full Reanimation engine (Reanimator.cpp 1501 lines +
+       EffectSystem.cpp 541 lines + ReanimationLawn.cpp 438 lines), OR
+   (b) Use ReanimLoader to parse track transforms and render static frames
+       (current approach — simpler but not animated).
+
+### 1:1 port roadmap (next session priorities)
+
+1. **FIX REANIM XML PARSER** — fix FindTag to properly handle `</tag>` vs
+   `<tag>`. Should find all 48 tracks in SelectorScreen.reanim. Verify with
+   gs_log track name dump.
+
+2. **FIX REANIM IMAGE LOADING** — once all tracks parsed, tracks with `<i>`
+   tags will load images via ResourceManager::GetImage. Verify gl_log shows
+   new textures (IMAGE_REANIM_SELECTORSCREEN_BG etc.).
+
+3. **FIX GameSelector::Draw reanim rendering** — render all tracks with
+   images at their transform[0] positions. Coordinates are in 800x600 space,
+   scale to 400x300 (×0.5). Draw in track order (background first, then
+   buttons, then clouds/flowers on top).
+
+4. **REMOVE STUB MENU** — remove the 10 beige GameButton widgets and the
+   IMAGE_BACKGROUND1 fallback. Replace with reanim-rendered menu where
+   button sprites from the reanim are used for hit-testing.
+
+5. **PORT UPSTREAM GameSelector.cpp 1:1** — port the constructor (creates
+   NewLawnButton with IMAGE_REANIM_SELECTORSCREEN_* sprites), Draw (uses
+   Reanimation for background + buttons), ButtonDepress (Adventure → zombie
+   hand animation → PreNewGame).
+
+6. **FIX TEXT ENCODING** — SystemFont glyphs are wrong. Either fix the
+   char mapping in SystemFont (kGlyphs8x8 array may be offset), or remove
+   the `[` brackets from button labels.
+
+7. **PORT UPSTREAM TitleScreen.cpp 1:1** — state machine with PopCap logo
+   fade, partner logo, SODROLLCAP animation on loading bar.
+
+### Build/test history (session 3)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| `bed8c6e` | Colorkey for JPEG logos | Logo transparent ✓ |
+| `6ca99f2` | SystemFont + _Font typedef + GetFontThrow | Build fixes (many) |
+| `b31acc8` | SystemFont pixel-rect rendering | Text renders (wrong glyphs) |
+| `153ca61` | Load IMAGE_BACKGROUND1 | Lawn background shown |
+| `1451b15` | miniz + reanim/ prefix in LoadImageByResName | miniz builds |
+| `4215df3` | ReanimLoader (binary compiled parser) | Binary format incompatible |
+| `b0a367a` | GameSelector loads + renders reanim | Crash (OOM/binary parse) |
+| `0f2adfa` | stdint.h shim for GCCE | Build fix |
+| `7ce7505` | extern C miniz + intptr_t fix | Build fix |
+| `ff46907` | Remove intptr_t from stdint.h | Build fix |
+| `ec4a639` | miniz_tinfl.c + miniz_tdef.c + malloc stubs | Link fix |
+| `8467849` | size_t → unsigned int in malloc stubs | Build fix |
+| `3f44363` | Remove duplicate extern C block | Build fix |
+| `734c19e` | TRAP + User::Alloc for OOM safety | Still crashes |
+| `f91e52d` | DISABLE reanim (causes crash) | Menu shows lawn+buttons |
+| `11acad7` | Graphics::DrawString dispatches to mFont | Text appears (wrong glyphs) |
+| `588ae4c` | Include Font.h in Graphics.cpp | Build fix |
+| `6e8104e` | Rewrite binary parser (struct layout) | Still fails (64-bit structs) |
+| `4c35f0c` | Switch to XML parser | Build fix needed |
+| `edaf1f4` | strncpy + atof stubs | Build OK |
+| `4c35f0c+edaf1f4` | XML reanim parser | Loaded 1 track (bug in FindTag) |
+
+---
+
+## Previous status (2026-06-28, session 2)
 
 ### Build/test history (session 2)
 
