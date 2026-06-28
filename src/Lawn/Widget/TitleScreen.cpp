@@ -35,6 +35,7 @@
 #include "../../engine/SexyAppBase.h"
 #include "../../engine/ResourceManager.h"   // for ResourceManager (LawnApp.h only forward-declares it)
 #include "../../engine/SystemFont.h"        // for "Click to Start" text
+#include <f32file.h>                        // for RFs/RFile (diagnostic logging)
 
 namespace Sexy {
 

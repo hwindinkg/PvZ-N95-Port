@@ -466,7 +466,10 @@ GLuint GLInterface::CreateTexture(TInt width, TInt height,
 {
     static TInt texCount = 0;
     texCount++;
-    if (texCount <= 3) {
+    // [Session-12] Increased from 3 to 15 so we can see if the SelectorScreen_BG
+    // texture (100x75 → POT 128x128) is created. The old cutoff of 3 only
+    // showed the loading screen textures.
+    if (texCount <= 15) {
         TBuf8<128> buf;
         buf.Format(_L8("GLI::CreateTexture #%d %dx%d fmt=%d"), texCount, width, height, format);
         GLTrace((const char*)buf.PtrZ());
@@ -496,6 +499,11 @@ GLuint GLInterface::CreateTexture(TInt width, TInt height,
 
     if (texID == 0)
     {
+        // [Session-12] Log when glGenTextures fails (GL out of texture memory).
+        if (texCount <= 15)
+        {
+            GLTrace("GLI:glGenTextures returned 0 (GL out of texture memory)");
+        }
         return 0;
     }
 
