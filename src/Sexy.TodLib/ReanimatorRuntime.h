@@ -30,18 +30,8 @@
 
 namespace Sexy { class Graphics; class Image; }
 
-// ===========================================================================
-// ReanimLoopType — loop behavior (matches upstream enum)
-// ===========================================================================
-enum ReanimLoopType
-{
-    REANIM_LOOP                              = 0,
-    REANIM_PLAY_ONCE                         = 1,
-    REANIM_PLAY_ONCE_AND_HOLD                = 2,
-    REANIM_LOOP_FULL_LAST_FRAME              = 3,
-    REANIM_PLAY_ONCE_FULL_LAST_FRAME         = 4,
-    REANIM_PLAY_ONCE_FULL_LAST_FRAME_AND_HOLD= 5
-};
+// ReanimLoopType is already defined in ConstEnums.h (included via
+// ReanimLoader.h → Widget.h → ConstEnums.h). Don't redefine it here.
 
 // ===========================================================================
 // ReanimatorFrameTime — current frame position (from upstream Reanimator.h)

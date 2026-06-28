@@ -63,8 +63,6 @@ public:
     // -- Reanim data ------------------------------------------------------
     ReanimDefinition mReanimDef;   // parsed SelectorScreen.reanim
     ReanimPlayer    mReanimPlayer; // legacy lightweight player (unused now)
-    Reanimation*    mSelectorReanim; // [Session-13] full Reanimation runtime
-    ReanimationHolder mReanimHolder;  // [Session-13] owns the Reanimation
     bool            mReanimLoaded;
 
     // -- State -----------------------------------------------------------
@@ -82,6 +80,11 @@ public:
     int             mSlideCounter;
     int             mStartX, mStartY;
     int             mDestX,  mDestY;
+
+    // [Session-13] Full Reanimation runtime (after state fields to fix
+    // member initialization order — GCCE warns if init order != decl order)
+    Reanimation*      mSelectorReanim;
+    ReanimationHolder mReanimHolder;
 
     // -- Construction ----------------------------------------------------
     GameSelector(LawnApp* theApp);
