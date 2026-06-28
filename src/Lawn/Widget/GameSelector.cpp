@@ -192,6 +192,13 @@ GameSelector::GameSelector(LawnApp* theApp)
             GSLog(_L8("GS:playing anim_open...\n"));
             mSelectorReanim->PlayReanim("anim_open",
                 REANIM_PLAY_ONCE_AND_HOLD, 0, 30.0f);
+            // [Session-13] Set mAnimRate=0 so the animation stays at frame 0.
+            // Without inheritance, tf[1+] have default (0,0,1,1) values, so
+            // advancing mAnimTime lerps toward (0,0) = center of screen.
+            // Keeping mAnimTime=0 shows tf[0] data (correct positions).
+            // Once inheritance is re-enabled (fixing the crash), we can
+            // advance the animation normally.
+            mSelectorReanim->mAnimRate = 0.0f;
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG", 1);
             mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
             mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);
