@@ -63,6 +63,121 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ---
 
+## Current status (2026-06-28, session 9) — direct image draw + PopCap logo + plan
+
+### What was done this session
+
+#### Fix 1: Bypass ReanimPlayer — direct image draw for menu background
+
+**Problem:** ReanimPlayer::Draw was called (RP:track diagnostic fired), 34
+images were preloaded, but `gl_log` showed ZERO new GL textures created.
+DrawImage was never reaching GetOrCreateTexture. Root cause unclear
+(GetCurrentTransform struct copy? mImage NULL despite preload?).
+
+**Fix:** `GameSelector::Draw` now bypasses ReanimPlayer entirely. It directly
+calls `ResourceManager::GetImage("IMAGE_REANIM_SELECTORSCREEN_BG")` and
+`Graphics::DrawImage(mem, 0, 0, mWidth, mHeight)` to draw the menu background
+(graveyard scene). This is the most reliable path — same as the TitleScreen
+background draw that already works. Also draws IMAGE_PVZ_LOGO + "Click to
+Begin" text on top.
+
+#### Fix 2: Loading bar animation — revert to stretch (clip rect didn't work)
+
+**Problem:** The SetClipRect approach (session 7) didn't work on the N95 MBX
+driver — glScissor either wasn't supported or worked differently, so the grass
+bar never appeared.
+
+**Fix:** Reverted to the simple stretch approach: `DrawImage(grassMem, barX,
+barY, curW, barH)` where curW grows from 0 to mTotalBarWidth. The grass is
+horizontally stretched (slightly distorted) but the animation IS visible.
+
+#### Fix 3: PopCap logo intro (like the original PvZ)
+
+Added a 3-phase PopCap logo intro to TitleScreen:
+- Phase 0: fade in (30 frames, ~1s)
+- Phase 1: hold (30 frames, ~1s)
+- Phase 2: fade out (30 frames, ~1s)
+- Phase 3: loading screen (progress bar + Click to Start)
+
+Uses `IMAGE_POPCAP_LOGO` on a black background, centered. Any key press
+skips the intro (jumps to phase 3). The loading state machine frame count
+was increased from 60 to 150 (90 for logo + 60 for bar).
+
+Note: alpha fade isn't implemented (Graphics::SetColorizeImages is a stub),
+so the logo appears/disappears instantly rather than fading. The fade will
+work once per-draw alpha is added (Stage 4 ImageFont/Graphics port).
+
+### Port vs upstream comparison — comprehensive status
+
+#### Engine systems (what's ported vs stubbed)
+
+| System | Upstream | Port | Status |
+|--------|----------|------|--------|
+| PAK VFS | main.pak reader | `PvZVfs.cpp` | ✅ Working (3198 files, XOR 0xF7) |
+| Image decode | SDL_image | ICL (CImageDecoder) | ✅ Working (PNG + JPEG) |
+| GL rendering | SDL GL | EGL/GLES 1.1 | ✅ Working (30 FPS, landscape) |
+| Texture cache | — | `Graphics.cpp` | ✅ Working (POT, eviction deletes GL tex) |
+| ReanimLoader | Definition.cpp (1445 lines) | `ReanimLoader.cpp` | ✅ XML parser works (48 tracks) |
+| ReanimPlayer | Reanimator.cpp (1501 lines) | `ReanimLoader.cpp` | ⚠️ Partial (interp OK, Draw unreliable on device) |
+| ResourceManager | resources.xml parser | `ResourceManager.cpp` | ✅ Working (on-demand GetImage) |
+| SystemFont | ImageFont (1748 lines) | `SystemFont.cpp` | ⚠️ 8x8 bitmap fallback, not real PvZ fonts |
+| WidgetManager | WidgetManager | `widgetmanager.cpp` | ✅ Working |
+| Input (d-pad) | — | `PvZAppUi.cpp` | ✅ Working (cursor + click) |
+| Sound/Music | — | stub | ❌ Not ported (Stage 4) |
+| SaveGame | — | stub | ❌ Not ported (Stage 4) |
+
+#### Game screens (what's playable vs stubbed)
+
+| Screen | Upstream | Port | Status |
+|--------|----------|------|--------|
+| PopCap logo | TitleScreen.cpp state machine | `TitleScreen.cpp` | ✅ Phase 0-2 (no fade) |
+| Loading screen | TitleScreen.cpp | `TitleScreen.cpp` | ✅ BG + bar + Click to Start |
+| Main menu | GameSelector.cpp (1509 lines) | `GameSelector.cpp` | ⚠️ Direct BG draw, no button sprites |
+| Seed chooser | SeedChooserScreen.cpp (1158) | — | ❌ Not ported |
+| Gameplay (Board) | Board.cpp (6364) | `board.cpp` | ❌ Stub (no plants/zombies/sun) |
+| Cutscenes | CutScene.cpp | — | ❌ Not ported |
+| Store | StoreScreen.cpp (1187) | — | ❌ Not ported |
+| Almanac | AlmanacDialog.cpp (718) | — | ❌ Not ported |
+| Zen Garden | ZenGarden.cpp | — | ❌ Not ported |
+| Options | NewOptionsDialog.cpp | — | ❌ Not ported |
+| Award screen | AwardScreen.cpp | — | ❌ Not ported |
+| Credits | CreditScreen.cpp | — | ❌ Not ported |
+
+#### Game objects (what's implemented vs stubbed)
+
+| Object | Upstream | Port | Status |
+|--------|----------|------|--------|
+| Plants | Plant.cpp (all plants) | `plant.cpp` | ❌ Stubs only |
+| Zombies | Zombie.cpp (all types) | `Zombie.cpp` | ❌ Stubs only |
+| Projectiles | Projectile.cpp | `Projectile.cpp` | ❌ Stubs only |
+| Coins | Coin.cpp | `Coin.cpp` | ❌ Stubs only |
+| Lawn mowers | LawnMower.cpp | `LawnMower.cpp` | ❌ Stubs only |
+| Grid items | GridItem.cpp | `GridItem.cpp` | ❌ Stubs only |
+| Reanimator runtime | Reanimator.cpp (1501) | `Reanimator.h` | ❌ Stubs (ReanimPlayer is separate) |
+| Particle system | TodParticle.cpp (1290) | — | ❌ Not ported |
+| Effect system | EffectSystem.cpp (541) | — | ❌ Not ported |
+| Challenge (minigames) | Challenge.cpp | `Challenge.cpp` | ❌ Stubs only |
+
+### Next steps (priority order)
+
+1. **Verify direct BG draw works on device** — the SelectorScreen_BG image
+   should now render (same path as TitleScreen BG which already works).
+2. **Port Reanimator.cpp runtime** (1501 lines) — needed for animated plants/
+   zombies/UI. ReanimPlayer is a lightweight subset; the full runtime has
+   render groups, attachments, blend layers, skew matrices, TodTriangleGroup.
+3. **Port Board.cpp** (6364 lines) — the gameplay field. Needs Reanimator +
+   Plant + Zombie + Projectile + Coin + LawnMower + GridItem.
+4. **Port ImageFont.cpp** (1748 lines) — real PvZ fonts (replaces SystemFont).
+5. **Port remaining screens** (SeedChooser, Store, Almanac, etc.)
+
+### Build/test history (session 9)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| (this) | Direct BG draw + loading bar stretch + PopCap logo intro | Pending on-device build |
+
+---
+
 ## Current status (2026-06-28, session 6) — real reanim menu + bug fixes
 
 ### On-device diagnosis (from uploaded logs)

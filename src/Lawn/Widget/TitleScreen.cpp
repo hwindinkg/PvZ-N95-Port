@@ -49,6 +49,9 @@ TitleScreen::TitleScreen(LawnApp* theApp)
     , mLoadingThreadComplete(false)
     , mDrawnYet(false)
     , mPrevLoadingPercent(0.0f)
+    , mLogoPhase(0)
+    , mLogoFrame(0)
+    , mLogoAlpha(0)
 {
     mVisible = true;
     mMouseVisible = true;
@@ -62,11 +65,34 @@ void TitleScreen::Update()
 
     if (!mApp) return;
 
+    // [Session-9] PopCap logo intro phases.
+    // Phase 0: fade in (30 frames, alpha 0->255)
+    // Phase 1: hold (30 frames, alpha 255)
+    // Phase 2: fade out (30 frames, alpha 255->0)
+    // Phase 3: loading screen (progress bar)
+    if (mLogoPhase < 3)
+    {
+        mLogoFrame++;
+        if (mLogoPhase == 0)
+        {
+            mLogoAlpha = (mLogoFrame * 255) / 30;
+            if (mLogoFrame >= 30) { mLogoPhase = 1; mLogoFrame = 0; }
+        }
+        else if (mLogoPhase == 1)
+        {
+            mLogoAlpha = 255;
+            if (mLogoFrame >= 30) { mLogoPhase = 2; mLogoFrame = 0; }
+        }
+        else if (mLogoPhase == 2)
+        {
+            mLogoAlpha = 255 - (mLogoFrame * 255) / 30;
+            if (mLogoFrame >= 30) { mLogoPhase = 3; mLogoFrame = 0; }
+        }
+        return; // don't advance loading bar during logo intro
+    }
+
+    // Phase 3: loading screen with progress bar.
     // Compute loading progress from LawnApp's counters.
-    // In this port LoadingThreadProc runs synchronously BEFORE the heartbeat
-    // timer starts, so by the time Update() fires the loading is ALREADY DONE.
-    // The bar will jump from 0 to full in one frame. To make it visible, we
-    // animate mCurBarWidth toward the target at a fixed rate.
     float target = 0.0f;
     if (mApp->mNumLoadingThreadTasks > 0)
     {
@@ -79,10 +105,10 @@ void TitleScreen::Update()
         mLoadingThreadComplete = true;
     }
 
-    // Animate toward target (ease-in: faster as more loads).
+    // Animate toward target (4px per Update tick, ~120px/s at 30fps).
     if (mCurBarWidth < target)
     {
-        mCurBarWidth += 4.0f;   // 4px per Update tick (~30fps -> ~120px/s)
+        mCurBarWidth += 4.0f;
         if (mCurBarWidth > target) mCurBarWidth = target;
     }
 
@@ -97,6 +123,47 @@ void TitleScreen::Draw(Graphics* g)
     // White vertex colour so GL_MODULATE doesn't tint the texture (M3 fix #7).
     g->SetColor(Color(255, 255, 255, 255));
 
+    // [Session-9] PopCap logo intro (phases 0-2).
+    // Black background + PopCap logo centered, fading in/out.
+    if (mLogoPhase < 3)
+    {
+        // Black background
+        g->SetColor(Color(0, 0, 0, 255));
+        g->FillRect(0, 0, mWidth, mHeight);
+
+        // PopCap logo centered
+        Image* popcap = IMAGE_POPCAP_LOGO;
+        if (popcap == NULL && mApp->mResourceManager)
+            popcap = mApp->mResourceManager->GetImage("IMAGE_POPCAP_LOGO");
+        if (popcap && popcap->GetWidth() > 0)
+        {
+            // Scale to fit canvas (original ~256x256, scale to ~100x100)
+            int lw = popcap->GetWidth() / 3;
+            int lh = popcap->GetHeight() / 3;
+            int lx = (mWidth - lw) / 2;
+            int ly = (mHeight - lh) / 2;
+            // Alpha modulation isn't supported by Graphics, so we just draw
+            // the logo. The fade effect would need per-draw alpha (Stage 4).
+            MemoryImage* mem = static_cast<MemoryImage*>(popcap);
+            g->DrawImage(mem, lx, ly, lw, lh);
+        }
+        else
+        {
+            // PopCap logo not loaded — show text
+            g->SetColor(Color(255, 255, 255, 255));
+            SystemFont* f = SystemFont::Get();
+            if (f)
+            {
+                g->SetFont(f);
+                const char* msg = "PopCap";
+                int sw = f->StringWidth(msg);
+                g->DrawString(msg, (mWidth - sw) / 2, mHeight / 2);
+            }
+        }
+        return; // don't draw loading screen during logo intro
+    }
+
+    // Phase 3: loading screen (background + logo + progress bar + click text)
     // -- Background: IMAGE_TITLESCREEN scaled to full canvas ----------------
     Image* bg = IMAGE_TITLESCREEN;
     if (bg == NULL && mApp->mResourceManager)
@@ -147,16 +214,15 @@ void TitleScreen::Draw(Graphics* g)
         // Scale dirt to bar size (full bar width).
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: [Session-7] Use SetClipRect to clip the grass to mCurBarWidth.
-        // The grass keeps its native aspect (drawn at full barW) and the clip
-        // rect hides the right portion. SetClipRect/ClearClipRect are public;
-        // DrawImage applies the scissor test internally via ApplyClipRect().
+        // Grass: draw scaled to (curW, barH). [Session-9] Reverted from
+        // SetClipRect (which didn't work on the N95 MBX driver — glScissor
+        // either wasn't supported or worked differently). The stretch is
+        // slightly distorted but the animation is visible, which is more
+        // important than perfect aspect ratio.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            g->SetClipRect(Rect(barX, barY, curW, barH));
-            g->DrawImage(grassMem, barX, barY, barW, barH);
-            g->ClearClipRect();
+            g->DrawImage(grassMem, barX, barY, curW, barH);
         }
     }
     else

@@ -6,6 +6,7 @@
 #include "engine/ResourceManager.h"
 #include "engine/WidgetManager.h"
 #include "engine/SystemFont.h"   // for SystemFont::Initialize
+#include "Lawn/Widget/TitleScreen.h"  // for TitleScreen::mLogoPhase (skip intro)
 #include "Resources.h"
 #include <f32file.h>
 
@@ -173,11 +174,13 @@ void CPvZAppUi::ConstructL()
         // resources are loaded. If we call LoadingCompleted here, TitleScreen
         // is removed before the heartbeat timer renders a single frame, so
         // the user never sees the progress bar animation.
-        // Instead: set iLoadingState=1 and iLoadingFrames=60 (~2s at 30fps).
-        // RenderTick will call LoadingCompleted after the countdown finishes.
+        // Instead: set iLoadingState=1 and iLoadingFrames=150 (~5s at 30fps).
+        // [Session-9] Increased from 60 to 150 to account for the PopCap logo
+        // intro (90 frames = 3s) + loading bar animation (60 frames = 2s).
+        // RenderTick will transition to state 2 after the countdown.
         iLoadingState = 1;
-        iLoadingFrames = 60;
-        Log(_L("step: loading animation deferred to RenderTick (60 frames)"));
+        iLoadingFrames = 150;
+        Log(_L("step: loading animation deferred to RenderTick (150 frames)"));
     }
 
     // Put the GL container on the control stack so it receives
@@ -248,6 +251,19 @@ void CPvZAppUi::HandleForegroundEventL(TBool aForeground)
 TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode aType)
 {
     if (!iLawnApp || !iLawnApp->mWidgetManager) return EKeyWasNotConsumed;
+
+    // [Session-9] Allow skipping the PopCap logo intro (state 1) with any key.
+    // Jumps directly to the loading screen (phase 3 of TitleScreen).
+    if (iLoadingState == 1 && aType == EEventKeyDown)
+    {
+        if (iLawnApp->mTitleScreen && iLawnApp->mTitleScreen->mLogoPhase < 3)
+        {
+            iLawnApp->mTitleScreen->mLogoPhase = 3;
+            iLawnApp->mTitleScreen->mLogoFrame = 0;
+            iLawnApp->mTitleScreen->mLogoAlpha = 0;
+            return EKeyWasConsumed;
+        }
+    }
 
     // [M4 #1] "Click to Start" -- in loading state 2, any key advances to menu.
     // [Session-5 fix] Set iLoadingState = 3 BEFORE calling LoadingCompleted.

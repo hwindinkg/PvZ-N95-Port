@@ -17,6 +17,7 @@ extern Image* IMAGE_TITLESCREEN;
 extern Image* IMAGE_LOADBAR_DIRT;
 extern Image* IMAGE_LOADBAR_GRASS;
 extern Image* IMAGE_PVZ_LOGO;
+extern Image* IMAGE_POPCAP_LOGO;
 
 class TitleScreen : public Widget
 {
@@ -38,6 +39,15 @@ public:
     bool mLoadingThreadComplete;
     bool mDrawnYet;
     float mPrevLoadingPercent;
+
+    // [Session-9] PopCap logo intro state (like the original PvZ).
+    // Phase 0: PopCap logo fading in (0-30 frames)
+    // Phase 1: PopCap logo held (30-60 frames)
+    // Phase 2: PopCap logo fading out (60-90 frames)
+    // Phase 3: Loading screen (progress bar + Click to Start)
+    int mLogoPhase;
+    int mLogoFrame;     // frame counter within current phase
+    int mLogoAlpha;     // 0-255, computed from phase
 };
 
 } // namespace Sexy

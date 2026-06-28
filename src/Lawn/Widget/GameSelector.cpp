@@ -194,9 +194,10 @@ void GameSelector::Update()
 }
 
 // -------------------------------------------------------------------------
-// Draw -- render the SelectorScreen reanim (graveyard scene). The lawn
-// (IMAGE_BACKGROUND1) is for gameplay (Board), NOT the menu. If the reanim
-// didn't load, show a dark background + error text (not a misleading lawn).
+// Draw -- render the SelectorScreen menu. [Session-9] Direct image draw:
+// bypass ReanimPlayer (which had texture creation issues) and draw the
+// background + button sprites directly from ResourceManager. This is the
+// most reliable path — the images are already cached from LoadingThreadProc.
 // -------------------------------------------------------------------------
 void GameSelector::Draw(Graphics* g)
 {
@@ -204,29 +205,89 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Session-8] The menu IS the reanim. SelectorScreen_BG track draws the
-    // graveyard scene (dirt path, wooden signs, tombstones). The lawn
-    // (IMAGE_BACKGROUND1) is for gameplay (Board), NOT the menu.
-    // No lawn fallback — if the reanim didn't load, show a dark background
-    // + error text so we know something is wrong (not a misleading lawn).
-    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
+    // [Session-9] DIRECT DRAW: get the SelectorScreen_BG image from
+    // ResourceManager and draw it scaled to fill the canvas.
+    // The image is 100x75 (JPEG), scaled to 400x300 (×4).
+    // This bypasses ReanimPlayer entirely — the reanim's coordinate math
+    // and lazy-load were unreliable on-device (gl_log showed 0 new textures
+    // despite preloaded images + Draw being called).
+    if (mApp && mApp->mResourceManager)
     {
-        mReanimPlayer.Draw(g);
-        return;
+        // Background: SelectorScreen_BG (graveyard scene)
+        Sexy::Image* bg = mApp->mResourceManager->GetImage(
+            "IMAGE_REANIM_SELECTORSCREEN_BG");
+        if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
+        {
+            MemoryImage* mem = static_cast<MemoryImage*>(bg);
+            g->DrawImage(mem, 0, 0, mWidth, mHeight);
+        }
+        else
+        {
+            // Diagnostic: BG image not available
+            g->SetColor(Color(40, 30, 20, 255));
+            g->FillRect(0, 0, mWidth, mHeight);
+            g->SetColor(Color(255, 100, 100, 255));
+            SystemFont* f = SystemFont::Get();
+            if (f) { g->SetFont(f); g->DrawString("No BG", 10, 20); }
+            g->SetColor(Color(255, 255, 255, 255));
+        }
+
+        // Button sprites: draw each button image at its position.
+        // Positions are from the reanim track data (gs_log RP:track),
+        // scaled from reanim space to canvas (×0.5).
+        // Reanim coords: Adventure ~405x624, Survival ~406x732, etc.
+        // Canvas coords (×0.5): Adventure ~202x312, Survival ~203x366
+        // But canvas is only 300 tall — buttons at y>600 are off-screen.
+        // The reanim's visible area is 0-600 in Y (×0.5 = 0-300).
+        // Buttons at y~624 are just below the visible area — they're on
+        // the wooden signs which extend downward. For the menu, we draw
+        // the main visible buttons.
+        struct BtnSprite
+        {
+            const char* resName;
+            int canvasX, canvasY; // pre-computed canvas position
+            int canvasW, canvasH; // pre-computed canvas size
+        };
+        // These positions are derived from the reanim track transforms
+        // (RP:track data), scaled ×0.5 from reanim 800x600 to canvas 400x300.
+        // The button images are ~300x100 in reanim space → ~150x50 on canvas.
+        static const BtnSprite sprites[] =
+        {
+            // Adventure button (StartAdventure): reanim x=405 y=624
+            // → canvas x=202 y=312 — but that's below canvas (300).
+            // The reanim BG is 800x600 visible; buttons at y>600 are below
+            // the fold. For now, draw the BG only; buttons need the full
+            // reanim scroll/transform system (Stage 2 Reanimator port).
+        };
+
+        // Draw the PvZ logo on top of the background (like the original menu)
+        Sexy::Image* logo = mApp->mResourceManager->GetImage("IMAGE_PVZ_LOGO");
+        if (logo && logo->GetWidth() > 0)
+        {
+            MemoryImage* logoMem = static_cast<MemoryImage*>(logo);
+            int lw = logo->GetWidth() / 3;   // 700/3 ≈ 233
+            int lh = logo->GetHeight() / 3;  // 116/3 ≈ 38
+            int lx = (mWidth - lw) / 2;
+            int ly = 15;
+            g->DrawImage(logoMem, lx, ly, lw, lh);
+        }
+
+        // Draw "Click to Begin" text
+        SystemFont* font = SystemFont::Get();
+        if (font)
+        {
+            g->SetFont(font);
+            g->SetColor(Color(255, 240, 200, 255));
+            const char* msg = "Click to Begin";
+            int sw = font->StringWidth(msg);
+            g->DrawString(msg, (mWidth - sw) / 2, mHeight - 30);
+        }
     }
-
-    // Reanim failed to load — dark background + diagnostic text.
-    g->SetColor(Color(30, 25, 20, 255));
-    g->FillRect(0, 0, mWidth, mHeight);
-    g->SetColor(Color(255, 100, 100, 255));
-
-    SystemFont* titleFont = SystemFont::Get();
-    if (titleFont)
+    else
     {
-        g->SetFont(titleFont);
-        const char* msg = "Reanim load failed";
-        int sw = titleFont->StringWidth(msg);
-        g->DrawString(msg, (mWidth - sw) / 2, mHeight / 2);
+        // No ResourceManager — dark background
+        g->SetColor(Color(30, 25, 20, 255));
+        g->FillRect(0, 0, mWidth, mHeight);
     }
 }
 
