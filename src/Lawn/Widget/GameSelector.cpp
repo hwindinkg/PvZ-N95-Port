@@ -167,10 +167,9 @@ void GameSelector::Update()
 }
 
 // -------------------------------------------------------------------------
-// Draw -- render the SelectorScreen reanim. The SelectorScreen_BG track
-// covers the full 800x600 space (scaled to 400x300), so no separate
-// lawn/background fallback is needed. If the reanim didn't load, fall back
-// to IMAGE_BACKGROUND1 + a title so the screen is never empty.
+// Draw -- render the SelectorScreen reanim (graveyard scene). The lawn
+// (IMAGE_BACKGROUND1) is for gameplay (Board), NOT the menu. If the reanim
+// didn't load, show a dark background + error text (not a misleading lawn).
 // -------------------------------------------------------------------------
 void GameSelector::Draw(Graphics* g)
 {
@@ -178,50 +177,29 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Session-7] ALWAYS draw the lawn background first as a base layer.
-    // The reanim's SelectorScreen_BG track will cover it once its image
-    // lazy-loads (1 image per frame, ~18 frames). Until then, the lawn
-    // shows so the screen is never purple/empty. This also helps if the
-    // reanim BG image fails to decode — there's always a fallback.
-    {
-        Image* bg = IMAGE_BACKGROUND1;
-        if (bg == NULL)
-            bg = IMAGE_TITLESCREEN;
-        if (bg == NULL && mApp && mApp->mResourceManager)
-        {
-            bg = mApp->mResourceManager->GetImage("IMAGE_BACKGROUND1");
-            if (!bg) bg = mApp->mResourceManager->GetImage("IMAGE_TITLESCREEN");
-        }
-        if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
-        {
-            MemoryImage* mem = static_cast<MemoryImage*>(bg);
-            g->DrawImage(mem, 0, 0, mWidth, mHeight);
-        }
-        else
-        {
-            g->SetColor(Color(20, 60, 30, 255));
-            g->FillRect(0, 0, mWidth, mHeight);
-            g->SetColor(Color(255, 255, 255, 255));
-        }
-    }
-
-    // [Session-6] Draw the reanim on top of the lawn. Each track's image is
-    // lazy-loaded (1 per frame) and rendered at its transform position.
+    // [Session-8] The menu IS the reanim. SelectorScreen_BG track draws the
+    // graveyard scene (dirt path, wooden signs, tombstones). The lawn
+    // (IMAGE_BACKGROUND1) is for gameplay (Board), NOT the menu.
+    // No lawn fallback — if the reanim didn't load, show a dark background
+    // + error text so we know something is wrong (not a misleading lawn).
     if (mReanimLoaded && mReanimDef.mTrackCount > 0)
     {
         mReanimPlayer.Draw(g);
-        return;  // reanim drawn on top of lawn
+        return;
     }
 
-    // Title text (fallback only, when reanim not loaded).
+    // Reanim failed to load — dark background + diagnostic text.
+    g->SetColor(Color(30, 25, 20, 255));
+    g->FillRect(0, 0, mWidth, mHeight);
+    g->SetColor(Color(255, 100, 100, 255));
+
     SystemFont* titleFont = SystemFont::Get();
     if (titleFont)
     {
         g->SetFont(titleFont);
-        g->SetColor(Color(255, 240, 200, 255));
-        const char* title = "Plants vs. Zombies";
-        int sw = titleFont->StringWidth(title);
-        g->DrawString(title, (mWidth - sw) / 2, 30);
+        const char* msg = "Reanim load failed";
+        int sw = titleFont->StringWidth(msg);
+        g->DrawString(msg, (mWidth - sw) / 2, mHeight / 2);
     }
 }
 
