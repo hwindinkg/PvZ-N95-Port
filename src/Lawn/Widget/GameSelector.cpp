@@ -141,16 +141,16 @@ GameSelector::GameSelector(LawnApp* theApp)
             wm->AddWidget(field); \
         } while (0)
 
-    MAKE_BUTTON(mAdventureButton,  GameSelector_Adventure, "[Adventure]");
-    MAKE_BUTTON(mSurvivalButton,   GameSelector_Survival,  "[Survival]");
-    MAKE_BUTTON(mMinigameButton,   GameSelector_Minigame,  "[Minigames]");
-    MAKE_BUTTON(mPuzzleButton,     GameSelector_Puzzle,    "[Puzzles]");
-    MAKE_BUTTON(mStoreButton,      GameSelector_Store,     "[Store]");
-    MAKE_BUTTON(mAlmanacButton,    GameSelector_Almanac,   "[Almanac]");
-    MAKE_BUTTON(mZenGardenButton,  GameSelector_ZenGarden, "[Zen Garden]");
-    MAKE_BUTTON(mOptionsButton,    GameSelector_Options,   "[Options]");
-    MAKE_BUTTON(mHelpButton,       GameSelector_Help,      "[Help]");
-    MAKE_BUTTON(mQuitButton,       GameSelector_Quit,      "[Quit]");
+    MAKE_BUTTON(mAdventureButton,  GameSelector_Adventure, "Adventure");
+    MAKE_BUTTON(mSurvivalButton,   GameSelector_Survival,  "Survival");
+    MAKE_BUTTON(mMinigameButton,   GameSelector_Minigame,  "Minigames");
+    MAKE_BUTTON(mPuzzleButton,     GameSelector_Puzzle,    "Puzzles");
+    MAKE_BUTTON(mStoreButton,      GameSelector_Store,     "Store");
+    MAKE_BUTTON(mAlmanacButton,    GameSelector_Almanac,   "Almanac");
+    MAKE_BUTTON(mZenGardenButton,  GameSelector_ZenGarden, "Zen Garden");
+    MAKE_BUTTON(mOptionsButton,    GameSelector_Options,   "Options");
+    MAKE_BUTTON(mHelpButton,       GameSelector_Help,      "Help");
+    MAKE_BUTTON(mQuitButton,       GameSelector_Quit,      "Quit");
     #undef MAKE_BUTTON
 
     mToolTip = new ToolTipWidget();
@@ -172,12 +172,19 @@ GameSelector::GameSelector(LawnApp* theApp)
         b.Format(_L8("GS:reanim loaded: %d tracks, FPS=%.1f\n"),
                  mReanimDef.mTrackCount, mReanimDef.mFPS);
         GSLog(b);
-        // Log first 5 track names for verification
-        for (int i = 0; i < mReanimDef.mTrackCount && i < 5; i++)
+        // [Stage-1 diagnostic] Dump EVERY track name + transform count so the
+        // next session can map reanim tracks to menu buttons (Adventure /
+        // Survival / Options / Quit / ...). The upstream GameSelector positions
+        // buttons by reading each track's transform via FindTrackIndex, so
+        // knowing the exact names is the prerequisite for 1:1 button hit-zones.
+        // (Previously only the first 5 were logged.)
+        for (int i = 0; i < mReanimDef.mTrackCount; i++)
         {
-            TBuf8<128> tb;
-            tb.Format(_L8("  track[%d]: name='%s' xforms=%d\n"), i,
-                      (const TUint8*)(mReanimDef.mTracks[i].mName ? mReanimDef.mTracks[i].mName : "(null)"),
+            TBuf8<160> tb;
+            const char* nm = mReanimDef.mTracks[i].mName
+                             ? mReanimDef.mTracks[i].mName : "(null)";
+            tb.Format(_L8("  track[%d]: '%s' xforms=%d\n"), i,
+                      (const TUint8*)nm,
                       mReanimDef.mTracks[i].mTransformCount);
             GSLog(tb);
         }

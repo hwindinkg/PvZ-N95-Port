@@ -164,6 +164,25 @@ textured-triangle rendering, and per-draw alpha modulation (the port's
 `Graphics::SetColorizeImages` is a stub). These arrive with the full
 `Reanimator.cpp` / `EffectSystem.cpp` Stage-2 ports.
 
+#### Fix 3: SystemFont `)` glyph + button-label brackets
+
+- **`)` glyph bug:** `kGlyphs8x8[')']` was a byte-for-byte copy of `(` with a
+  comment claiming "mirror handled in draw" — but `DrawString` has no mirror
+  logic, so `)` rendered as `(`. Fixed to the correct horizontal mirror
+  (`{0x70,0xD8,0x18,0x18,0x18,0xD8,0x70,0x00}`). The other 95 glyphs are the
+  standard public-domain 8×8 set and were already correct; the "garbled text"
+  symptom was actually the bracket prefix (below), not a glyph bug.
+- **Button-label brackets:** the 10 stub `GameButton`s were labelled
+  `"[Adventure]"`, `"[Survival]"`, etc. The leading `[` (ASCII 91) rendered as
+  a bracket shape that read as a "mirrored-L prefix" — this was misdiagnosed in
+  the session-3 notes as a char-mapping bug. Removed the brackets (labels are
+  now `"Adventure"`, `"Survival"`, …), which is also more 1:1: upstream uses
+  empty labels with text baked into the sprite images.
+
+Also: the GameSelector constructor now dumps **every** reanim track name +
+transform count to `gs_log.txt` (was only the first 5), so the next session can
+map reanim tracks to menu buttons for 1:1 hit-zone positioning.
+
 ### Effect on the menu (expected on-device)
 
 With both fixes + ReanimPlayer, `GameSelector::Draw` now renders every track
