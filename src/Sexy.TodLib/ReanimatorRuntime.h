@@ -79,8 +79,8 @@ public:
     ReanimTrackInst* mTrackInstances; // per-track runtime state
     float                   mLastFrameTime;
 
-    Reanimation();
-    ~Reanimation();
+    Reanim2();
+    ~Reanim2();
 
     // -- Setup ----------------------------------------------------------
     void  ReanimationInitialize(float x, float y, ReanimDefinition* def);
@@ -117,7 +117,7 @@ public:
 // ===========================================================================
 // class ReanimHolder2 — manages active Reanimations (port of EffectSystem)
 // ===========================================================================
-ReanimHolder2
+class ReanimHolder2
 {
 public:
     static const int MAX_REANIMATIONS = 64;
@@ -145,8 +145,8 @@ private:
 class EffectSystem2
 {
 public:
-    EffectSystem();
-    ~EffectSystem();
+    EffectSystem2();
+    ~EffectSystem2();
 
     ReanimHolder2* mReanimHolder2;
 

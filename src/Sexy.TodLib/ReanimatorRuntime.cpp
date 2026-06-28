@@ -43,7 +43,7 @@ static int FloatRoundToInt(float f) { return (int)(f >= 0 ? f + 0.5f : f - 0.5f)
 // ===========================================================================
 // Reanimation
 // ===========================================================================
-Reanim2::Reanimation()
+Reanim2::Reanim2()
     : mDefinition(NULL)
     , mAnimTime(0.0f)
     , mAnimRate(0.0f)
@@ -62,7 +62,7 @@ Reanim2::Reanimation()
 {
 }
 
-Reanim2::~Reanimation()
+Reanim2::~Reanim2()
 {
     if (mTrackInstances)
         delete[] mTrackInstances;
@@ -490,7 +490,7 @@ Reanim2* ReanimHolder2::AllocReanimation(float x, float y, int renderOrder,
     {
         if (mReanimations[i] == NULL)
         {
-            Reanim2* r = new Reanimation();
+            Reanim2* r = new Reanim2();
             if (!r) return NULL;
             r->ReanimationInitialize(x, y, def);
             r->mRenderOrder = renderOrder;
@@ -564,12 +564,12 @@ void ReanimHolder2::Clear()
 // ===========================================================================
 EffectSystem2* gEffectSystem2 = NULL;
 
-EffectSystem2::EffectSystem()
+EffectSystem2::EffectSystem2()
     : mReanimHolder2(NULL)
 {
 }
 
-EffectSystem2::~EffectSystem()
+EffectSystem2::~EffectSystem2()
 {
     EffectSystemDispose();
 }
