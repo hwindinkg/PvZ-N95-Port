@@ -455,6 +455,10 @@ void Graphics::DrawImage(MemoryImage* img, int x, int y)
         return;
     }
 
+    // [Session-12] Ensure blending is enabled for transparency.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     ApplyClipRect();
 
     mGL->SetTexture(texID);
@@ -497,6 +501,12 @@ void Graphics::DrawImage(MemoryImage* img, int dstX, int dstY, int dstW, int dst
         SetColor(old);
         return;
     }
+
+    // [Session-12] Ensure blending is enabled for transparency. FillRect
+    // may have disabled it (or a previous draw left GL state inconsistent).
+    // On the N95 MBX, GL_BLEND state can get lost between frames.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     ApplyClipRect();
 
@@ -591,6 +601,10 @@ void Graphics::DrawImageScaledSrcRect(MemoryImage* img, int dstX, int dstY,
         SetColor(old);
         return;
     }
+
+    // [Session-12] Ensure blending is enabled for transparency.
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     ApplyClipRect();
 

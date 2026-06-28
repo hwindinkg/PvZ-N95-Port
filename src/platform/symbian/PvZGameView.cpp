@@ -291,7 +291,11 @@ void CPvZGameView::RenderFrame(LawnApp* theApp)
     if (!eglMakeCurrent(iEglDisplay, iEglSurface, iEglSurface, iEglContext))
     { Log(_L("RF:makeCurrent FAIL")); return; }
 
-    glClearColor(0.15f, 0.05f, 0.20f, 1.0f);
+    // [Session-12] Clear to BLACK (not purple 0.15,0.05,0.20). The purple
+    // clear was a debug colour from earlier sessions — it showed through
+    // when no content was drawn (first frame, or before textures loaded).
+    // Black matches the PopCap logo background and is less jarring.
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     if (fc <= 3) Log(_L("RF:Calling UpdateFrames"));

@@ -156,7 +156,10 @@ void GLInterface::SetupGLState()
     // Texture environment: modulate texture with vertex colour
     glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 
-    // Default clear colour (black)
+    // Default clear colour (black) — [Session-12] was (0,0,0,1) which is
+    // correct, but some frames showed purple because the clear colour was
+    // being overridden. Keep it black so frames without content show black
+    // (not purple).
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     // Set up orthographic projection matching PvZ logical coords (400x300)
