@@ -50,6 +50,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <e32debug.h>
 
 // ===========================================================================
 // Sentinel returned by ParseFloat when the field is not present in the XML.
@@ -685,16 +686,47 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
 {
     if (!mDefinition || !g)
         return;
+
+    // [Session-8] One-time diagnostic: log which tracks have image names and
+    // whether they resolved. Written to gs_log.txt on the FIRST Draw call.
+    static TBool sFirstDraw = ETrue;
+    if (sFirstDraw)
+    {
+        sFirstDraw = EFalse;
+        RFs fs; RFile f;
+        if (fs.Connect() == KErrNone)
+        {
+            fs.MkDirAll(_L("C:\\Data\\PvZ"));
+            if (f.Open(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
+                       EFileWrite | EFileShareAny) == KErrNone)
+            {
+                TInt pos = 0; f.Seek(ESeekEnd, pos);
+                for (int i = 0; i < mDefinition->mTrackCount; i++)
+                {
+                    ReanimTrack& tr = mDefinition->mTracks[i];
+                    if (tr.mTransformCount <= 0) continue;
+                    ReanimTransform& xf = tr.mTransforms[0];
+                    if (xf.mImageName && xf.mImageName[0] != '\0')
+                    {
+                        TBuf8<160> line;
+                        const char* nm = tr.mName ? tr.mName : "(null)";
+                        const char* img = xf.mImageName ? xf.mImageName : "(null)";
+                        line.Format(_L8("RP:track[%d] '%s' img='%s' x=%.0f y=%.0f sx=%.2f sy=%.2f\n"),
+                                    i, (const TUint8*)nm, (const TUint8*)img,
+                                    xf.mTransX, xf.mTransY, xf.mScaleX, xf.mScaleY);
+                        f.Write(line);
+                    }
+                }
+                f.Flush();
+                f.Close();
+            }
+            fs.Close();
+        }
+    }
+
     // Reanim coordinate space is 800x600; mCoordScale (default 0.5) maps to
     // the port's 400x300 logical canvas. Per-track trans/scale are applied in
     // reanim space, then the whole thing is scaled to screen.
-    //
-    // [Session-7] Limit lazy-loading to 1 image per frame. The N95 has ~8MB
-    // of GL video memory; loading 18 menu images at once (each needing a 4MB
-    // POT buffer during upload) exhausts the heap and GL texture creation
-    // starts returning 0. By loading only 1 image per frame, the images
-    // appear progressively over ~18 frames (0.6s at 30fps) without OOM.
-    int imagesLoadedThisFrame = 0;
     for (int i = 0; i < mDefinition->mTrackCount; i++)
     {
         ReanimTrack& track = mDefinition->mTracks[i];
@@ -704,20 +736,35 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
         if (!GetCurrentTransform(i, t))
             continue;
 
-        // [Session-5] Lazy-load the image on first render. During parsing we
-        // only stored the image NAME (to avoid 14+ ICL decodes during the
-        // constructor -> OOM). Now, once per unique name, resolve it via the
-        // ResourceManager cache. If the decode fails, GetImage returns NULL
-        // and we cache the NULL in mTransforms[active].mImage so we don't
-        // retry the failed decode every frame.
+        // Lazy-load: resolve the image NAME to an Image* via ResourceManager
+        // on first render. Cached in the keyframe so we don't retry.
         if (!t.mImage && t.mImageName && t.mImageName[0] != '\0')
         {
-            // [Session-7] Only load 1 image per frame to avoid OOM.
-            if (imagesLoadedThisFrame >= 1)
-                continue;
             if (gResourceManager)
                 t.mImage = gResourceManager->GetImage(t.mImageName);
-            imagesLoadedThisFrame++;
+            // [Session-8] Log the result (one-time per track).
+            static int sLoadLogCount = 0;
+            if (sLoadLogCount < 20)
+            {
+                sLoadLogCount++;
+                RFs fs; RFile f;
+                if (fs.Connect() == KErrNone)
+                {
+                    if (f.Open(fs, _L("C:\\Data\\PvZ\\gs_log.txt"),
+                               EFileWrite | EFileShareAny) == KErrNone)
+                    {
+                        TInt pos = 0; f.Seek(ESeekEnd, pos);
+                        TBuf8<160> line;
+                        line.Format(_L8("RP:load '%s' -> %08x\n"),
+                                    (const TUint8*)(t.mImageName ? t.mImageName : "(null)"),
+                                    (TUint)t.mImage);
+                        f.Write(line);
+                        f.Flush();
+                        f.Close();
+                    }
+                    fs.Close();
+                }
+            }
             // Write the resolved pointer back into the active keyframe so
             // subsequent frames skip the GetImage call.
             int n = track.mTransformCount;
@@ -749,10 +796,6 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
         if (sw < 1.0f || sh < 1.0f)
             continue;
 
-        // NOTE: per-image alpha modulation (t.mAlpha) is not applied here --
-        // the port's Graphics::SetColorizeImages is a stub and there is no
-        // per-draw alpha API. Most menu elements are opaque, so this only
-        // affects fade transitions. Revisit when Graphics gains alpha support.
         Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(t.mImage);
         g->DrawImage(mem, (int)sx, (int)sy, (int)sw, (int)sh);
     }
