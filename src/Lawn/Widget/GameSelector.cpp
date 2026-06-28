@@ -159,13 +159,26 @@ GameSelector::GameSelector(LawnApp* theApp)
 
     GSLog(_L8("GS:ctor buttons created and added to WidgetManager\n"));
 
-    // [M4 reanim] Load SelectorScreen.reanim (XML version) for 1:1 menu.
+    // [Stage-1] Load SelectorScreen.reanim (XML version) for 1:1 menu.
     // Uses XML instead of .compiled because the compiled binary format has
     // architecture-dependent struct sizes (64-bit pointers from PC build
     // are incompatible with N95's 32-bit ARM). The XML is 328KB but
     // architecture-independent.
-    mReanimLoaded = ReanimLoadCompiled(
-        "reanim/SelectorScreen.reanim", mReanimDef);
+    //
+    // [Session-5 fix] TRAP the reanim load so a Symbian Leave (OOM during
+    // User::Alloc or new[]) doesn't propagate through LoadingCompleted and
+    // crash the app. If it Leaves, we fall back to the IMAGE_BACKGROUND1
+    // menu (still functional, just not animated reanim).
+    mReanimLoaded = EFalse;
+    TRAPD(reanimErr, mReanimLoaded = ReanimLoadCompiled(
+        "reanim/SelectorScreen.reanim", mReanimDef));
+    if (reanimErr != KErrNone)
+    {
+        TBuf8<96> eb;
+        eb.Format(_L8("GS:reanim LEAVED err=%d — falling back\n"), reanimErr);
+        GSLog(eb);
+        mReanimLoaded = EFalse;
+    }
     if (mReanimLoaded)
     {
         TBuf8<80> b;
@@ -340,18 +353,12 @@ void GameSelector::Draw(Graphics* g)
 
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Stage-1] If SelectorScreen.reanim loaded, render the animated menu via
-    // ReanimPlayer. This draws every track (background, gravestone, wooden
-    // signs, button sprites, clouds, flowers, logo, etc.) at the interpolated
-    // transform for the current mAnimTime, scaled from the reanim's 800x600
-    // space to the 400x300 canvas (ReanimPlayer::mCoordScale = 0.5).
-    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
-    {
-        mReanimPlayer.Draw(g);
-        return;  // reanim rendered, skip fallback
-    }
-
-    // -- Fallback: IMAGE_BACKGROUND1 (lawn) or IMAGE_TITLESCREEN --
+    // [Session-5 fix] ALWAYS draw the lawn background first, THEN the reanim
+    // on top. Previously, if the reanim loaded but its images hadn't been
+    // lazy-resolved yet (first few frames), ReanimPlayer::Draw rendered
+    // nothing and the early `return` left the screen showing the GL clear
+    // colour (purple). Now: lawn always shows as a base; reanim sprites
+    // appear progressively as their images load across frames.
     Image* bg = IMAGE_BACKGROUND1;
     if (bg == NULL)
         bg = IMAGE_TITLESCREEN;
@@ -368,12 +375,23 @@ void GameSelector::Draw(Graphics* g)
     }
     else
     {
+        // Last-resort: dark green fill so the screen is never purple/empty.
         g->SetColor(Color(20, 60, 30, 255));
         g->FillRect(0, 0, mWidth, mHeight);
+        g->SetColor(Color(255, 255, 255, 255));
     }
 
-    // Title text -- use SystemFont (8x8 bitmap fallback) since PvZ font assets
-    // are not in the PAK (M4 #4). FONT_DWARVEN is NULL in this port.
+    // [Stage-1] Draw the animated reanim menu ON TOP of the lawn background.
+    // Each track's image is lazy-loaded on first render (one image per frame,
+    // spread across frames to avoid OOM). The SelectorScreen_BG track will
+    // cover the lawn once its image loads; until then the lawn shows through.
+    if (mReanimLoaded && mReanimDef.mTrackCount > 0)
+    {
+        mReanimPlayer.Draw(g);
+        return;  // reanim drawn on top of lawn; skip title text
+    }
+
+    // Title text (fallback only, when reanim not loaded).
     SystemFont* titleFont = SystemFont::Get();
     if (titleFont)
     {

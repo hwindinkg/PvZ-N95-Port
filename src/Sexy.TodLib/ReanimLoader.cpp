@@ -232,12 +232,15 @@ ReanimDefinition::~ReanimDefinition()
         {
             for (int j = 0; j < mTracks[i].mTransformCount; j++)
             {
+                if (mTracks[i].mTransforms[j].mImageName &&
+                    mTracks[i].mTransforms[j].mImageName[0] != '\0')
+                    delete[] (char*)mTracks[i].mTransforms[j].mImageName;
                 if (mTracks[i].mTransforms[j].mFontName &&
                     mTracks[i].mTransforms[j].mFontName[0] != '\0')
-                    delete[] mTracks[i].mTransforms[j].mFontName;
+                    delete[] (char*)mTracks[i].mTransforms[j].mFontName;
                 if (mTracks[i].mTransforms[j].mText &&
                     mTracks[i].mTransforms[j].mText[0] != '\0')
-                    delete[] mTracks[i].mTransforms[j].mText;
+                    delete[] (char*)mTracks[i].mTransforms[j].mText;
             }
             delete[] mTracks[i].mTransforms;
         }
@@ -320,6 +323,15 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
 
     outDefinition.mTrackCount = trackCount;
     outDefinition.mTracks = new ReanimTrack[trackCount];
+    if (!outDefinition.mTracks)
+    {
+        // [Session-5] OOM — new returns NULL under this port's operator new
+        // (newdel_compat.cpp: User::Alloc, no throw). Without this check the
+        // memset below would NULL-deref → KERN-EXEC 3.
+        User::Free(xmlBuf);
+        outDefinition.mTrackCount = 0;
+        return EFalse;
+    }
     // Zero-init the track array so mName/mTransforms are NULL if a track fails.
     memset(outDefinition.mTracks, 0, sizeof(ReanimTrack) * trackCount);
 
@@ -373,6 +385,13 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
             if (tCount > 0)
             {
                 outDefinition.mTracks[i].mTransforms = new ReanimTransform[tCount];
+                if (!outDefinition.mTracks[i].mTransforms)
+                {
+                    // [Session-5] OOM — skip this track's transforms rather
+                    // than NULL-deref. The track still has a name + count 0.
+                    outDefinition.mTracks[i].mTransformCount = 0;
+                    continue;
+                }
                 // new[] runs ReanimTransform's ctor (sets numeric defaults +
                 // mImage=NULL, mFontName="", mText=""). Do NOT memset -- that
                 // would clobber the ctor work.
@@ -415,6 +434,7 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     t.mScaleX = 1; t.mScaleY = 1;
                     t.mFrame = 0;  t.mAlpha = 255;
                     t.mImage = NULL;
+                    t.mImageName = "";
                     t.mFontName = "";
                     t.mText = "";
 
@@ -429,25 +449,35 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     v = ParseFloat(tBuf, tBufLen, "f");  if (v != KFieldNotFound) t.mFrame = v;
                     v = ParseFloat(tBuf, tBufLen, "a");  if (v != KFieldNotFound) t.mAlpha = v;
 
-                    // Image: <i>NAME</i> -- load via ResourceManager.
-                    // Treat "NULL" / empty as no image (upstream convention).
+                    // Image: <i>NAME</i> -- [Session-5 fix] store the NAME only,
+                    // do NOT load the image during parsing. Previously, GetImage
+                    // was called for every <i> tag during the constructor, which
+                    // triggered 14+ ICL image decodes (each opening a CImageDecoder
+                    // + allocating CFbsBitmaps). This caused OOM → Symbian Leave
+                    // → LoadingCompleted never returned → state machine re-entered
+                    // 35× → cascading OOM + purple screen.
+                    //
+                    // Now the parser just stores the name string (owned by the
+                    // transform, freed by the dtor). ReanimPlayer::Draw lazily
+                    // resolves the name to an Image* via ResourceManager::GetImage
+                    // on first render — images load one-per-frame (spread across
+                    // many frames) and the ResourceManager cache prevents
+                    // re-decoding.
                     const char* imgName = ParseString(tBuf, tBufLen, "i");
                     if (imgName && imgName[0] != '\0' &&
                         strcmp(imgName, "NULL") != 0)
                     {
-                        if (gResourceManager)
-                            t.mImage = gResourceManager->GetImage(imgName);
-                        // ParseString allocated a char[] for this non-empty
-                        // name; free it now that we've resolved the image ptr.
-                        delete[] imgName;
+                        t.mImageName = imgName; // transfer ownership of the char[]
+                        t.mImage = NULL;        // lazy-load in Draw
                     }
-                    else if (imgName && imgName[0] != '\0')
+                    else
                     {
-                        // It was the literal "NULL" string -- ParseString
-                        // allocated it, so free it.
-                        delete[] imgName;
+                        // It was "" (literal) or "NULL" -- free if allocated.
+                        if (imgName && imgName[0] != '\0')
+                            delete[] imgName; // "NULL" case
+                        t.mImageName = "";
+                        t.mImage = NULL;
                     }
-                    // else: imgName == "" (static literal) -- nothing to free.
 
                     // Font + text (owned by the transform, freed by dtor).
                     t.mFontName = ParseString(tBuf, tBufLen, "font");
@@ -665,6 +695,37 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
         ReanimTransform t;
         if (!GetCurrentTransform(i, t))
             continue;
+
+        // [Session-5] Lazy-load the image on first render. During parsing we
+        // only stored the image NAME (to avoid 14+ ICL decodes during the
+        // constructor → OOM). Now, once per unique name, resolve it via the
+        // ResourceManager cache. If the decode fails, GetImage returns NULL
+        // and we cache the NULL in mTransforms[active].mImage so we don't
+        // retry the failed decode every frame.
+        if (!t.mImage && t.mImageName && t.mImageName[0] != '\0')
+        {
+            if (gResourceManager)
+                t.mImage = gResourceManager->GetImage(t.mImageName);
+            // Write the resolved pointer back into the active keyframe so
+            // subsequent frames skip the GetImage call. (The active keyframe
+            // is the one GetCurrentTransform copied image/font/text from.)
+            ReanimTransform* activeXf = NULL;
+            int n = track.mTransformCount;
+            float frame = mAnimTime * mDefinition->mFPS;
+            int activeIdx = 0;
+            if (frame <= track.mTransforms[0].mFrame)
+                activeIdx = 0;
+            else if (frame >= track.mTransforms[n - 1].mFrame)
+                activeIdx = n - 1;
+            else
+            {
+                for (activeIdx = 0; activeIdx < n - 1; activeIdx++)
+                    if (frame < track.mTransforms[activeIdx + 1].mFrame)
+                        break;
+            }
+            track.mTransforms[activeIdx].mImage = t.mImage;
+        }
+
         if (!t.mImage)
             continue;
 

@@ -63,6 +63,134 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ---
 
+## Current status (2026-06-28, session 5) — purple screen + crash fixed
+
+### On-device symptoms (from uploaded logs)
+
+After the session-4 fixes, the on-device behaviour was:
+1. Loading bar still rendered as a strip (pre-existing visual issue)
+2. After click-to-start: **purple screen** with only the Quit button visible
+   (top-left corner)
+3. D-pad cursor no longer appeared
+4. Pressing d-pad buttons → game closed (crash)
+
+### Root cause analysis (from gs_log, boot.log, rmgr_log, draw_progress)
+
+**The `LoadingCompleted()` state machine had a re-entry bug that caused
+35× GameSelector construction → cascading OOM → purple screen → crash.**
+
+1. `HandleKeyEventL` set `iLoadingState = 3` **AFTER** calling
+   `LoadingCompleted()`. If `LoadingCompleted()` Leaves (Symbian OOM
+   exception) or crashes, the `iLoadingState = 3` line is never reached.
+2. The Symbian framework catches the Leave and dispatches the next queued
+   key event. `iLoadingState` is still 2, so the state-2 block fires again.
+3. Each re-entry creates a new `GameSelector` (10 buttons + reanim load).
+   The gs_log confirmed: **35 "GS:ctor buttons created" lines, 0
+   "GS:reanim loaded" lines** — the constructor never finished.
+4. The rmgr_log confirmed: `IMAGE_REANIM_SELECTORSCREEN_CLOUD1` decode
+   started (`[dec] DataNewL` → `frame 220x206` → `EColor16M + alpha mask`)
+   but **never completed** — repeated 9+ times. OOM during ICL decode.
+5. 35 constructors × 328KB XML buffer + 14 image decodes each → heap
+   exhaustion → KERN-EXEC 3.
+6. The purple screen was the GL clear colour showing through because
+   `ReanimPlayer::Draw` rendered nothing (images not yet loaded) and then
+   `return`ed, skipping the lawn background fallback.
+7. The draw_progress confirmed: 35 sets of 11 widgets (different pointers)
+   = 35 GameSelectors, all buttons at (0,0) because `ShowGameSelector`'s
+   `Resize` line was never reached (constructor Left first).
+
+### Fixes (3 commits)
+
+#### Fix 1: State machine — set state BEFORE the call + TRAP (`PvZAppUi.cpp`)
+
+```cpp
+// BEFORE (broken):
+iLawnApp->LoadingCompleted();  // ← Leaves here on OOM
+iLoadingState = 3;             // ← never reached
+
+// AFTER (fixed):
+iLoadingState = 3;             // ← one-shot transition, always runs
+TRAPD(err, iLawnApp->LoadingCompleted());  // ← Leave caught
+```
+
+This makes the click-to-start → menu transition **one-shot**: regardless of
+whether `LoadingCompleted` succeeds, Leaves, or crashes, `iLoadingState` is
+already 3 so no queued key event can re-trigger it. The TRAP also ensures
+`HandleKeyEventL` itself never Leaves (which would propagate to the
+framework's `RunL` and could destabilise the app).
+
+#### Fix 2: Defer reanim image loading to first Draw (`ReanimLoader.h/.cpp`)
+
+**Root cause of the OOM:** `ReanimLoadCompiled` called
+`gResourceManager->GetImage(imgName)` for **every** `<i>` tag during
+parsing — 14+ ICL image decodes (each opening a `CImageDecoder` +
+allocating `CFbsBitmap` for color + mask + ARGB output) all within the
+`GameSelector` constructor. This is what caused the OOM → Leave →
+re-entry cascade.
+
+**Fix:** the parser now **stores the image name string only** (`mImageName`
+field added to `ReanimTransform`) and sets `mImage = NULL`. The
+`ReanimPlayer::Draw` method **lazily resolves** the name to an `Image*`
+via `ResourceManager::GetImage` on first render. Benefits:
+- The constructor does zero image decoding (just XML parsing + array alloc)
+- Images load one-per-frame (spread across many frames, no OOM spike)
+- The `ResourceManager` cache prevents re-decoding the same image
+- If an image fails to decode, `GetImage` returns NULL and it's cached as
+  NULL in the keyframe so we don't retry every frame
+- The lawn background always shows as a base (no purple screen)
+
+#### Fix 3: TRAP the reanim load + NULL checks (`GameSelector.cpp`,
+`ReanimLoader.cpp`)
+
+- `GameSelector` constructor wraps `ReanimLoadCompiled` in `TRAPD` — if it
+  Leaves, the constructor completes with `mReanimLoaded = false` and falls
+  back to the lawn+buttons menu (still functional, just not animated reanim).
+- `ReanimLoadCompiled` checks `new` results for NULL (this port's `operator
+  new` returns NULL on OOM, not throws/Leaves — see `newdel_compat.cpp`).
+  Previously a NULL `new ReanimTrack[48]` would be `memset`'d → KERN-EXEC 3.
+
+#### Fix 4: Always draw lawn background before reanim (`GameSelector.cpp`)
+
+`GameSelector::Draw` now **always** draws `IMAGE_BACKGROUND1` (or
+`IMAGE_TITLESCREEN` fallback, or dark-green fill last-resort) as the base
+layer, then draws the reanim on top. Previously, if the reanim loaded but
+its images hadn't been lazy-resolved yet (first few frames),
+`ReanimPlayer::Draw` rendered nothing and the early `return` left the
+screen showing the purple GL clear colour. Now the lawn always shows; the
+`SelectorScreen_BG` track covers it once that image loads (a few frames
+in).
+
+### Expected on-device behaviour after these fixes
+
+1. Click-to-start transitions to the menu **once** (no 35× re-entry)
+2. The lawn background is always visible (no purple screen)
+3. Reanim sprites appear progressively over the first ~14 frames as their
+   images lazy-load (background → gravestone → signs → buttons → clouds)
+4. The menu animates (clouds drift, flowers sway) via `ReanimPlayer`
+5. The 10 stub buttons are positioned by `LayoutButtons` (now that the
+   constructor completes and `ShowGameSelector`'s `Resize` runs)
+6. No crash on d-pad input
+
+### What is NOT fixed yet (carried forward)
+
+- The loading bar still renders as a strip (pre-existing TitleScreen visual
+  issue — the grass-bar clip/scale logic needs fixing, separate from this
+  crash).
+- The 10 stub buttons still draw on top of the reanim menu (need to be
+  replaced with reanim sprite hit-zones — next step, now that the track
+  names are correctly dumped to gs_log).
+- D-pad cursor visibility (the cursor was disabled by the crash cascade;
+  should work now that the state machine is fixed, but needs on-device
+  verification).
+
+### Build/test history (session 5)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| (this) | Fix state machine re-entry + lazy image loading + TRAP + NULL checks | Pending on-device build |
+
+---
+
 ## Current status (2026-06-28, session 4) — ReanimLoader XML parser fixed
 
 ### What was done this session

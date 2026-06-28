@@ -35,13 +35,14 @@ struct ReanimTransform
     // DT_IMAGE: loaded separately (image name string follows in stream)
     // DT_FONT: loaded separately (font name string follows in stream)
     // DT_STRING: loaded separately (text string follows in stream)
-    Sexy::Image* mImage;   // resolved image (or NULL)
+    Sexy::Image* mImage;   // resolved image (or NULL until lazy-loaded in Draw)
+    const char*  mImageName; // image resource name (e.g. "IMAGE_REANIM_..."), or ""
     const char*  mFontName; // font resource name (or "")
     const char*  mText;     // text string (or "")
 
     ReanimTransform() : mTransX(0), mTransY(0), mSkewX(0), mSkewY(0),
         mScaleX(1), mScaleY(1), mFrame(0), mAlpha(255),
-        mImage(NULL), mFontName(""), mText("") {}
+        mImage(NULL), mImageName(""), mFontName(""), mText("") {}
 };
 
 // ReanimTrack — named animation track with array of transforms

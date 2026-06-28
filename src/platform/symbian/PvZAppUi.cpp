@@ -250,12 +250,28 @@ TKeyResponse CPvZAppUi::HandleKeyEventL(const TKeyEvent& aKeyEvent, TEventCode a
     if (!iLawnApp || !iLawnApp->mWidgetManager) return EKeyWasNotConsumed;
 
     // [M4 #1] "Click to Start" -- in loading state 2, any key advances to menu.
+    // [Session-5 fix] Set iLoadingState = 3 BEFORE calling LoadingCompleted.
+    // Previously, LoadingCompleted() was Leaving (OOM during reanim image load),
+    // which skipped the iLoadingState = 3 line, so every queued key event
+    // re-entered state 2 and created another GameSelector (35× → cascading OOM
+    // + purple screen). Setting state first makes the transition one-shot
+    // regardless of whether LoadingCompleted succeeds, Leaves, or crashes.
+    // The TRAP catches any Leave so HandleKeyEventL itself never Leaves.
     if (iLoadingState == 2 && aType == EEventKeyDown)
     {
-        Log(_L("step: click to start -> LoadingCompleted"));
-        iLawnApp->LoadingCompleted();
-        Log(_L("step: LoadingCompleted returned OK"));
         iLoadingState = 3;
+        Log(_L("step: click to start -> LoadingCompleted"));
+        TRAPD(err, iLawnApp->LoadingCompleted());
+        if (err != KErrNone)
+        {
+            TBuf8<80> b;
+            b.Format(_L8("step: LoadingCompleted LEAVED err=%d\n"), err);
+            Log(b);
+        }
+        else
+        {
+            Log(_L("step: LoadingCompleted returned OK"));
+        }
         return EKeyWasConsumed;
     }
 
