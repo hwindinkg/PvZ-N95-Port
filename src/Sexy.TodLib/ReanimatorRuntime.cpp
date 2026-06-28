@@ -378,17 +378,13 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     if (aImageAlpha > 255) aImageAlpha = 255;
     if (aImageAlpha <= 0) return false;
 
-    // [Session-13] Center-based positioning (matches upstream ReanimBltMatrix).
-    // The reanim uses CENTER-ORIGIN coordinates: (0,0) = center of 800×600.
-    // Upstream AddReanimation(0.5f, 0.5f, ...) sets mX=400, mY=300 (screen center).
-    float imgW = t.mImage->GetWidth();
-    float imgH = t.mImage->GetHeight();
-    float scaledW = imgW * t.mScaleX * mScaleX;
-    float scaledH = imgH * t.mScaleY * mScaleY;
-
-    // posX = mX + transX - scaledW/2  (top-left in reanim space)
-    float posX = mX + t.mTransX - scaledW * 0.5f;
-    float posY = mY + t.mTransY - scaledH * 0.5f;
+    // [Session-13] Position = (mX + transX, mY + transY) — NO center offset.
+    // Upstream ReanimBltMatrix: pivot(celW/2) * transform(scale, trans) * overlay
+    // = [sx 0 tx+sx*celW/2; 0 sy ty+sy*celH/2]
+    // Then: aPosX = m02 - sx*srcW*0.5 = tx + sx*celW/2 - sx*srcW/0.5 = tx
+    // (since celW = srcW for non-atlas images). So position = (transX, transY).
+    float posX = mX + t.mTransX;
+    float posY = mY + t.mTransY;
 
     // Scale to canvas (×0.5: reanim 800×600 → canvas 400×300)
     float cx = posX * 0.5f;
