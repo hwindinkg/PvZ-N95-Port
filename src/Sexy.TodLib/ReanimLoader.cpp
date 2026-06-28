@@ -1,8 +1,40 @@
 /*
- * ReanimLoader.cpp -- minimal .reanim.compiled file loader for Symbian port.
+ * ReanimLoader.cpp -- .reanim.compiled file loader for Symbian port.
  *
  * Parses PopCap compiled reanimation binary format.
  * Based on upstream Definition.cpp DefMapReadFromCache logic.
+ *
+ * Binary format (reverse-engineered from Definition.cpp):
+ * 1. Raw ReanimatorDefinition struct (16 bytes on 32-bit):
+ *    - [0] mTracks.tracks (ptr, 4 bytes, ignored)
+ *    - [4] mTracks.count (int, 4 bytes) = track count
+ *    - [8] mFPS (float, 4 bytes)
+ *    - [12] mReanimAtlas (ptr, 4 bytes, NULL)
+ * 2. Track array fixup:
+ *    a. int defSize (sizeof(ReanimatorTrack) on desktop, ~12 bytes)
+ *    b. Raw track data: defSize * trackCount bytes
+ *       Per track (offsets within raw data):
+ *       - [0] mName (ptr, 4 bytes, ignored)
+ *       - [4] mTransforms.mTransforms (ptr, 4 bytes, ignored)
+ *       - [8] mTransforms.count (int, 4 bytes) = transform count
+ *    c. Per track fixup:
+ *       - DT_STRING "name": int len + chars
+ *       - DT_ARRAY "t" (transforms):
+ *         i.  int transDefSize (sizeof(ReanimatorTransform) on desktop)
+ *         ii. Raw transform data: transDefSize * transformCount bytes
+ *             Per transform (first 32 bytes are floats):
+ *             - [0]  mTransX (float)
+ *             - [4]  mTransY (float)
+ *             - [8]  mSkewX (float)
+ *             - [12] mSkewY (float)
+ *             - [16] mScaleX (float)
+ *             - [20] mScaleY (float)
+ *             - [24] mFrame (float)
+ *             - [28] mAlpha (float)
+ *         iii. Per transform fixup:
+ *              - DT_IMAGE "i": int len + chars (image name)
+ *              - DT_FONT "font": int len + chars (font name)
+ *              - DT_STRING "text": int len + chars (text)
  */
 #include "ReanimLoader.h"
 #include "../engine/PvZVfs.h"
@@ -11,10 +43,6 @@
 #include "../engine/MemoryImage.h"
 #include "../engine/ResourceManager.h"
 
-// miniz.h includes stdio.h (for FILE*) which conflicts with Common.h's
-// C++ linkage declarations of sprintf/vsprintf. Define MINIZ_NO_STDIO to
-// prevent stdio.h inclusion (we only need mz_uncompress, not file I/O).
-// Also define MINIZ_NO_ARCHIVE_APIS to skip ZIP archive code.
 #define MINIZ_NO_STDIO
 #define MINIZ_NO_ARCHIVE_APIS
 #define MINIZ_NO_ARCHIVE_WRITING_APIS
@@ -28,35 +56,44 @@ extern "C" {
 // ===========================================================================
 // SMemR — read raw bytes from buffer, advance pointer (matches upstream)
 // ===========================================================================
-static void SMemR(void*& aSrc, void* aDst, int aSize)
+static inline void SMemR(void*& aSrc, void* aDst, int aSize)
 {
     memcpy(aDst, aSrc, aSize);
     aSrc = (void*)((unsigned char*)aSrc + aSize);
 }
 
-static char* SMemRStr(void*& aSrc)
+// Read a length-prefixed string from the fixup stream
+static char* ReadFixupString(void*& aPtr, void* aEnd)
 {
+    if ((unsigned char*)aPtr + 4 > (unsigned char*)aEnd)
+        return (char*)"";
     int len = 0;
-    SMemR(aSrc, &len, sizeof(int));
+    SMemR(aPtr, &len, 4);
     if (len <= 0)
         return (char*)"";
+    if ((unsigned char*)aPtr + len > (unsigned char*)aEnd)
+        return (char*)"";
     char* str = new char[len + 1];
-    SMemR(aSrc, str, len);
+    SMemR(aPtr, str, len);
     str[len] = '\0';
     return str;
 }
 
-static Sexy::Image* SMemRImage(void*& aSrc)
+// Read image name from fixup stream and load the image
+static Sexy::Image* ReadFixupImage(void*& aPtr, void* aEnd)
 {
+    if ((unsigned char*)aPtr + 4 > (unsigned char*)aEnd)
+        return NULL;
     int len = 0;
-    SMemR(aSrc, &len, sizeof(int));
+    SMemR(aPtr, &len, 4);
     if (len <= 0)
         return NULL;
+    if ((unsigned char*)aPtr + len > (unsigned char*)aEnd)
+        return NULL;
     char* name = new char[len + 1];
-    SMemR(aSrc, name, len);
+    SMemR(aPtr, name, len);
     name[len] = '\0';
 
-    // Load image via ResourceManager
     Sexy::Image* img = NULL;
     if (gResourceManager)
         img = gResourceManager->GetImage(name);
@@ -66,7 +103,7 @@ static Sexy::Image* SMemRImage(void*& aSrc)
 }
 
 // ===========================================================================
-// ReanimDefinition destructor — free allocated memory
+// ReanimDefinition destructor
 // ===========================================================================
 ReanimDefinition::~ReanimDefinition()
 {
@@ -97,7 +134,6 @@ ReanimDefinition::~ReanimDefinition()
 // ===========================================================================
 TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
 {
-    // Step 1: Read file from PAK
     if (!gPak)
         return EFalse;
 
@@ -106,140 +142,166 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
         return EFalse;
 
     // Read + XOR decrypt
-    unsigned char* compressed = new unsigned char[fileSize];
+    unsigned char* compressed = (unsigned char*)User::Alloc(fileSize);
+    if (!compressed)
+        return EFalse;
     TPtr8 buf(compressed, fileSize);
     if (!gPak->ReadFile(aPakPath, buf))
     {
-        delete[] compressed;
+        User::Free(compressed);
         return EFalse;
     }
 
-    // Step 2: Check header (cookie 0xDEADFED4 + uncompressedSize)
+    // Check header
     if (fileSize < 8)
     {
-        delete[] compressed;
+        User::Free(compressed);
         return EFalse;
     }
     TUint32 cookie = compressed[0] | (compressed[1] << 8) |
                      (compressed[2] << 16) | (compressed[3] << 24);
     if (cookie != 0xDEADFED4)
     {
-        delete[] compressed;
+        User::Free(compressed);
         return EFalse;
     }
     TUint32 uncSize = compressed[4] | (compressed[5] << 8) |
                       (compressed[6] << 16) | (compressed[7] << 24);
 
-    // Step 3: zlib decompress
-    // uncSize is 1.9MB for SelectorScreen — may OOM on N95 (64MB heap).
-    // Use User::LeaveIfError on allocation to allow TRAP to catch it.
+    // zlib decompress
     unsigned char* decompressed = (unsigned char*)User::Alloc(uncSize);
     if (!decompressed)
     {
-        delete[] compressed;
-        return EFalse;  // OOM — caller handles via TRAP
+        User::Free(compressed);
+        return EFalse;
     }
     mz_ulong uncLen = uncSize;
     int result = mz_uncompress(decompressed, &uncLen,
                                compressed + 8, fileSize - 8);
-    delete[] compressed;
+    User::Free(compressed);
     if (result != MZ_OK)
     {
         User::Free(decompressed);
         return EFalse;
     }
 
-    // Step 4: Parse binary format
-    // ReanimatorDefinition binary layout (from upstream DefMap):
-    //   - DT_ARRAY "track": int defSize + int count + raw data + fixup
-    //   - DT_FLOAT "fps": float
-    //   - DT_UNKNOWN (mReanimAtlas): skip (pointer, 4 bytes in raw data)
-    //
-    // But the ACTUAL binary layout from the compiled file is:
-    //   [8 bytes: header — 2 ints, probably schema hash + version]
-    //   [4 bytes: track count]
-    //   [4 bytes: mFPS (float)]
-    //   [4 bytes: mReanimAtlas (pointer = 0)]
-    //   For each track:
-    //     [4 bytes: transform defSize (sizeof(ReanimatorTransform))]
-    //     [4 bytes: transform count]
-    //     [transformCount * rawTransformSize: raw transform data]
-    //     For each transform (fixup phase):
-    //       DT_IMAGE: read string (image name), load image
-    //       DT_FONT: read string (font name)
-    //       DT_STRING: read string (text)
-    //     DT_STRING "name": read string (track name)
-
     void* readPtr = decompressed;
+    void* endPtr = decompressed + uncSize;
 
-    // Skip 8-byte header
-    readPtr = (unsigned char*)readPtr + 8;
+    // Step 1: Read raw ReanimatorDefinition struct (16 bytes on 32-bit)
+    // [0:3]  mTracks.tracks (ptr, ignored)
+    // [4:7]  mTracks.count (int) = track count
+    // [8:11] mFPS (float)
+    // [12:15] mReanimAtlas (ptr, ignored)
+    if ((unsigned char*)readPtr + 16 > (unsigned char*)endPtr)
+    {
+        User::Free(decompressed);
+        return EFalse;
+    }
+    int dummyPtr;
+    SMemR(readPtr, &dummyPtr, 4);       // mTracks.tracks ptr
+    SMemR(readPtr, &outDefinition.mTrackCount, 4);  // mTracks.count
+    SMemR(readPtr, &outDefinition.mFPS, 4);         // mFPS
+    SMemR(readPtr, &dummyPtr, 4);       // mReanimAtlas ptr
 
-    // Read track count
-    int trackCount = 0;
-    SMemR(readPtr, &trackCount, sizeof(int));
-    outDefinition.mTrackCount = trackCount;
+    if (outDefinition.mTrackCount <= 0 || outDefinition.mTrackCount > 500)
+    {
+        User::Free(decompressed);
+        return EFalse;
+    }
 
-    // Read FPS
-    SMemR(readPtr, &outDefinition.mFPS, sizeof(float));
+    // Step 2: Read track array fixup
+    // a. int defSize (sizeof(ReanimatorTrack) on desktop)
+    if ((unsigned char*)readPtr + 4 > (unsigned char*)endPtr)
+    {
+        User::Free(decompressed);
+        return EFalse;
+    }
+    int trackDefSize = 0;
+    SMemR(readPtr, &trackDefSize, 4);
+    if (trackDefSize < 12 || trackDefSize > 100)
+    {
+        User::Free(decompressed);
+        return EFalse;
+    }
 
-    // Skip mReanimAtlas pointer (4 bytes)
-    readPtr = (unsigned char*)readPtr + 4;
+    // b. Bulk read raw track data: defSize * trackCount bytes
+    int trackDataSize = trackDefSize * outDefinition.mTrackCount;
+    if ((unsigned char*)readPtr + trackDataSize > (unsigned char*)endPtr)
+    {
+        User::Free(decompressed);
+        return EFalse;
+    }
+    unsigned char* trackRawData = (unsigned char*)readPtr;
+    readPtr = (unsigned char*)readPtr + trackDataSize;
 
     // Allocate tracks
-    outDefinition.mTracks = new ReanimTrack[trackCount];
+    outDefinition.mTracks = new ReanimTrack[outDefinition.mTrackCount];
 
-    // Parse each track
-    for (int i = 0; i < trackCount; i++)
+    // c. Per-track fixup
+    for (int i = 0; i < outDefinition.mTrackCount; i++)
     {
-        // DT_ARRAY: read defSize
-        int defSize = 0;
-        SMemR(readPtr, &defSize, sizeof(int));
+        unsigned char* trackRaw = trackRawData + i * trackDefSize;
 
-        // Read transform count
-        int transformCount = 0;
-        SMemR(readPtr, &transformCount, sizeof(int));
-
+        // Extract transform count from raw data at offset 8
+        // (mName ptr [0:3], mTransforms.mTransforms ptr [4:7], mTransforms.count [8:11])
+        int transformCount = *(int*)(trackRaw + 8);
         outDefinition.mTracks[i].mTransformCount = transformCount;
+        outDefinition.mTracks[i].mTransforms = NULL;
 
+        if (transformCount < 0 || transformCount > 1000)
+            transformCount = 0;
+
+        // Fixup: DT_STRING "name"
+        outDefinition.mTracks[i].mName = ReadFixupString(readPtr, endPtr);
+
+        // Fixup: DT_ARRAY "t" (transforms)
         if (transformCount > 0)
         {
-            // Read raw transform data (floats only: x,y,kx,ky,sx,sy,f,a = 8 floats = 32 bytes)
-            // BUT the actual struct size is larger (includes Image*, Font*, text*).
-            // The raw data has only the float fields. The fixup phase reads
-            // image/font/text strings separately.
-            // Raw float data per transform = 8 * sizeof(float) = 32 bytes
-            const int kRawTransformSize = 8 * sizeof(float);
+            // Read transform defSize
+            if ((unsigned char*)readPtr + 4 > (unsigned char*)endPtr)
+                break;
+            int transDefSize = 0;
+            SMemR(readPtr, &transDefSize, 4);
+            if (transDefSize < 32 || transDefSize > 200)
+                break;
 
+            // Bulk read raw transform data
+            int transDataSize = transDefSize * transformCount;
+            if ((unsigned char*)readPtr + transDataSize > (unsigned char*)endPtr)
+                break;
+            unsigned char* transRawData = (unsigned char*)readPtr;
+            readPtr = (unsigned char*)readPtr + transDataSize;
+
+            // Allocate transforms
             outDefinition.mTracks[i].mTransforms = new ReanimTransform[transformCount];
 
+            // Per-transform fixup
             for (int j = 0; j < transformCount; j++)
             {
+                unsigned char* transRaw = transRawData + j * transDefSize;
+
+                // Extract 8 floats from raw data (first 32 bytes)
                 ReanimTransform& t = outDefinition.mTracks[i].mTransforms[j];
+                t.mTransX = *(float*)(transRaw + 0);
+                t.mTransY = *(float*)(transRaw + 4);
+                t.mSkewX  = *(float*)(transRaw + 8);
+                t.mSkewY  = *(float*)(transRaw + 12);
+                t.mScaleX = *(float*)(transRaw + 16);
+                t.mScaleY = *(float*)(transRaw + 20);
+                t.mFrame  = *(float*)(transRaw + 24);
+                t.mAlpha  = *(float*)(transRaw + 28);
 
-                // Read 8 floats: x, y, kx, ky, sx, sy, f, a
-                SMemR(readPtr, &t.mTransX, sizeof(float));
-                SMemR(readPtr, &t.mTransY, sizeof(float));
-                SMemR(readPtr, &t.mSkewX, sizeof(float));
-                SMemR(readPtr, &t.mSkewY, sizeof(float));
-                SMemR(readPtr, &t.mScaleX, sizeof(float));
-                SMemR(readPtr, &t.mScaleY, sizeof(float));
-                SMemR(readPtr, &t.mFrame, sizeof(float));
-                SMemR(readPtr, &t.mAlpha, sizeof(float));
+                // Fixup: DT_IMAGE "i"
+                t.mImage = ReadFixupImage(readPtr, endPtr);
 
-                // Fixup: DT_IMAGE — read image name string, load image
-                t.mImage = SMemRImage(readPtr);
+                // Fixup: DT_FONT "font"
+                t.mFontName = ReadFixupString(readPtr, endPtr);
 
-                // Fixup: DT_FONT — read font name string
-                t.mFontName = SMemRStr(readPtr);
-
-                // Fixup: DT_STRING — read text string
-                t.mText = SMemRStr(readPtr);
+                // Fixup: DT_STRING "text"
+                t.mText = ReadFixupString(readPtr, endPtr);
             }
         }
-
-        // DT_STRING "name": read track name
-        outDefinition.mTracks[i].mName = SMemRStr(readPtr);
     }
 
     User::Free(decompressed);
@@ -257,7 +319,6 @@ ReanimTrack* ReanimFindTrack(ReanimDefinition& aDef, const char* aName)
     {
         if (aDef.mTracks[i].mName)
         {
-            // Case-insensitive compare
             const char* s1 = aDef.mTracks[i].mName;
             const char* s2 = aName;
             while (*s1 && *s2)
