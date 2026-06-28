@@ -838,10 +838,6 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
         // ReanimBltMatrix fast path):
         //   posX = transX - scaleX * imageWidth * 0.5
         //   posY = transY - scaleY * imageHeight * 0.5
-        // The reanim transform's (transX, transY) is the CENTER of the
-        // sprite, not the top-left. Without this correction, all sprites
-        // are shifted down-right by half their size, and buttons at
-        // y=624 appear off-screen when they should be visible.
         float imgW = t.mImage->GetWidth();
         float imgH = t.mImage->GetHeight();
         float scaledW = imgW * t.mScaleX;  // size in reanim space
@@ -852,6 +848,18 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
         float ch = scaledH * mScaleY * mCoordScale;
         if (cw < 1.0f || ch < 1.0f)
             continue;
+
+        // [Session-12] Skip tracks that are completely off-screen. The reanim
+        // has tracks at y=624-1132 (buttons, leaves, flowers) that are below
+        // the visible 800×600 area. Drawing them wastes time and can cause
+        // visual artifacts if they partially overlap the canvas edge.
+        if (cx + cw < 0 || cx > 400 || cy + ch < 0 || cy > 300)
+            continue;
+
+        // [Session-12] Set color to white opaque BEFORE DrawImage. GL_MODULATE
+        // multiplies texture by vertex color — if the color is left over from
+        // a previous FillRect (e.g. black), the texture renders black/invisible.
+        g->SetColor(Sexy::Color(255, 255, 255, 255));
 
         Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(t.mImage);
         g->DrawImage(mem, (int)cx, (int)cy, (int)cw, (int)ch);

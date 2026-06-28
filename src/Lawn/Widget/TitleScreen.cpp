@@ -172,12 +172,16 @@ void TitleScreen::Draw(Graphics* g)
             g->FillRect(0, 0, mWidth, mHeight);
 
             // PopCap logo centered. [Session-12] Scale to fit canvas nicely.
-            // Original is 300x300. Scale to ~120x120 (not /3 = 100x100, too small).
+            // Original is 300x300. Scale to ~120x120.
+            // [Session-12] MUST set color to white opaque before DrawImage —
+            // GL_MODULATE multiplies texture by vertex color. If the color is
+            // left as black (from FillRect), the logo renders invisible.
             Image* popcap = IMAGE_POPCAP_LOGO;
             int lw = popcap->GetWidth() * 2 / 5;   // 300*2/5 = 120
             int lh = popcap->GetHeight() * 2 / 5;  // 300*2/5 = 120
             int lx = (mWidth - lw) / 2;
             int ly = (mHeight - lh) / 2;
+            g->SetColor(Color(255, 255, 255, 255));  // white opaque for texture
             MemoryImage* mem = static_cast<MemoryImage*>(popcap);
             g->DrawImage(mem, lx, ly, lw, lh);
             return;
@@ -193,6 +197,7 @@ void TitleScreen::Draw(Graphics* g)
 
     if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
     {
+        g->SetColor(Color(255, 255, 255, 255));  // white for texture
         MemoryImage* mem = static_cast<MemoryImage*>(bg);
         g->DrawImage(mem, 0, 0, mWidth, mHeight);
     }
@@ -207,8 +212,8 @@ void TitleScreen::Draw(Graphics* g)
     Image* logo = IMAGE_PVZ_LOGO;
     if (logo && logo->GetWidth() > 0)
     {
+        g->SetColor(Color(255, 255, 255, 255));  // white for texture
         MemoryImage* logoMem = static_cast<MemoryImage*>(logo);
-        // Scale logo to fit (upstream 800x600 -> 400x300, logo ~440x170 -> 220x85)
         int logoW = logo->GetWidth() / 2;
         int logoH = logo->GetHeight() / 2;
         int logoX = (mWidth - logoW) / 2;
@@ -234,17 +239,13 @@ void TitleScreen::Draw(Graphics* g)
         MemoryImage* grassMem = static_cast<MemoryImage*>(grassImg);
 
         // Scale dirt to bar size (full bar width).
+        g->SetColor(Color(255, 255, 255, 255));  // white for texture
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
         // Grass: [Session-12] Use DrawImageScaledSrcRect to "unroll" the grass.
-        // Draw only the left (curW/barW) portion of the grass source image,
-        // scaled to the full bar height. This keeps the grass texture's
-        // horizontal aspect (no stretching) — it reveals more of the texture
-        // as the bar fills, like unrolling a scroll.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            // Source rect: left portion of the grass image
             int srcW = (grassImg->GetWidth() * curW) / barW;
             if (srcW < 1) srcW = 1;
             if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
