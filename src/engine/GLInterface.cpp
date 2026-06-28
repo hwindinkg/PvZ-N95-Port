@@ -140,16 +140,12 @@ void GLInterface::SetupGLState()
     glDisable(GL_FOG);
     glDisable(GL_LIGHTING);
 
-    // [Session-13] Enable GL_ALPHA_TEST for 1-bit transparency (cutout).
-    // PvZ sprites use alpha masks (0=transparent, 255=opaque). GL_BLEND with
-    // GL_SRC_ALPHA should handle this, but on the N95 MBX driver blending
-    // can be unreliable. GL_ALPHA_TEST discards fragments with alpha < 128
-    // BEFORE blending, giving clean cutout edges. This is the approach used
-    // by re3-symbian (GTA3 port) for the same hardware.
-    glEnable(GL_ALPHA_TEST);
-    glAlphaFunc(GL_GREATER, 0.5f);
+    // [Session-13] Do NOT use GL_ALPHA_TEST — upstream doesn't use it.
+    // Alpha test with threshold 0.5 can discard valid semi-transparent
+    // pixels (anti-aliased edges). GL_BLEND alone handles transparency.
+    glDisable(GL_ALPHA_TEST);
 
-    // Alpha blending (for smooth edges + fade effects)
+    // Alpha blending (for transparency + fade effects)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 

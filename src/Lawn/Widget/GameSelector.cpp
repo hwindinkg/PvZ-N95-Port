@@ -200,6 +200,13 @@ GameSelector::GameSelector(LawnApp* theApp)
             // advance the animation normally.
             mSelectorReanim->mAnimRate = 0.0f;
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG", 1);
+            // [Session-13] Hide overlapping BG pieces — the BG (100×75 scaled 8×)
+            // already covers the full 800×600 screen. BG_Center/Left/Right are
+            // separate pieces that overlap and create visual artifacts.
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Center", -1);
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Left", -1);
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Right", -1);
+            // Hide flower/leaf decoration (upstream hides them initially)
             mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
             mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);
             GSLog(_L8("GS:Reanimation created, playing anim_open\n"));
