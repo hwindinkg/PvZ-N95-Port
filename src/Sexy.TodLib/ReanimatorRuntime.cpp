@@ -392,14 +392,15 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     float scaledW = imgW * t.mScaleX * mScaleX;
     float scaledH = imgH * t.mScaleY * mScaleY;
 
-    // Position in reanim space (800×600, center-origin)
+    // [Session-13] Position in reanim space (800×600, top-left origin).
+    // mX/mY is the position offset (0,0 by default). The reanim transforms
+    // use top-left origin coordinates (0,0 = top-left of screen).
     float posX = mX + t.mTransX - scaledW * 0.5f;
     float posY = mY + t.mTransY - scaledH * 0.5f;
 
     // Scale to canvas (×0.5: reanim 800×600 → canvas 400×300)
-    // +400, +300 offset to convert center-origin to top-left-origin
-    float cx = (posX + 400.0f) * 0.5f;
-    float cy = (posY + 300.0f) * 0.5f;
+    float cx = posX * 0.5f;
+    float cy = posY * 0.5f;
     float cw = scaledW * 0.5f;
     float ch = scaledH * 0.5f;
 

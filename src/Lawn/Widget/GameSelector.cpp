@@ -187,7 +187,7 @@ GameSelector::GameSelector(LawnApp* theApp)
         // AllocReanimation creates a Reanimation bound to mReanimDef, then
         // we PlayReanim("anim_open") to play the menu open animation.
         mSelectorReanim = mReanimHolder.AllocReanimation(
-            400.0f, 300.0f, 0, &mReanimDef);
+            0.0f, 0.0f, 0, &mReanimDef);
         if (mSelectorReanim)
         {
             // Play the open animation once and hold on the last frame.

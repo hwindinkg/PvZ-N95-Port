@@ -172,17 +172,16 @@ void TitleScreen::Draw(Graphics* g)
             g->SetColor(Color(0, 0, 0, 255));
             g->FillRect(0, 0, mWidth, mHeight);
 
-            // PopCap logo centered. [Session-12] Scale to fit canvas nicely.
-            // Original is 300x300. Scale to ~120x120.
-            // [Session-12] MUST set color to white opaque before DrawImage —
-            // GL_MODULATE multiplies texture by vertex color. If the color is
-            // left as black (from FillRect), the logo renders invisible.
+            // PopCap logo centered. [Session-13] Use vertex alpha for fade.
+            // GL_MODULATE multiplies texture by vertex color, so setting
+            // alpha < 255 makes the logo semi-transparent (fade effect).
             Image* popcap = IMAGE_POPCAP_LOGO;
             int lw = popcap->GetWidth() * 2 / 5;   // 300*2/5 = 120
             int lh = popcap->GetHeight() * 2 / 5;  // 300*2/5 = 120
             int lx = (mWidth - lw) / 2;
             int ly = (mHeight - lh) / 2;
-            g->SetColor(Color(255, 255, 255, 255));  // white opaque for texture
+            // White with current alpha for fade in/out
+            g->SetColor(Color(255, 255, 255, mLogoAlpha));
             MemoryImage* mem = static_cast<MemoryImage*>(popcap);
             g->DrawImage(mem, lx, ly, lw, lh);
             return;
