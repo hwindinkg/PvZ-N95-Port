@@ -119,17 +119,41 @@ GameSelector::GameSelector(LawnApp* theApp)
         mReanimPlayer.SetDefinition(&mReanimDef);
         mReanimPlayer.mLoopType = ReanimPlayer::LOOP_OFF;
         mReanimPlayer.mAnimRate = 0.0f;  // don't advance (static)
-        // [Session-11] Set mAnimTime to a large value so GetCurrentTransform
-        // clamps to the LAST transform (transform[705]). The reanim has 706
-        // transforms per track: transform[0] = animation start (buttons
-        // off-screen at y=624), transform[705] = animation end (buttons in
-        // final visible position). Without this, mAnimTime=0 shows the start
-        // frame with buttons off-screen.
-        mReanimPlayer.mAnimTime = 9999.0f;
+        // [Session-12] Use mAnimTime=0 (transform[0]). This has the correct
+        // scale for the BG (8×8 → fills screen). Using mAnimTime=9999 (last
+        // frame) copies transform[705]'s scale which may be 1×1 (BG tiny).
+        // The buttons at transform[0] are at y=624 (off-screen), but at least
+        // the BG fills the canvas. The animation (anim_open) would slide
+        // buttons into view — needs full Reanimator runtime (Stage 2).
+        mReanimPlayer.mAnimTime = 0.0f;
         TBuf8<96> pb;
-        pb.Format(_L8("GS:ReanimPlayer bound, duration=%.2fs, showing last frame\n"),
+        pb.Format(_L8("GS:ReanimPlayer bound, duration=%.2fs, showing frame 0\n"),
                   mReanimPlayer.GetDuration());
         GSLog(pb);
+
+        // [Session-12] Diagnostic: dump button positions at multiple frame
+        // indices to find which frame has buttons visible (y < 600 in reanim
+        // space = y < 300 on canvas).
+        for (int fi = 0; fi < 706; fi += 100)
+        {
+            for (int ti = 0; ti < mReanimDef.mTrackCount; ti++)
+            {
+                ReanimTrack& tr = mReanimDef.mTracks[ti];
+                if (tr.mTransformCount <= 0) continue;
+                if (fi >= tr.mTransformCount) continue;
+                ReanimTransform& xf = tr.mTransforms[fi];
+                const char* nm = tr.mName ? tr.mName : "";
+                // Only log button tracks
+                if (strstr(nm, "button") || strstr(nm, "BG"))
+                {
+                    TBuf8<160> line;
+                    line.Format(_L8("RP:tf[%d] '%s' x=%.0f y=%.0f sx=%.2f sy=%.2f\n"),
+                                fi, (const TUint8*)nm,
+                                xf.mTransX, xf.mTransY, xf.mScaleX, xf.mScaleY);
+                    GSLog(line);
+                }
+            }
+        }
 
         // [Session-8] Preload all reanim images NOW (in the constructor, not
         // in Draw). The lazy-load in ReanimPlayer::Draw was not firing on-
