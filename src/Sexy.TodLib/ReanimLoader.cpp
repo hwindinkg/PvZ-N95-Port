@@ -446,7 +446,11 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     v = ParseFloat(tBuf, tBufLen, "ky"); if (v != KFieldNotFound) t.mSkewY = v;
                     v = ParseFloat(tBuf, tBufLen, "sx"); if (v != KFieldNotFound) t.mScaleX = v;
                     v = ParseFloat(tBuf, tBufLen, "sy"); if (v != KFieldNotFound) t.mScaleY = v;
-                    v = ParseFloat(tBuf, tBufLen, "f");  if (v != KFieldNotFound) t.mFrame = v;
+                    v = ParseFloat(tBuf, tBufLen, "f");
+                    if (v != KFieldNotFound)
+                        t.mFrame = v;
+                    else
+                        t.mFrame = (float)j; // [Session-6] fallback: array index = frame number
                     v = ParseFloat(tBuf, tBufLen, "a");  if (v != KFieldNotFound) t.mAlpha = v;
 
                     // Image: <i>NAME</i> -- [Session-5 fix] store the NAME only,
