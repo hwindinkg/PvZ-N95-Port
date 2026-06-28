@@ -42,8 +42,8 @@ public:
 
     // [Session-9] PopCap logo intro state (like the original PvZ).
     // Phase 0: PopCap logo fading in (0-30 frames)
-    // Phase 1: PopCap logo held (30-60 frames)
-    // Phase 2: PopCap logo fading out (60-90 frames)
+    // Phase 1: PopCap logo held (30-90 frames)
+    // Phase 2: PopCap logo fading out (90-120 frames) → fade to black
     // Phase 3: Loading screen (progress bar + Click to Start)
     int mLogoPhase;
     int mLogoFrame;     // frame counter within current phase

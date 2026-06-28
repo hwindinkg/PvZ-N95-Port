@@ -175,8 +175,8 @@ void CPvZAppUi::ConstructL()
         }
         Log(_L("step: LoadingThreadProc DONE"));
         iLoadingState = 1;
-        iLoadingFrames = 150;
-        Log(_L("step: loading animation deferred to RenderTick (150 frames)"));
+        iLoadingFrames = 180;  // [Session-13] 120 (PopCap logo) + 60 (loading bar)
+        Log(_L("step: loading animation deferred to RenderTick (180 frames)"));
     }
 
     // Put the GL container on the control stack so it receives

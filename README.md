@@ -63,6 +63,109 @@ Port of **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) to Symbian O
 
 ---
 
+## Current status (2026-06-28, session 13) — comprehensive plan + transparency fix
+
+### User feedback
+1. PopCap logo appeared ✓ (but needs fade-out after)
+2. Menu is "каша из картинок" (mess of images) — all 48 reanim tracks rendered
+3. No transparency on sprites
+4. After logo there should be a fade/darkening (missing)
+5. User wants 1:1 port, review original engine, make proper menu, move to gameplay
+
+### Root causes identified
+
+#### 1. Transparency: GL_ALPHA_TEST was disabled
+PvZ sprites use alpha masks (0=transparent, 255=opaque). GL_BLEND alone was
+unreliable on the N95 MBX driver. Fix: enable `GL_ALPHA_TEST` with
+`glAlphaFunc(GL_GREATER, 0.5f)` — discards fragments with alpha < 128 before
+blending. This is the approach used by re3-symbian (GTA3 port) for the same
+hardware.
+
+#### 2. Menu mess: all 48 tracks rendered blindly
+The upstream uses render groups:
+- `DrawRenderGroup(g, 1)` — renders ONLY the BG track (group 1)
+- Clouds drawn separately (6 separate Reanimation instances)
+- `DrawRenderGroup(g, 0)` — renders buttons/shadows (group 0)
+- Animation helper tracks (anim_open, anim_sign, etc.) are NOT rendered
+
+Our ReanimPlayer rendered ALL 48 tracks including animation helpers, BG
+parts (BG_Center, BG_Left, BG_Right that overlap), and off-screen buttons.
+Fix: render ONLY the SelectorScreen_BG track directly (100×75 at 8× scale =
+800×600 → 400×300 canvas).
+
+#### 3. PopCap logo fade: phases were too short
+Upstream: TITLESTATE_POPCAP_LOGO with mTitleStateDuration=200 frames.
+Fix: Phase 0 (fade in 30f) → Phase 1 (hold 60f) → Phase 2 (fade out 30f) →
+Phase 3 (loading screen). Total 120 frames for logo + 60 for loading bar.
+
+### Comprehensive port plan (reviewed against upstream)
+
+#### Stage 1: Main menu (CURRENT — partially done)
+
+| Component | Upstream | Port | Status |
+|-----------|----------|------|--------|
+| PopCap logo | TitleScreen.cpp state machine | ✅ 3-phase intro with fade | Done (this session) |
+| Loading bar | SODROLLCAP roll animation | ⚠️ Simple unroll (no SODROLLCAP) | Partial |
+| Menu BG | SelectorScreen_BG track (render group 1) | ✅ Direct BG draw | Done (this session) |
+| Menu buttons | NewLawnButton + sprites + polygon hit-test | ❌ Not ported | Needs DialogButton |
+| Menu animation | anim_open (slides buttons into view) | ❌ Not ported | Needs Reanimator runtime |
+| Clouds | 6 separate Reanimation instances | ❌ Not ported | Needs EffectSystem |
+
+#### Stage 2: Gameplay (NOT STARTED)
+
+| Component | Upstream lines | Priority |
+|-----------|---------------|----------|
+| Reanimator.cpp | 1501 | 1 (needed for plants/zombies/UI animation) |
+| EffectSystem.cpp | 541 | 2 (AddReanimation/ReanimationGet) |
+| Board.cpp | 6364 | 3 (gameplay field, 9×5 grid, sun, plants, zombies) |
+| Plant.cpp | ~5000 | 4 (all plant behaviors) |
+| Zombie.cpp | ~5000 | 5 (all zombie types) |
+| TodParticle.cpp | 1290 | 6 (particle effects) |
+| SeedChooserScreen.cpp | 1158 | 7 (seed selection before level) |
+| CutScene.cpp | ~500 | 8 (level intro/outro) |
+| Coin.cpp, Projectile.cpp, etc. | ~2000 each | 9 (game objects) |
+
+#### Stage 3: Dialogs (NOT STARTED)
+
+| Component | Upstream lines |
+|-----------|---------------|
+| StoreScreen.cpp | 1187 |
+| AlmanacDialog.cpp | 718 |
+| ZenGarden.cpp | ~1000 |
+| NewOptionsDialog.cpp | ~500 |
+| AwardScreen.cpp | ~300 |
+| CreditScreen.cpp | ~200 |
+
+#### Stage 4: Systems (PARTIALLY DONE)
+
+| Component | Upstream lines | Status |
+|-----------|---------------|--------|
+| ImageFont.cpp | 1748 | ❌ SystemFont fallback (8×8 bitmap) |
+| SaveGame.cpp | ~500 | ❌ Stub |
+| ProfileMgr.cpp | ~300 | ❌ Stub |
+| Music.cpp | ~200 | ❌ Stub |
+| SoundManager | ~500 | ❌ Stub |
+
+### Next steps (priority order)
+
+1. **Verify transparency + clean BG** — with GL_ALPHA_TEST and single-track
+   rendering, the menu should show a clean graveyard background
+2. **Port Reanimator.cpp** (1501 lines) — the animation runtime. This is
+   needed for animated plants/zombies AND for the menu's anim_open animation
+   that slides buttons into view.
+3. **Port EffectSystem.cpp** (541 lines) — AddReanimation/ReanimationGet.
+   Needed by GameSelector (creates the selector reanimation) and Board.
+4. **Port Board.cpp** (6364 lines) — the gameplay field
+5. **Port Plant.cpp + Zombie.cpp** — game objects
+
+### Build/test history (session 13)
+
+| Commit | Description | Result |
+|--------|-------------|--------|
+| (this) | GL_ALPHA_TEST + single-track BG + PopCap fade | Pending on-device build |
+
+---
+
 ## Current status (2026-06-28, session 10) — upstream analysis + diagnostic logging
 
 ### User feedback (session 10)

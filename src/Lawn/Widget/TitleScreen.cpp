@@ -66,25 +66,26 @@ void TitleScreen::Update()
 
     if (!mApp) return;
 
-    // [Session-9] PopCap logo intro phases.
+    // [Session-13] PopCap logo intro phases (matching upstream timing).
+    // Upstream: TITLESTATE_POPCAP_LOGO with mTitleStateDuration=200 frames.
     // Phase 0: fade in (30 frames, alpha 0->255)
-    // Phase 1: hold (30 frames, alpha 255)
-    // Phase 2: fade out (30 frames, alpha 255->0)
+    // Phase 1: hold (60 frames, alpha 255) — logo visible
+    // Phase 2: fade out (30 frames, alpha 255->0) — logo disappears to black
     // Phase 3: loading screen (progress bar)
     if (mLogoPhase < 3)
     {
         mLogoFrame++;
-        if (mLogoPhase == 0)
+        if (mLogoPhase == 0)      // fade in: 30 frames
         {
             mLogoAlpha = (mLogoFrame * 255) / 30;
             if (mLogoFrame >= 30) { mLogoPhase = 1; mLogoFrame = 0; }
         }
-        else if (mLogoPhase == 1)
+        else if (mLogoPhase == 1) // hold: 60 frames
         {
             mLogoAlpha = 255;
-            if (mLogoFrame >= 30) { mLogoPhase = 2; mLogoFrame = 0; }
+            if (mLogoFrame >= 60) { mLogoPhase = 2; mLogoFrame = 0; }
         }
-        else if (mLogoPhase == 2)
+        else if (mLogoPhase == 2) // fade out: 30 frames
         {
             mLogoAlpha = 255 - (mLogoFrame * 255) / 30;
             if (mLogoFrame >= 30) { mLogoPhase = 3; mLogoFrame = 0; }

@@ -226,11 +226,15 @@ void GameSelector::Update()
 }
 
 // -------------------------------------------------------------------------
-// Draw -- render the full SelectorScreen menu via ReanimPlayer.
-// [Session-11] Use ReanimPlayer::Draw to render ALL 48 tracks (BG + buttons
-// + clouds + flowers + leaves). Images are preloaded in the constructor.
-// The reanim coordinate space extends below y=600 (buttons at y=624-887),
-// so we scroll the view by setting mY offset to show the button area.
+// Draw -- render the SelectorScreen menu.
+// [Session-13] Render ONLY the SelectorScreen_BG track directly (not all 48
+// tracks). The upstream uses render groups: DrawRenderGroup(g, 1) for BG,
+// then clouds, then DrawRenderGroup(g, 0) for buttons. But our ReanimPlayer
+// doesn't have render groups, and rendering all 48 tracks creates a mess
+// (animation helper tracks, overlapping BG parts, off-screen buttons).
+// So we render ONLY the BG track (100×75 at 8× scale = 800×600 → 400×300
+// canvas) for a clean background. Buttons need the full Reanimator runtime
+// (anim_open slides them into view) — Stage 2.
 // -------------------------------------------------------------------------
 void GameSelector::Draw(Graphics* g)
 {
@@ -240,41 +244,51 @@ void GameSelector::Draw(Graphics* g)
 
     if (mReanimLoaded && mReanimDef.mTrackCount > 0)
     {
-        // [Session-11] The reanim space is 800x600 visible, but buttons are
-        // at y=624-887 (below the visible area). The upstream game shows the
-        // full scene by positioning the reanim at the center (0.5, 0.5) and
-        // using the Reanimation's overlay matrix. For our simple ReanimPlayer,
-        // we set mY to scroll down so buttons are visible.
-        //
-        // Button tracks in reanim space (from gs_log RP:track):
-        //   Adventure:  y=624  → canvas y=312 (off-screen at 300)
-        //   Survival:   y=732  → canvas y=366
-        //   Challenges: y=817  → canvas y=408
-        //   ZenGarden:  y=887  → canvas y=443
-        //
-        // To show buttons, scroll down by ~325 reanim-space pixels (mY=-325).
-        // This puts Adventure at canvas y=(624-325)*0.5=149 (visible).
-        // The BG (0,0 → 800x600) shifts up to y=(0-325)*0.5=-162 (partially
-        // off-screen top, but the BG is 8× scaled so it still fills).
-        //
-        // Actually, the upstream game's visible area is 800x600 and buttons
-        // ARE at y=624+. This means the upstream canvas is TALLER than 600
-        // (the game window is 800x600 but the reanim extends below, and the
-        // game scrolls or the buttons are partially visible at the bottom).
-        //
-        // For now: don't scroll. Render at mY=0. The BG fills the canvas,
-        // buttons are off-screen. This matches the "just BG" behavior but
-        // uses ReanimPlayer (which also draws clouds, flowers, leaves that
-        // ARE in the visible area).
-        // [Session-11] The reanim uses center-origin coordinates: (0,0) = center
-        // of the 800×600 screen. The BG at (0,0) with scale 8× and image 100×75
-        // has center at screen-center, extending from (-400,-300) to (400,300)
-        // in reanim space = (0,0) to (800,600) in top-left screen coords.
-        // To map to our 400×300 canvas (×0.5), we offset by (400,300) so the
-        // reanim origin maps to the canvas top-left.
-        mReanimPlayer.mX = 400.0f;
-        mReanimPlayer.mY = 300.0f;
-        mReanimPlayer.Draw(g);
+        // [Session-13] Render ONLY the SelectorScreen_BG track.
+        // Find it by name, get its transform[0] (frame 0 = initial state),
+        // and draw the image at the correct position/scale.
+        int bgIdx = mReanimPlayer.FindTrackIndex("SelectorScreen_BG");
+        if (bgIdx >= 0 && bgIdx < mReanimDef.mTrackCount)
+        {
+            ReanimTrack& track = mReanimDef.mTracks[bgIdx];
+            if (track.mTransformCount > 0 && track.mTransforms[0].mImage)
+            {
+                ReanimTransform& t = track.mTransforms[0];
+                // BG: 100×75 image at scale 8×8 = 800×600 in reanim space.
+                // Center-based positioning: posX = transX - scaleX * imgW * 0.5
+                // transX=0, transY=0, sx=8, sy=8, imgW=100, imgH=75
+                // posX = 0 - 8*100*0.5 = -400
+                // posY = 0 - 8*75*0.5 = -300
+                // size = 8*100 = 800, 8*75 = 600
+                // In reanim space: (-400,-300) to (400,300) = 800×600 centered at origin
+                // With mX=400, mY=300 offset: (0,0) to (800,600) = top-left origin
+                // Scaled to canvas (×0.5): (0,0) to (400,300) = fills canvas
+                float imgW = t.mImage->GetWidth();
+                float imgH = t.mImage->GetHeight();
+                float scaledW = imgW * t.mScaleX;
+                float scaledH = imgH * t.mScaleY;
+                float cx = (400.0f + t.mTransX - scaledW * 0.5f) * 0.5f;
+                float cy = (300.0f + t.mTransY - scaledH * 0.5f) * 0.5f;
+                float cw = scaledW * 0.5f;
+                float ch = scaledH * 0.5f;
+
+                g->SetColor(Color(255, 255, 255, 255));
+                MemoryImage* mem = static_cast<MemoryImage*>(t.mImage);
+                g->DrawImage(mem, (int)cx, (int)cy, (int)cw, (int)ch);
+            }
+            else
+            {
+                // BG image not preloaded — dark fill
+                g->SetColor(Color(30, 25, 20, 255));
+                g->FillRect(0, 0, mWidth, mHeight);
+            }
+        }
+        else
+        {
+            // BG track not found — dark fill
+            g->SetColor(Color(30, 25, 20, 255));
+            g->FillRect(0, 0, mWidth, mHeight);
+        }
         return;
     }
 
