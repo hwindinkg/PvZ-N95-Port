@@ -789,15 +789,27 @@ void ReanimPlayer::Draw(Sexy::Graphics* g)
         if (!t.mImage)
             continue;
 
-        float sx = (mX + t.mTransX) * mCoordScale;
-        float sy = (mY + t.mTransY) * mCoordScale;
-        float sw = t.mImage->GetWidth()  * t.mScaleX * mScaleX * mCoordScale;
-        float sh = t.mImage->GetHeight() * t.mScaleY * mScaleY * mCoordScale;
-        if (sw < 1.0f || sh < 1.0f)
+        // [Session-11] CENTER-BASED positioning (matches upstream
+        // ReanimBltMatrix fast path):
+        //   posX = transX - scaleX * imageWidth * 0.5
+        //   posY = transY - scaleY * imageHeight * 0.5
+        // The reanim transform's (transX, transY) is the CENTER of the
+        // sprite, not the top-left. Without this correction, all sprites
+        // are shifted down-right by half their size, and buttons at
+        // y=624 appear off-screen when they should be visible.
+        float imgW = t.mImage->GetWidth();
+        float imgH = t.mImage->GetHeight();
+        float scaledW = imgW * t.mScaleX;  // size in reanim space
+        float scaledH = imgH * t.mScaleY;
+        float cx = (mX + t.mTransX - scaledW * 0.5f) * mCoordScale;
+        float cy = (mY + t.mTransY - scaledH * 0.5f) * mCoordScale;
+        float cw = scaledW * mScaleX * mCoordScale;
+        float ch = scaledH * mScaleY * mCoordScale;
+        if (cw < 1.0f || ch < 1.0f)
             continue;
 
         Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(t.mImage);
-        g->DrawImage(mem, (int)sx, (int)sy, (int)sw, (int)sh);
+        g->DrawImage(mem, (int)cx, (int)cy, (int)cw, (int)ch);
     }
 }
 

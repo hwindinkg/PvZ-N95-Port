@@ -290,15 +290,14 @@ int GameSelector::HitTestButton(int x, int y)
         if (!t.mImage)
             continue;
 
-        // Button bounds in reanim space (800x600).
-        float bx = t.mTransX;
-        float by = t.mTransY;
+        // [Session-11] CENTER-BASED positioning (matches Draw):
+        // transX/transY is the center, so top-left = transX - scaledW/2.
         float bw = t.mImage->GetWidth()  * t.mScaleX;
         float bh = t.mImage->GetHeight() * t.mScaleY;
 
-        // Scale to canvas space (400x300) -> multiply by 0.5.
-        int cx = (int)(bx * 0.5f);
-        int cy = (int)(by * 0.5f);
+        // Scale to canvas space (×0.5).
+        int cx = (int)((t.mTransX - bw * 0.5f) * 0.5f);
+        int cy = (int)((t.mTransY - bh * 0.5f) * 0.5f);
         int cw = (int)(bw * 0.5f);
         int ch = (int)(bh * 0.5f);
         if (cw <= 0 || ch <= 0)
