@@ -434,6 +434,12 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                     // This is critical for animation: tf[0] has the initial position,
                     // tf[1] might only change <x>, tf[2] might only change <y>, etc.
                     // Without inheritance, tf[1+] would reset everything to 0.
+                    //
+                    // IMPORTANT: do NOT copy mImageName/mFontName/mText pointers —
+                    // they are owned by the first transform that set them, and the
+                    // destructor would double-free. Instead, set them to "" (literal)
+                    // and let ScanForImage find the image at draw time by scanning
+                    // backwards to the transform that has the name.
                     if (j > 0)
                     {
                         ReanimTransform& prev = outDefinition.mTracks[i].mTransforms[j - 1];
@@ -445,12 +451,12 @@ TBool ReanimLoadCompiled(const char* aPakPath, ReanimDefinition& outDefinition)
                         t.mScaleY = prev.mScaleY;
                         t.mFrame  = prev.mFrame;
                         t.mAlpha  = prev.mAlpha;
-                        // Image/name: inherited via ScanForImage at draw time,
-                        // but also copy here for non-animated tracks.
-                        t.mImage    = prev.mImage;
-                        t.mImageName = prev.mImageName;
-                        t.mFontName = prev.mFontName;
-                        t.mText     = prev.mText;
+                        // Image: DON'T copy the pointer — set to empty. ScanForImage
+                        // will scan backwards at draw time to find the image name.
+                        t.mImage    = prev.mImage;  // Image* pointer is safe to copy (not owned)
+                        t.mImageName = "";          // Don't copy char* pointer (would double-free)
+                        t.mFontName = "";
+                        t.mText     = "";
                     }
                     else
                     {
