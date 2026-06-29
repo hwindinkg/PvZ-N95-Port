@@ -80,7 +80,8 @@ void Reanim2::ReanimationInitialize(float x, float y, ReanimDefinition* def)
     mLoopCount = 0;
     mScaleX = 1.0f;
     mScaleY = 1.0f;
-    mAlpha = 1.0f;
+    mAlpha = 1.0f;  // [Session-13] mAlpha is a multiplier on t.mAlpha (0-255).
+                     // 1.0 means use the transform's alpha as-is.
     mLastFrameTime = -1.0f;
 
     if (def && def->mTrackCount > 0)
@@ -370,13 +371,13 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     if (!t.mImage)
         return false;
 
-    // Compute alpha
-    float alpha = t.mAlpha * mAlpha;
-    if (alpha <= 0.0f)
+    // Compute alpha — t.mAlpha is 0-255 from the reanim transform.
+    // mAlpha is the global Reanimation alpha multiplier (default 1.0).
+    // Final alpha = t.mAlpha * mAlpha, clamped to [0, 255].
+    int aImageAlpha = (int)(t.mAlpha * mAlpha);
+    if (aImageAlpha <= 0)
         return false;
-    int aImageAlpha = (int)(alpha * 255.0f);
     if (aImageAlpha > 255) aImageAlpha = 255;
-    if (aImageAlpha <= 0) return false;
 
     // [Session-13] Position = (mX + transX, mY + transY) — NO center offset.
     float imgW = t.mImage->GetWidth();
@@ -400,8 +401,10 @@ bool Reanim2::DrawTrack(Sexy::Graphics* g, int trackIndex)
     // during anim_open. Culling prevented them from being drawn even
     // when partially visible.
 
-    // Set white color for texture (GL_MODULATE)
-    g->SetColor(Sexy::Color(255, 255, 255, 255));
+    // [Session-13] Use vertex alpha for transparency modulation.
+    // GL_MODULATE multiplies texture color by vertex color.
+    // t.mAlpha is 0-255, scale to 0-255 for the vertex alpha.
+    g->SetColor(Sexy::Color(255, 255, 255, aImageAlpha));
 
     Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(t.mImage);
     g->DrawImage(mem, (int)cx, (int)cy, (int)cw, (int)ch);
