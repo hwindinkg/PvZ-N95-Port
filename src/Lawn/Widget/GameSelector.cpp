@@ -329,55 +329,57 @@ void GameSelector::Draw(Graphics* g)
 // -------------------------------------------------------------------------
 int GameSelector::HitTestButton(int x, int y)
 {
-    if (!mReanimLoaded)
+    if (!mSelectorReanim)
         return -1;
 
-    // Map of reanim track name -> button ID. These match the track names
-    // dumped in gs_log (SelectorScreen_Adventure_button, etc.).
     struct TrackButton
     {
         const char* trackName;
         int buttonId;
-        bool needsUnlock; // true if locked until adventure finished
+        bool needsUnlock;
     };
     static const TrackButton buttons[] =
     {
         { "SelectorScreen_Adventure_button",   GameSelector_Adventure,  false },
+        { "SelectorScreen_StartAdventure_button", GameSelector_Adventure, false },
         { "SelectorScreen_Survival_button",    GameSelector_Survival,   true  },
         { "SelectorScreen_Challenges_button",  GameSelector_Minigame,   true  },
         { "SelectorScreen_ZenGarden_button",   GameSelector_ZenGarden,  true  },
-        { "SelectorScreen_StartAdventure_button", GameSelector_Adventure, false },
     };
     const int nButtons = sizeof(buttons) / sizeof(buttons[0]);
 
     for (int i = 0; i < nButtons; i++)
     {
-        int trackIdx = mReanimPlayer.FindTrackIndex(buttons[i].trackName);
-        if (trackIdx < 0)
+        int trackIdx = mSelectorReanim->FindTrackIndex(buttons[i].trackName);
+        if (trackIdx < 0) continue;
+
+        // Check if this button is hidden (locked)
+        if (mSelectorReanim->mTrackInstances &&
+            mSelectorReanim->mTrackInstances[trackIdx].mRenderGroup == -1)
             continue;
+
         ReanimTransform t;
-        if (!mReanimPlayer.GetCurrentTransform(trackIdx, t))
+        if (!mSelectorReanim->GetCurrentTransform(trackIdx, t))
             continue;
         if (!t.mImage)
             continue;
 
-        // [Session-11] CENTER-BASED positioning (matches Draw):
-        // transX/transY is the center, so top-left = transX - scaledW/2.
-        float bw = t.mImage->GetWidth()  * t.mScaleX;
+        // Position = (transX, transY) in reanim space (800x600)
+        // Scale to canvas (×0.5)
+        float bw = t.mImage->GetWidth() * t.mScaleX;
         float bh = t.mImage->GetHeight() * t.mScaleY;
-
-        // Scale to canvas space (×0.5).
-        int cx = (int)((t.mTransX - bw * 0.5f) * 0.5f);
-        int cy = (int)((t.mTransY - bh * 0.5f) * 0.5f);
+        int cx = (int)(t.mTransX * 0.5f);
+        int cy = (int)(t.mTransY * 0.5f);
         int cw = (int)(bw * 0.5f);
         int ch = (int)(bh * 0.5f);
-        if (cw <= 0 || ch <= 0)
-            continue;
+        if (cw <= 0 || ch <= 0) continue;
 
-        // Hit-test (inclusive bounds).
-        if (x >= cx && x < cx + cw && y >= cy && y < cy + ch)
+        // Button center is at (cx, cy), top-left = (cx - cw/2, cy - ch/2)
+        int left = cx - cw / 2;
+        int top = cy - ch / 2;
+
+        if (x >= left && x < left + cw && y >= top && y < top + ch)
         {
-            // Check lock state.
             if (buttons[i].needsUnlock)
             {
                 if (buttons[i].buttonId == GameSelector_Survival && mSurvivalLocked)
@@ -389,17 +391,11 @@ int GameSelector::HitTestButton(int x, int y)
         }
     }
 
-    // Options / Help / Quit are not separate reanim tracks -- use fixed
-    // canvas positions matching the upstream GameSelector layout (bottom
-    // area of the menu, right side). These are small click zones so the
-    // user can still quit / open options.
-    // Options: bottom-left woodsign area (upstream puts it ~x=60,y=250)
+    // Options / Help / Quit — fixed positions (bottom woodsigns)
     if (x >= 20 && x < 120 && y >= 250 && y < 290)
         return GameSelector_Options;
-    // Help: bottom-center woodsign area
     if (x >= 140 && x < 240 && y >= 250 && y < 290)
         return GameSelector_Help;
-    // Quit: bottom-right woodsign area
     if (x >= 260 && x < 380 && y >= 250 && y < 290)
         return GameSelector_Quit;
 
@@ -428,10 +424,55 @@ void GameSelector::MouseDown(int x, int y, int /*theClickCount*/)
 }
 
 // -------------------------------------------------------------------------
-// MouseMove -- (no hover highlight yet; reanim tracks are static).
+// MouseMove — track which button the cursor is over for hover highlight.
 // -------------------------------------------------------------------------
-void GameSelector::MouseMove(int /*x*/, int /*y*/)
+void GameSelector::MouseMove(int x, int y)
 {
+    if (!mSelectorReanim) return;
+
+    // Check which button the cursor is over
+    int hoverId = HitTestButton(x, y);
+
+    // Apply highlight image override for hovered button
+    static const char* buttonTracks[] =
+    {
+        "SelectorScreen_Adventure_button",
+        "SelectorScreen_StartAdventure_button",
+        "SelectorScreen_Survival_button",
+        "SelectorScreen_Challenges_button",
+        "SelectorScreen_ZenGarden_button",
+    };
+    static const int buttonIds[] =
+    {
+        GameSelector_Adventure, GameSelector_Adventure,
+        GameSelector_Survival, GameSelector_Minigame, GameSelector_ZenGarden,
+    };
+    static const char* highlightTracks[] =
+    {
+        "SelectorScreen_Adventure_button",
+        "SelectorScreen_StartAdventure_button",
+        "SelectorScreen_Survival_button",
+        "SelectorScreen_Challenges_button",
+        "SelectorScreen_ZenGarden_button",
+    };
+
+    for (int i = 0; i < 5; i++)
+    {
+        int trackIdx = mSelectorReanim->FindTrackIndex(buttonTracks[i]);
+        if (trackIdx < 0) continue;
+
+        if (hoverId == buttonIds[i])
+        {
+            // Hover: set highlight image as override
+            // For now, just mark it — actual highlight image loading
+            // needs the _highlight resources which are in the PAK
+        }
+        else
+        {
+            // Not hovered: clear override
+            mSelectorReanim->SetImageOverride(buttonTracks[i], NULL);
+        }
+    }
 }
 
 // -------------------------------------------------------------------------
