@@ -36,12 +36,26 @@
 #include "../../engine/Rect.h"
 #include "../../engine/Font.h"
 #include "../../engine/SystemFont.h"
+#include "../../Sexy.TodLib/TodCommon.h"  // Distance2D
+#include "../../Sexy.TodLib/TodFoley.h"   // FOLEY_LIMBS_POP
 
 #include <e32std.h>
 #include <f32file.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace Sexy {
+
+// [Session-14] 1:1 upstream GameSelector.cpp line 45.
+// Click centers for the 3 potted flowers (in 800x600 reanim design space).
+// Mouse coords arrive in 400x300 canvas space, so we scale ×2 before
+// comparing with these centers (threshold 20px in reanim space).
+static float gFlowerCenter[3][2] = {
+    { 765.0f, 483.0f },
+    { 663.0f, 455.0f },
+    { 701.0f, 439.0f }
+};
 
 // -------------------------------------------------------------------------
 // GSLog -- on-device diagnostic logger.
@@ -89,7 +103,12 @@ GameSelector::GameSelector(LawnApp* theApp)
     , mStartX(0), mStartY(0)
     , mDestX(0),  mDestY(0)
     , mSelectorReanim(NULL)
+    , mLeafReanim(NULL)
+    , mLeafCounter(50)
 {
+    mFlowerReanim[0] = NULL;
+    mFlowerReanim[1] = NULL;
+    mFlowerReanim[2] = NULL;
     mVisible = true;
     mMouseVisible = true;    // [Session-6] receive clicks directly for hit-testing
     mHasTransparencies = true;
@@ -202,15 +221,62 @@ GameSelector::GameSelector(LawnApp* theApp)
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Center", 1);
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Left", 1);
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Right", 1);
-            // Hide flower/leaf/shadow decoration (upstream hides them initially)
-            mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
-            mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);
-            mSelectorReanim->AssignRenderGroupToPrefix("shadow", -1);
+            // [Session-14] Hide flower/leaf tracks in the MAIN reanim — they
+            // are drawn by separate child reanims (1:1 upstream lines 305-306).
+            // Fixed: AssignRenderGroupToPrefix now does real prefix matching,
+            // and we use the port's "SelectorScreen_" track-name convention.
+            mSelectorReanim->AssignRenderGroupToPrefix("SelectorScreen_Flower", -1);
+            mSelectorReanim->AssignRenderGroupToPrefix("SelectorScreen_Leaf", -1);
             // [Session-13] Hide locked buttons (Survival, Challenges, ZenGarden)
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_Survival_button", -1);
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_Challenges_button", -1);
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_ZenGarden_button", -1);
             GSLog(_L8("GS:Reanimation created, playing anim_open\n"));
+
+            // [Session-14] 1:1 upstream: create 3 flower child reanims + 1 leaf.
+            // Each flower plays anim_flowerN PLAY_ONCE_AND_HOLD at rate 0
+            // (sitting on pot). Click sets mAnimRate=24 → flower falls off.
+            // Leaf plays anim_grass LOOP at rate 0, rustles periodically.
+            for (int i = 0; i < 3; i++)
+            {
+                mFlowerReanim[i] = mReanimHolder.AllocReanimation(
+                    0.0f, 0.0f, 1, &mReanimDef);
+                if (mFlowerReanim[i])
+                {
+                    char animName[32];
+                    sprintf(animName, "anim_flower%d", i + 1);
+                    mFlowerReanim[i]->PlayReanim(
+                        animName, REANIM_PLAY_ONCE_AND_HOLD, 0, 0.0f);
+                    mFlowerReanim[i]->mAnimRate = 0.0f;  // sit on pot
+                    // Hide ALL tracks except the specific flower track so the
+                    // child reanim only draws that one flower (not BG/buttons).
+                    for (int ti = 0; ti < mReanimDef.mTrackCount; ti++)
+                    {
+                        if (mFlowerReanim[i]->mTrackInstances)
+                            mFlowerReanim[i]->mTrackInstances[ti].mRenderGroup = -1;
+                    }
+                    char trackName[48];
+                    sprintf(trackName, "SelectorScreen_Flower%d", i + 1);
+                    mFlowerReanim[i]->AssignRenderGroupToTrack(trackName, 0);
+                }
+            }
+            // Leaf child reanim — shows all SelectorScreen_Leaf* tracks.
+            mLeafReanim = mReanimHolder.AllocReanimation(
+                0.0f, 0.0f, 1, &mReanimDef);
+            if (mLeafReanim)
+            {
+                mLeafReanim->PlayReanim("anim_grass", REANIM_LOOP, 0, 6.0f);
+                mLeafReanim->mAnimRate = 0.0f;  // static until rustle
+                // Hide all tracks except leaf tracks
+                for (int ti = 0; ti < mReanimDef.mTrackCount; ti++)
+                {
+                    if (mLeafReanim->mTrackInstances)
+                        mLeafReanim->mTrackInstances[ti].mRenderGroup = -1;
+                }
+                mLeafReanim->AssignRenderGroupToPrefix("SelectorScreen_Leaf", 0);
+            }
+            mLeafCounter = 50;
+            GSLog(_L8("GS:child flower + leaf reanims created\n"));
         }
         else
         {
@@ -225,8 +291,12 @@ GameSelector::GameSelector(LawnApp* theApp)
 
 GameSelector::~GameSelector()
 {
-    // mReanimHolder owns the Reanimation; its destructor will free it.
+    // mReanimHolder owns all Reanimations; its destructor will free them.
     mSelectorReanim = NULL;
+    mLeafReanim = NULL;
+    mFlowerReanim[0] = NULL;
+    mFlowerReanim[1] = NULL;
+    mFlowerReanim[2] = NULL;
 }
 
 // -------------------------------------------------------------------------
@@ -261,6 +331,29 @@ void GameSelector::Update()
     mReanimHolder.UpdateAll();
     mReanimHolder.UpdateAll();
     mReanimHolder.UpdateAll();
+
+    // [Session-14] 1:1 upstream lines 966-976: leaf position follows
+    // SelectorScreen_BG_Right (so it slides in during anim_open), and
+    // every 200-400 frames re-plays anim_grass for a rustle.
+    if (mLeafReanim && mSelectorReanim)
+    {
+        int bgRightIdx = mSelectorReanim->FindTrackIndex(
+            "SelectorScreen_BG_Right");
+        if (bgRightIdx >= 0)
+        {
+            ReanimTransform t;
+            mSelectorReanim->GetCurrentTransform(bgRightIdx, &t);
+            // Upstream offset: (mTransX - 71, mTransY - 41)
+            mLeafReanim->SetPosition(t.mTransX - 71.0f, t.mTransY - 41.0f);
+        }
+        if (--mLeafCounter <= 0)
+        {
+            // Rustle: replay anim_grass at a random rate, then wait.
+            float aRate = 6.0f + (float)(rand() % 6);  // 6..11 fps
+            mLeafReanim->PlayReanim("anim_grass", REANIM_LOOP, 20, aRate);
+            mLeafCounter = 200 + (rand() % 201);  // 200..400 frames
+        }
+    }
 }
 
 // -------------------------------------------------------------------------
@@ -282,6 +375,16 @@ void GameSelector::Draw(Graphics* g)
         // 2. Draw normal render group (group 0 = buttons, shadows, etc.)
         mSelectorReanim->DrawRenderGroup(g, 1);  // BG
         mSelectorReanim->DrawRenderGroup(g, 0);  // buttons + shadows
+
+        // [Session-14] 1:1 upstream lines 716-718: draw leaf first, then
+        // the 3 flower child reanims (on top, so flowers are clickable).
+        if (mLeafReanim)
+            mLeafReanim->Draw(g);
+        for (int i = 0; i < 3; i++)
+        {
+            if (mFlowerReanim[i])
+                mFlowerReanim[i]->Draw(g);
+        }
         return;
     }
 
@@ -402,10 +505,39 @@ int GameSelector::HitTestButton(int x, int y)
 }
 
 // -------------------------------------------------------------------------
-// MouseDown -- hit-test the click against reanim button positions.
+// MouseDown -- 1:1 upstream lines 1204-1215: first check flower clicks,
+// then hit-test the click against reanim button positions.
 // -------------------------------------------------------------------------
 void GameSelector::MouseDown(int x, int y, int /*theClickCount*/)
 {
+    // [Session-14] 1:1 upstream: check flower clicks FIRST.
+    // If a flower is sitting still (mAnimRate <= 0) and the click is within
+    // 20px of its center (in 800x600 reanim space), start the fall animation.
+    // Mouse (x,y) is in 400x300 canvas space → scale ×2 for reanim space.
+    for (int i = 0; i < 3; i++)
+    {
+        if (!mFlowerReanim[i])
+            continue;
+        if (mFlowerReanim[i]->mAnimRate <= 0.0f)
+        {
+            float rx = (float)x * 2.0f;  // canvas → reanim space
+            float ry = (float)y * 2.0f;
+            float dist = Distance2D(rx, ry,
+                                    gFlowerCenter[i][0], gFlowerCenter[i][1]);
+            if (dist < 20.0f)
+            {
+                mFlowerReanim[i]->mAnimRate = 24.0f;  // play fall animation
+                if (mApp)
+                    mApp->PlayFoley(FOLEY_LIMBS_POP);
+                TBuf8<80> fb;
+                fb.Format(_L8("GS:Flower %d clicked (dist=%.1f) -> fall\n"),
+                          i, dist);
+                GSLog(fb);
+                return;  // flower click consumed; don't hit-test buttons
+            }
+        }
+    }
+
     int id = HitTestButton(x, y);
     if (id >= 0)
     {

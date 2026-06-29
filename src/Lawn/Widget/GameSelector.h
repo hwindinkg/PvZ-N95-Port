@@ -86,6 +86,15 @@ public:
     Reanim2*      mSelectorReanim;
     ReanimHolder2 mReanimHolder;
 
+    // [Session-14] Child reanimations for flowers + leaf (1:1 upstream).
+    // The main selector reanim HIDES its flower/leaf tracks (render group -1);
+    // these separate child reanims play anim_flower1/2/3 and anim_grass so
+    // each flower can be clicked individually to fall off its pot.
+    // Upstream: GameSelector.cpp lines 331-346, 966-976, 1204-1215.
+    Reanim2* mFlowerReanim[3];  // 3 potted flowers on BG_Right
+    Reanim2* mLeafReanim;       // decorative leaves, rustles periodically
+    int      mLeafCounter;      // frames until next leaf rustle
+
     // -- Construction ----------------------------------------------------
     GameSelector(LawnApp* theApp);
     virtual ~GameSelector();

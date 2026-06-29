@@ -2,7 +2,7 @@
 
 Порт **PvZ-Portable** (https://github.com/wszqkzqk/PvZ-Portable) на Symbian S60 3rd FP1 (Nokia N95), сборка через **GCCE 3.4.3 + libgcc**.
 
-## Текущее состояние (session 13)
+## Текущее состояние (session 14)
 
 ### Что работает
 - **Engine boot**: EGL/GLES 1.1, landscape 320×240, 30 FPS
@@ -14,6 +14,9 @@
 - **ReanimLoader**: XML парсер .reanim файлов (48 треков, наследование трансформов)
 - **ReanimatorRuntime**: полная система Reanimation (interpolation, render groups, DrawTrack)
 - **Главное меню**: reanim с anim_open анимацией, BG + надгробие + дерево + трава + кнопки
+- **Цветы в горшках** (session 14): 3 child-reanim играют `anim_flower1/2/3` (PLAY_ONCE_AND_HOLD, rate 0 = сидят на горшках). Клик в радиусе 20px от центра цветка → `mAnimRate=24` → цветок отваливается и падает. Звук `FOLEY_LIMBS_POP`.
+- **Листья** (session 14): child-reanim `anim_grass` LOOP, позиция следует за `SelectorScreen_BG_Right`, периодическое шевеление каждые 200-400 кадров.
+- **AssignRenderGroupToPrefix** (session 14): исправлен баг — теперь использует `strncasecmp` (prefix match) вместо `StrCaseCmp` (full compare). Раньше `AssignRenderGroupToPrefix("flower", -1)` НЕ скрывал трек `SelectorScreen_Flower1`.
 - **Прозрачность**: GL_BLEND + vertex alpha (mAlpha из reanim трансформов)
 - **d-pad input**: курсор + клики
 - **Texture cache**: POT padding + eviction с glDeleteTextures
@@ -21,7 +24,7 @@
 ### Что не работает / в разработке
 - **NewUserDialog**: окно ввода ника (нужен порт EditWidget)
 - **Hover выделение кнопок**: ImageOverride на button tracks
-- **Заблокированные кнопки**: скрыты через render group -1, но клик всё ещё попадает
+- **Заблокированные кнопки**: скрыты через render group -1 (клик не попадает — HitTestButton проверяет mRenderGroup == -1)
 - **Profile save**: сохранение в `C:\Data\PvZ\`
 - **Геймплей**: Board.cpp, Plant.cpp, Zombie.cpp — не портированы
 - **Звук/музыка**: stub
@@ -72,6 +75,7 @@
 
 ### Нельзя
 - **`floorf`** — нет в Symbian GCCE math.h. Использовать `(float)(int)val`
+- **`strncasecmp`** — нет в Symbian GCCE. Использовать локальный `StrnCaseCmp` (см. ReanimatorRuntime.cpp). `AssignRenderGroupToPrefix` ДОЛЖЕН использовать prefix-match, не full-compare.
 - **`nullptr`** — C++03. Использовать `NULL`
 - **`auto`** — C++03
 - **`range-for`** — C++03
@@ -93,14 +97,17 @@
 
 ## Roadmap
 
-### Stage 1: Главное меню (ТЕКУЩИЙ — ~80% готово)
+### Stage 1: Главное меню (ТЕКУЩИЙ — ~90% готово)
 - [x] PopCap logo fade
 - [x] Loading screen (grass unroll + SODROLLCAP)
 - [x] Reanimation runtime
 - [x] Menu BG + tombstone + tree + buttons
 - [x] anim_open animation
 - [x] Alpha mask transparency
-- [x] Locked buttons hidden
+- [x] Locked buttons hidden (render group -1 + click cull)
+- [x] **Potted flowers click-to-fall** (1:1 upstream, session 14)
+- [x] **Leaf rustle** (1:1 upstream, session 14)
+- [x] **AssignRenderGroupToPrefix prefix-match fix** (session 14)
 - [ ] NewUserDialog (nickname entry)
 - [ ] Profile save/load
 - [ ] Button hover highlight

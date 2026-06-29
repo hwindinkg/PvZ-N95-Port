@@ -37,6 +37,22 @@ static int StrCaseCmp(const char* a, const char* b)
     return *a - *b;
 }
 
+// [Session-14] Case-insensitive PREFIX compare (strncasecmp equivalent).
+// Symbian has no strncasecmp; this matches upstream's AssignRenderGroupToPrefix
+// which uses strncasecmp(trackName, prefix, prefixLen) to test whether a track
+// name STARTS WITH the given prefix (case-insensitive).
+static int StrnCaseCmp(const char* a, const char* b, int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        char ca = a[i]; char cb = b[i];
+        if (ca >= 'A' && ca <= 'Z') ca += 32;
+        if (cb >= 'A' && cb <= 'Z') cb += 32;
+        if (ca != cb || ca == '\0') return ca - cb;
+    }
+    return 0;  // first n chars match
+}
+
 static float FloatLerp(float a, float b, float t) { return a + (b - a) * t; }
 static int FloatRoundToInt(float f) { return (int)(f >= 0 ? f + 0.5f : f - 0.5f); }
 
@@ -448,15 +464,20 @@ void Reanim2::AssignRenderGroupToPrefix(const char* prefix, int group)
     if (!mDefinition || !prefix || !mTrackInstances)
         return;
     int prefixLen = strlen(prefix);
+    if (prefixLen <= 0)
+        return;
+    // [Session-14] 1:1 upstream: use strncasecmp for PREFIX match.
+    // Previously this used StrCaseCmp (full compare) which only matched
+    // exact track names — so AssignRenderGroupToPrefix("flower", -1)
+    // never matched "SelectorScreen_Flower1". Now it correctly matches
+    // any track whose name STARTS WITH the prefix (case-insensitive).
     for (int i = 0; i < mDefinition->mTrackCount; i++)
     {
-        if (mDefinition->mTracks[i].mName &&
-            StrCaseCmp(mDefinition->mTracks[i].mName, prefix) == 0)
+        const char* nm = mDefinition->mTracks[i].mName;
+        if (nm && (int)strlen(nm) >= prefixLen &&
+            StrnCaseCmp(nm, prefix, prefixLen) == 0)
         {
-            // Check it's a prefix match (not partial)
-            char c = mDefinition->mTracks[i].mName[prefixLen];
-            if (c == '\0' || c == '_' || c == ' ')
-                mTrackInstances[i].mRenderGroup = group;
+            mTrackInstances[i].mRenderGroup = group;
         }
     }
 }
