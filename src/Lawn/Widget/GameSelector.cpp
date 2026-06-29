@@ -359,8 +359,7 @@ int GameSelector::HitTestButton(int x, int y)
             continue;
 
         ReanimTransform t;
-        if (!mSelectorReanim->GetCurrentTransform(trackIdx, t))
-            continue;
+        mSelectorReanim->GetCurrentTransform(trackIdx, &t);
         if (!t.mImage)
             continue;
 
