@@ -196,14 +196,12 @@ GameSelector::GameSelector(LawnApp* theApp)
             // tf[1+] inherit positions from tf[0], so the lerp interpolates
             // between real positions (not toward 0,0 defaults).
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG", 1);
-            // [Session-13] BG_Center/Left/Right are JPEG (opaque, no alpha).
-            // Their black areas would cover the BG tile. Hide them — the BG
-            // tile (100×75 at 8× scale = 800×600) is the full background.
-            // In upstream these are drawn via ReanimBltMatrix with TodTriangleGroup
-            // which handles color modulation. Our simple DrawImage can't.
-            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Center", -1);
-            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Left", -1);
-            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Right", -1);
+            // [Session-13] BG_Center/Left/Right are now shown — alpha mask
+            // composition is implemented in ResourceManager (looks for
+            // "_<stem>" or "<stem>_" alpha mask images).
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Center", 1);
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Left", 1);
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Right", 1);
             // Hide flower/leaf decoration (upstream hides them initially)
             mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
             mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);

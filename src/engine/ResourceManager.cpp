@@ -167,6 +167,11 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
         "images/", "reanim/", "images/reloaded/mainmenu/", "", "IMAGES/", "data/images/"
     };
     static const char* kExts[]     = { ".png", ".jpg", ".jpeg", ".gif", "._", "" };
+    // [Session-13] Alpha mask prefixes: upstream ImageLib looks for
+    // "_<filename>" and "<filename>_" as alpha mask images.
+    // e.g. "reanim/selectorscreen_bg_center.jpg" → alpha mask at
+    // "reanim/_selectorscreen_bg_center.jpg" or "reanim/selectorscreen_bg_center_.jpg"
+    // The alpha mask's blue channel becomes the alpha channel of the main image.
     const int nPre = (int)(sizeof(kPrefixes)/sizeof(kPrefixes[0]));
     const int nExt = (int)(sizeof(kExts)/sizeof(kExts[0]));
 
@@ -193,19 +198,90 @@ Sexy::Image* ResourceManager::LoadImageByResName(const char* aResName)
                 Sexy::Image* img = LoadImageFromPak("", path);
                 if (img)
                 {
+                    // [Session-13] Compose alpha from "_<stem>" or "<stem>_" image.
+                    // Upstream ImageLib looks for alpha mask images named
+                    // "_<filename>" or "<filename>_". The alpha mask's blue
+                    // channel becomes the alpha channel of the main image.
+                    // This is how JPEG images (opaque, no alpha) get transparency.
+                    Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(img);
+                    for (int api = 0; api < nPre; api++)
+                    {
+                        for (int aei = 0; aei < nExt; aei++)
+                        {
+                            char alphaPath[256];
+                            int apl = (int)strlen(kPrefixes[api]);
+                            int asl = (int)strlen(stem);
+                            int axl = (int)strlen(kExts[aei]);
+                            // Try "_<stem>.<ext>"
+                            if (apl + 1 + asl + axl < (int)sizeof(alphaPath))
+                            {
+                                strcpy(alphaPath, kPrefixes[api]);
+                                alphaPath[apl] = '_';
+                                strcpy(alphaPath + apl + 1, stem);
+                                strcpy(alphaPath + apl + 1 + asl, kExts[aei]);
+                                TInt aSize = gPak->GetFileSize(alphaPath);
+                                if (aSize > 0)
+                                {
+                                    Log("  ALPHA MASK FOUND: ");
+                                    Log(alphaPath);
+                                    Sexy::Image* alphaImg = LoadImageFromPak("", alphaPath);
+                                    if (alphaImg)
+                                    {
+                                        Sexy::MemoryImage* aMem = static_cast<Sexy::MemoryImage*>(alphaImg);
+                                        unsigned int* dstBits = (unsigned int*)mem->GetBits();
+                                        unsigned int* srcBits = (unsigned int*)aMem->GetBits();
+                                        int pixels = mem->GetWidth() * mem->GetHeight();
+                                        int aPixels = aMem->GetWidth() * aMem->GetHeight();
+                                        if (pixels == aPixels && dstBits && srcBits)
+                                        {
+                                            for (int i = 0; i < pixels; i++)
+                                                dstBits[i] = (dstBits[i] & 0x00FFFFFF) | ((srcBits[i] & 0xFF) << 24);
+                                            Log("  (alpha composed)");
+                                        }
+                                        delete alphaImg;
+                                        goto alphaDone;
+                                    }
+                                }
+                            }
+                            // Try "<stem>_.<ext>"
+                            if (apl + asl + 1 + axl < (int)sizeof(alphaPath))
+                            {
+                                strcpy(alphaPath, kPrefixes[api]);
+                                strcpy(alphaPath + apl, stem);
+                                alphaPath[apl + asl] = '_';
+                                strcpy(alphaPath + apl + asl + 1, kExts[aei]);
+                                TInt aSize = gPak->GetFileSize(alphaPath);
+                                if (aSize > 0)
+                                {
+                                    Log("  ALPHA MASK FOUND: ");
+                                    Log(alphaPath);
+                                    Sexy::Image* alphaImg = LoadImageFromPak("", alphaPath);
+                                    if (alphaImg)
+                                    {
+                                        Sexy::MemoryImage* aMem = static_cast<Sexy::MemoryImage*>(alphaImg);
+                                        unsigned int* dstBits = (unsigned int*)mem->GetBits();
+                                        unsigned int* srcBits = (unsigned int*)aMem->GetBits();
+                                        int pixels = mem->GetWidth() * mem->GetHeight();
+                                        int aPixels = aMem->GetWidth() * aMem->GetHeight();
+                                        if (pixels == aPixels && dstBits && srcBits)
+                                        {
+                                            for (int i = 0; i < pixels; i++)
+                                                dstBits[i] = (dstBits[i] & 0x00FFFFFF) | ((srcBits[i] & 0xFF) << 24);
+                                            Log("  (alpha composed)");
+                                        }
+                                        delete alphaImg;
+                                        goto alphaDone;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    alphaDone:;
+
                     // [M4 fix] Apply colorkey for logo images stored as JPEG
-                    // (no alpha channel). IMAGE_PVZ_LOGO / IMAGE_PARTNER_LOGO
-                    // are JPEGs with black backgrounds that should be transparent.
-                    // [Session-12] DON'T apply colorkey to IMAGE_POPCAP_LOGO —
-                    // it's displayed on a BLACK background, so making black
-                    // transparent would make the entire logo invisible.
-                    // PopCap logo is black bg + white text → on black bg it
-                    // needs to stay opaque (or use white colorkey, but that
-                    // would make the text transparent).
                     if (strstr(aResName, "LOGO") != NULL &&
                         strstr(aResName, "POPCAP") == NULL)
                     {
-                        Sexy::MemoryImage* mem = static_cast<Sexy::MemoryImage*>(img);
                         mem->ApplyColorKey(0x00000000, 8);
                         Log("  (colorkey applied: black -> transparent)");
                     }
