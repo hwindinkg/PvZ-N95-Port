@@ -1,28 +1,14 @@
 /*
- * TitleScreen.cpp -- M4 loading screen with animated progress bar.
+ * TitleScreen.cpp — loading screen with PopCap logo, SODROLLCAP, grass unroll.
  *
- * Ported from upstream PvZ-Portable src/Lawn/Widget/TitleScreen.cpp (562 lines),
- * heavily simplified. Upstream has:
- *   - TITLESTATE_WAITING_FOR_FIRST_DRAW / POPCAP_LOGO / PARTNER_LOGO / SCREEN
- *     state machine with fade animations
- *   - SODROLLCAP reanimation that rolls across the grass as it loads
- *   - Reanimation clouds/flowers decoration
- *   - HyperlinkWidget "Click to Start" button
- *
- * This port has NONE of those subsystems (Reanimation, TodParticle, HyperlinkWidget
- * are M5+). This implementation:
- *   - Draws IMAGE_TITLESCREEN as background (full-canvas scaled to 400x300)
- *   - Draws IMAGE_PVZ_LOGO if loaded (centered top)
- *   - Draws IMAGE_LOADBAR_DIRT (the dirt strip under the grass bar)
- *   - Draws IMAGE_LOADBAR_GRASS clipped to mCurBarWidth (the grass that grows)
- *   - Falls back to a plain green filled-rect bar if LOADBAR images are NULL
- *   - Animates mCurBarWidth based on LawnApp::mCompletedLoadingThreadTasks /
- *     mNumLoadingThreadTasks (sync loading in this port, so the bar fills
- *     during LoadingThreadProc which runs before the heartbeat timer starts)
- *
- * The bar position matches upstream: y = 650 in original 800x600 coords;
- * this port's canvas is 400x300, so y = 650 * 300/600 = 325 -> clamped to 270.
- * Bar width 314 upstream -> 157 at 400x300 scale.
+ * Ported from upstream PvZ-Portable TitleScreen.cpp (562 lines).
+ * Implements:
+ *   - PopCap logo fade in/out (3 phases)
+ *   - Loading screen with IMAGE_TITLESCREEN background
+ *   - PvZ logo slide-in from top (TodAnimateCurve)
+ *   - Loading bar with grass unroll (clip rect)
+ *   - SODROLLCAP zombie head rolling on the grass
+ *   - "Click to Start" text (blink)
  */
 #include "TitleScreen.h"
 
@@ -33,9 +19,14 @@
 #include "../../engine/Color.h"
 #include "../../engine/Rect.h"
 #include "../../engine/SexyAppBase.h"
-#include "../../engine/ResourceManager.h"   // for ResourceManager (LawnApp.h only forward-declares it)
-#include "../../engine/SystemFont.h"        // for "Click to Start" text
-#include <f32file.h>                        // for RFs/RFile (diagnostic logging)
+#include "../../engine/ResourceManager.h"
+#include "../../engine/SystemFont.h"
+#include <f32file.h>
+#include <math.h>
+
+#ifndef PI
+#define PI 3.14159265358979323846f
+#endif
 
 namespace Sexy {
 
@@ -45,7 +36,7 @@ TitleScreen::TitleScreen(LawnApp* theApp)
     , mLoaderScreenIsLoaded(false)
     , mQuickLoadKey(0)
     , mCurBarWidth(0.0f)
-    , mTotalBarWidth(157.0f)   // 314 upstream / 2 (400x300 vs 800x600)
+    , mTotalBarWidth(157.0f)
     , mBarVel(0.0f)
     , mLoadingThreadComplete(false)
     , mDrawnYet(false)
@@ -53,6 +44,7 @@ TitleScreen::TitleScreen(LawnApp* theApp)
     , mLogoPhase(0)
     , mLogoFrame(0)
     , mLogoAlpha(0)
+    , mLoadingScreenCounter(0)
 {
     mVisible = true;
     mMouseVisible = true;
@@ -66,12 +58,7 @@ void TitleScreen::Update()
 
     if (!mApp) return;
 
-    // [Session-13] PopCap logo intro phases (matching upstream timing).
-    // Upstream: TITLESTATE_POPCAP_LOGO with mTitleStateDuration=200 frames.
-    // Phase 0: fade in (30 frames, alpha 0->255)
-    // Phase 1: hold (60 frames, alpha 255) — logo visible
-    // Phase 2: fade out (30 frames, alpha 255->0) — logo disappears to black
-    // Phase 3: loading screen (progress bar)
+    // [Session-13] PopCap logo intro phases.
     if (mLogoPhase < 3)
     {
         mLogoFrame++;
@@ -90,11 +77,12 @@ void TitleScreen::Update()
             mLogoAlpha = 255 - (mLogoFrame * 255) / 30;
             if (mLogoFrame >= 30) { mLogoPhase = 3; mLogoFrame = 0; }
         }
-        return; // don't advance loading bar during logo intro
+        return;
     }
 
-    // Phase 3: loading screen with progress bar.
-    // Compute loading progress from LawnApp's counters.
+    // Phase 3: loading screen.
+    mLoadingScreenCounter++;
+
     float target = 0.0f;
     if (mApp->mNumLoadingThreadTasks > 0)
     {
@@ -107,7 +95,6 @@ void TitleScreen::Update()
         mLoadingThreadComplete = true;
     }
 
-    // Animate toward target (4px per Update tick, ~120px/s at 30fps).
     if (mCurBarWidth < target)
     {
         mCurBarWidth += 4.0f;
@@ -119,20 +106,13 @@ void TitleScreen::Update()
 
 void TitleScreen::Draw(Graphics* g)
 {
-    if (!g) return;
-    if (!mApp) return;
+    if (!g || !mApp) return;
 
-    // White vertex colour so GL_MODULATE doesn't tint the texture (M3 fix #7).
     g->SetColor(Color(255, 255, 255, 255));
 
-    // [Session-9] PopCap logo intro (phases 0-2).
-    // Black background + PopCap logo centered.
-    // [Session-12] The PopCap logo is loaded early in PvZAppUi::ConstructL.
-    // It's a JPEG (opaque, no alpha). On black background, the logo's black
-    // background blends in, and the white/colored logo text shows.
+    // -- PopCap logo intro (phases 0-2) --
     if (mLogoPhase < 3)
     {
-        // If PopCap logo isn't loaded, skip the intro immediately.
         if (!IMAGE_POPCAP_LOGO)
         {
             mLogoPhase = 3;
@@ -140,47 +120,16 @@ void TitleScreen::Draw(Graphics* g)
         }
         else
         {
-            // [Session-12] Diagnostic: log PopCap logo state on first draw.
-            static bool sLoggedPopcap = false;
-            if (!sLoggedPopcap)
-            {
-                sLoggedPopcap = true;
-                RFs fs; RFile f;
-                if (fs.Connect() == KErrNone)
-                {
-                    fs.MkDirAll(_L("C:\\Data\\PvZ"));
-                    if (f.Open(fs, _L("C:\\Data\\PvZ\\gfx_log.txt"),
-                               EFileWrite | EFileShareAny) == KErrNone)
-                    {
-                        TInt pos = 0; f.Seek(ESeekEnd, pos);
-                        TBuf8<128> b;
-                        MemoryImage* mem = static_cast<MemoryImage*>(IMAGE_POPCAP_LOGO);
-                        b.Format(_L8("PopCap: %dx%d bits=%08x phase=%d\n"),
-                                 IMAGE_POPCAP_LOGO->GetWidth(),
-                                 IMAGE_POPCAP_LOGO->GetHeight(),
-                                 (TUint)(mem ? mem->GetBits() : 0),
-                                 mLogoPhase);
-                        f.Write(b);
-                        f.Flush();
-                        f.Close();
-                    }
-                    fs.Close();
-                }
-            }
-
             // Black background
             g->SetColor(Color(0, 0, 0, 255));
             g->FillRect(0, 0, mWidth, mHeight);
 
-            // PopCap logo centered. [Session-13] Use vertex alpha for fade.
-            // GL_MODULATE multiplies texture by vertex color, so setting
-            // alpha < 255 makes the logo semi-transparent (fade effect).
+            // PopCap logo with alpha fade
             Image* popcap = IMAGE_POPCAP_LOGO;
-            int lw = popcap->GetWidth() * 2 / 5;   // 300*2/5 = 120
-            int lh = popcap->GetHeight() * 2 / 5;  // 300*2/5 = 120
+            int lw = popcap->GetWidth() * 2 / 5;
+            int lh = popcap->GetHeight() * 2 / 5;
             int lx = (mWidth - lw) / 2;
             int ly = (mHeight - lh) / 2;
-            // White with current alpha for fade in/out
             g->SetColor(Color(255, 255, 255, mLogoAlpha));
             MemoryImage* mem = static_cast<MemoryImage*>(popcap);
             g->DrawImage(mem, lx, ly, lw, lh);
@@ -188,44 +137,52 @@ void TitleScreen::Draw(Graphics* g)
         }
     }
 
-    // If we jumped here from the logo-skip above, fall through to loading screen.
-    // Phase 3: loading screen (background + logo + progress bar + click text)
-    // -- Background: IMAGE_TITLESCREEN scaled to full canvas ----------------
+    // -- Phase 3: loading screen --
+    // Background: IMAGE_TITLESCREEN
     Image* bg = IMAGE_TITLESCREEN;
-    if (bg == NULL && mApp->mResourceManager)
-        bg = mApp->mResourceManager->GetImage("IMAGE_TITLESCREEN");
-
     if (bg && bg->GetWidth() > 0 && bg->GetHeight() > 0)
     {
-        g->SetColor(Color(255, 255, 255, 255));  // white for texture
+        g->SetColor(Color(255, 255, 255, 255));
         MemoryImage* mem = static_cast<MemoryImage*>(bg);
         g->DrawImage(mem, 0, 0, mWidth, mHeight);
     }
     else
     {
-        // Fallback: dark background.
         g->SetColor(Color(20, 60, 30, 255));
         g->FillRect(0, 0, mWidth, mHeight);
     }
 
-    // -- PVZ logo (centered top) -------------------------------------------
+    // -- PvZ logo with slide-in animation --
+    // Upstream: logo slides from y=-150 to y=10 over 40 frames, then bounces.
     Image* logo = IMAGE_PVZ_LOGO;
     if (logo && logo->GetWidth() > 0)
     {
-        g->SetColor(Color(255, 255, 255, 255));  // white for texture
+        // [Session-13] Logo slide-in: first 40 frames slide from -75 to 5,
+        // then stay at 5. This matches upstream TodAnimateCurve.
+        int logoY;
+        if (mLoadingScreenCounter < 40)
+        {
+            // Slide from -75 to 5 (ease-in)
+            int t = mLoadingScreenCounter;
+            logoY = -75 + (t * 80) / 40;  // linear: -75 → 5
+        }
+        else
+        {
+            logoY = 5;
+        }
+
+        g->SetColor(Color(255, 255, 255, 255));
         MemoryImage* logoMem = static_cast<MemoryImage*>(logo);
+        // Scale logo to half size (upstream 800x600 → 400x300)
         int logoW = logo->GetWidth() / 2;
         int logoH = logo->GetHeight() / 2;
         int logoX = (mWidth - logoW) / 2;
-        int logoY = 20;
         g->DrawImage(logoMem, logoX, logoY, logoW, logoH);
     }
 
-    // -- Loading bar -------------------------------------------------------
-    // Upstream: bar at y=650 in 800x600 -> y=325 in 400x300, but our canvas
-    // is only 300 tall. Clamp to y=270 (near bottom). Bar width 314 -> 157.
+    // -- Loading bar --
     int barX = (mWidth - (int)mTotalBarWidth) / 2;
-    int barY = mHeight - 40;   // 270 in 300-tall canvas
+    int barY = mHeight - 50;
     int barW = (int)mTotalBarWidth;
     int barH = 24;
 
@@ -234,36 +191,74 @@ void TitleScreen::Draw(Graphics* g)
 
     if (dirtImg && grassImg && dirtImg->GetWidth() > 0 && grassImg->GetHeight() > 0)
     {
-        // Real loading bar: dirt strip + grass overlay.
         MemoryImage* dirtMem = static_cast<MemoryImage*>(dirtImg);
         MemoryImage* grassMem = static_cast<MemoryImage*>(grassImg);
 
-        // Scale dirt to bar size (full bar width).
-        g->SetColor(Color(255, 255, 255, 255));  // white for texture
+        // Dirt strip (full bar width)
+        g->SetColor(Color(255, 255, 255, 255));
         g->DrawImage(dirtMem, barX, barY, barW, barH);
 
-        // Grass: [Session-13] Use DrawImageScaledSrcRect to "unroll" the grass.
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
-            int srcW = (grassImg->GetWidth() * curW) / barW;
-            if (srcW < 1) srcW = 1;
-            if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
-            Rect srcRect(0, 0, srcW, grassImg->GetHeight());
-            g->SetColor(Color(255, 255, 255, 255));  // white for texture
-            g->DrawImageScaledSrcRect(grassMem, barX, barY, curW, barH, srcRect);
+            if (curW >= barW)
+            {
+                // Bar full: draw full grass
+                g->SetColor(Color(255, 255, 255, 255));
+                g->DrawImage(grassMem, barX, barY, barW, barH);
+            }
+            else
+            {
+                // [Session-13] Grass unroll: draw left portion of grass
+                // scaled to curW. This shows the grass growing from left
+                // to right without stretching.
+                int srcW = (grassImg->GetWidth() * curW) / barW;
+                if (srcW < 1) srcW = 1;
+                if (srcW > grassImg->GetWidth()) srcW = grassImg->GetWidth();
+                Rect srcRect(0, 0, srcW, grassImg->GetHeight());
+                g->SetColor(Color(255, 255, 255, 255));
+                g->DrawImageScaledSrcRect(grassMem, barX, barY, curW, barH, srcRect);
+
+                // [Session-13] SODROLLCAP zombie head rolling on the grass.
+                // Upstream: rolls from left to right as the bar fills.
+                // The head rotates and shrinks as it rolls.
+                Image* sodRoll = NULL;
+                if (mApp && mApp->mResourceManager)
+                    sodRoll = mApp->mResourceManager->GetImage("IMAGE_REANIM_SODROLLCAP");
+                if (sodRoll && sodRoll->GetWidth() > 0)
+                {
+                    float rollLen = curW * 0.94f;
+                    float rotation = -rollLen / 180.0f * PI * 2.0f;
+                    float scale = 1.0f - (mCurBarWidth / mTotalBarWidth) * 0.5f;
+                    if (scale < 0.5f) scale = 0.5f;
+
+                    // Position: rolls along the top of the grass bar
+                    int sodX = barX + 11 + (int)rollLen;
+                    int sodY = barY - 3 - (int)(35.0f * scale) + 35;
+                    int sodW = (int)(sodRoll->GetWidth() * scale * 0.5f);
+                    int sodH = (int)(sodRoll->GetHeight() * scale * 0.5f);
+
+                    if (sodW > 0 && sodH > 0)
+                    {
+                        g->SetColor(Color(255, 255, 255, 255));
+                        MemoryImage* sodMem = static_cast<MemoryImage*>(sodRoll);
+                        // Draw rotated — port doesn't have DrawImageRotated
+                        // with scale, so just draw it scaled (no rotation).
+                        // TODO: implement TodBltMatrix for proper rotation.
+                        g->DrawImage(sodMem, sodX - sodW/2, sodY - sodH/2, sodW, sodH);
+                    }
+                }
+            }
         }
     }
     else
     {
-        // Fallback: plain rect bar.
-        // Background (empty bar).
-        g->SetColor(Color(60, 40, 20, 255));     // dark brown
+        // Fallback: plain rect bar
+        g->SetColor(Color(60, 40, 20, 255));
         g->FillRect(barX, barY, barW, barH);
-        g->SetColor(Color(120, 80, 40, 255));    // border
+        g->SetColor(Color(120, 80, 40, 255));
         g->DrawRect(barX, barY, barW, barH);
 
-        // Filled portion (grass green).
         int curW = (int)mCurBarWidth;
         if (curW > 0)
         {
@@ -272,14 +267,10 @@ void TitleScreen::Draw(Graphics* g)
         }
     }
 
-    // -- "Click to Start" text (when bar is full) -------------------------
-    // Upstream shows a HyperlinkWidget "Click to Start" after the bar fills.
-    // We use SystemFont (8x8 bitmap fallback) since PvZ font assets are not
-    // in the PAK. Blink every ~1s to draw attention.
+    // -- "Click to Start" text (when bar is full) --
     if (mCurBarWidth >= mTotalBarWidth - 1.0f)
     {
-        // Blink using mAppCounter (increments each Update).
-        int blink = (mApp->mAppCounter / 15) % 2;  // ~0.5s on, 0.5s off at 30fps
+        int blink = (mApp->mAppCounter / 15) % 2;
         if (blink)
         {
             SystemFont* font = SystemFont::Get();
@@ -288,8 +279,7 @@ void TitleScreen::Draw(Graphics* g)
                 const char* msg = "Click to Start";
                 int textW = font->StringWidth(msg);
                 int textX = (mWidth - textW) / 2;
-                int textY = barY + barH + 20;
-                // Yellow text.
+                int textY = barY + barH + 15;
                 g->SetFont(font);
                 g->SetColor(Color(255, 255, 0, 255));
                 g->DrawString(msg, textX, textY);

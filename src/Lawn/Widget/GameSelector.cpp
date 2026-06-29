@@ -202,9 +202,14 @@ GameSelector::GameSelector(LawnApp* theApp)
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Center", 1);
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Left", 1);
             mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_BG_Right", 1);
-            // Hide flower/leaf decoration (upstream hides them initially)
+            // Hide flower/leaf/shadow decoration (upstream hides them initially)
             mSelectorReanim->AssignRenderGroupToPrefix("flower", -1);
             mSelectorReanim->AssignRenderGroupToPrefix("leaf", -1);
+            mSelectorReanim->AssignRenderGroupToPrefix("shadow", -1);
+            // [Session-13] Hide locked buttons (Survival, Challenges, ZenGarden)
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_Survival_button", -1);
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_Challenges_button", -1);
+            mSelectorReanim->AssignRenderGroupToTrack("SelectorScreen_ZenGarden_button", -1);
             GSLog(_L8("GS:Reanimation created, playing anim_open\n"));
         }
         else

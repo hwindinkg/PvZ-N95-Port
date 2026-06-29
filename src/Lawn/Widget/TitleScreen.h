@@ -48,6 +48,7 @@ public:
     int mLogoPhase;
     int mLogoFrame;     // frame counter within current phase
     int mLogoAlpha;     // 0-255, computed from phase
+    int mLoadingScreenCounter; // frame counter for loading screen animations
 };
 
 } // namespace Sexy
