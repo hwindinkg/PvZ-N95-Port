@@ -76,6 +76,9 @@
 ### Нельзя
 - **`floorf`** — нет в Symbian GCCE math.h. Использовать `(float)(int)val`
 - **`strncasecmp`** — нет в Symbian GCCE. Использовать локальный `StrnCaseCmp` (см. ReanimatorRuntime.cpp). `AssignRenderGroupToPrefix` ДОЛЖЕН использовать prefix-match, не full-compare.
+- **`sprintf`/`vsprintf`** — в `Common.h` это **STUB** (возвращает 0, ничего не пишет)! НЕ использовать для форматирования строк. Если нужно собрать имя `anim_flower1/2/3` и т.п. — используйте жёстко закодированные массивы `static const char*`. `#include <stdio.h>` вызовет **ошибку linkage conflict** (C vs C++ declaration) — НЕ подключать.
+- **`#include <stdio.h>`** — НЕ подключать! Конфликтует со stub-декларациями `sprintf`/`vsprintf` в `Common.h` (C++ linkage) vs Symbian `stdio.h` (C linkage). Для `rand()` stub уже в `clib_stubs.cpp`, для `RandRangeInt` используйте `TodCommon.h`.
+- **`#include <stdlib.h>`** — избегать без необходимости; `rand()` доступен и так через `Common.h`/`clib_stubs`.
 - **`nullptr`** — C++03. Использовать `NULL`
 - **`auto`** — C++03
 - **`range-for`** — C++03

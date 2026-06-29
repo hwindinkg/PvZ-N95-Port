@@ -36,14 +36,12 @@
 #include "../../engine/Rect.h"
 #include "../../engine/Font.h"
 #include "../../engine/SystemFont.h"
-#include "../../Sexy.TodLib/TodCommon.h"  // Distance2D
+#include "../../Sexy.TodLib/TodCommon.h"  // Distance2D, RandRangeInt
 #include "../../Sexy.TodLib/TodFoley.h"   // FOLEY_LIMBS_POP
 
 #include <e32std.h>
 #include <f32file.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 namespace Sexy {
 
@@ -237,16 +235,24 @@ GameSelector::GameSelector(LawnApp* theApp)
             // Each flower plays anim_flowerN PLAY_ONCE_AND_HOLD at rate 0
             // (sitting on pot). Click sets mAnimRate=24 → flower falls off.
             // Leaf plays anim_grass LOOP at rate 0, rustles periodically.
+            // NOTE: port's Common.h has a STUB sprintf (returns 0, does
+            // nothing), so we hardcode the 3 anim/track name pairs.
+            static const char* kFlowerAnims[3] = {
+                "anim_flower1", "anim_flower2", "anim_flower3"
+            };
+            static const char* kFlowerTracks[3] = {
+                "SelectorScreen_Flower1",
+                "SelectorScreen_Flower2",
+                "SelectorScreen_Flower3"
+            };
             for (int i = 0; i < 3; i++)
             {
                 mFlowerReanim[i] = mReanimHolder.AllocReanimation(
                     0.0f, 0.0f, 1, &mReanimDef);
                 if (mFlowerReanim[i])
                 {
-                    char animName[32];
-                    sprintf(animName, "anim_flower%d", i + 1);
                     mFlowerReanim[i]->PlayReanim(
-                        animName, REANIM_PLAY_ONCE_AND_HOLD, 0, 0.0f);
+                        kFlowerAnims[i], REANIM_PLAY_ONCE_AND_HOLD, 0, 0.0f);
                     mFlowerReanim[i]->mAnimRate = 0.0f;  // sit on pot
                     // Hide ALL tracks except the specific flower track so the
                     // child reanim only draws that one flower (not BG/buttons).
@@ -255,9 +261,8 @@ GameSelector::GameSelector(LawnApp* theApp)
                         if (mFlowerReanim[i]->mTrackInstances)
                             mFlowerReanim[i]->mTrackInstances[ti].mRenderGroup = -1;
                     }
-                    char trackName[48];
-                    sprintf(trackName, "SelectorScreen_Flower%d", i + 1);
-                    mFlowerReanim[i]->AssignRenderGroupToTrack(trackName, 0);
+                    mFlowerReanim[i]->AssignRenderGroupToTrack(
+                        kFlowerTracks[i], 0);
                 }
             }
             // Leaf child reanim — shows all SelectorScreen_Leaf* tracks.
@@ -349,9 +354,10 @@ void GameSelector::Update()
         if (--mLeafCounter <= 0)
         {
             // Rustle: replay anim_grass at a random rate, then wait.
-            float aRate = 6.0f + (float)(rand() % 6);  // 6..11 fps
+            // 1:1 upstream RandRangeInt usage.
+            float aRate = (float)RandRangeInt(6, 11);  // 6..11 fps
             mLeafReanim->PlayReanim("anim_grass", REANIM_LOOP, 20, aRate);
-            mLeafCounter = 200 + (rand() % 201);  // 200..400 frames
+            mLeafCounter = RandRangeInt(200, 400);  // 200..400 frames
         }
     }
 }
@@ -556,6 +562,8 @@ void GameSelector::MouseDown(int x, int y, int /*theClickCount*/)
 
 // -------------------------------------------------------------------------
 // MouseMove — track which button the cursor is over for hover highlight.
+// [Session-14] Removed unused highlightTracks array (was causing a build
+// warning). Hover highlight overlay rendering is a TODO.
 // -------------------------------------------------------------------------
 void GameSelector::MouseMove(int x, int y)
 {
@@ -563,6 +571,7 @@ void GameSelector::MouseMove(int x, int y)
 
     // Check which button the cursor is over
     int hoverId = HitTestButton(x, y);
+    (void)hoverId;  // TODO: render _highlight overlay for hovered button
 
     // Apply highlight image override for hovered button
     static const char* buttonTracks[] =
@@ -577,14 +586,6 @@ void GameSelector::MouseMove(int x, int y)
     {
         GameSelector_Adventure, GameSelector_Adventure,
         GameSelector_Survival, GameSelector_Minigame, GameSelector_ZenGarden,
-    };
-    static const char* highlightTracks[] =
-    {
-        "SelectorScreen_Adventure_button",
-        "SelectorScreen_StartAdventure_button",
-        "SelectorScreen_Survival_button",
-        "SelectorScreen_Challenges_button",
-        "SelectorScreen_ZenGarden_button",
     };
 
     for (int i = 0; i < 5; i++)
